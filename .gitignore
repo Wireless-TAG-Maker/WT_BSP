@@ -4,3 +4,30 @@ build/
 .claude/
 .codex/
 temp/
+
+# Example project files
+examples/**/build/
+examples/**/build_*_*/
+examples/**/sdkconfig
+examples/**/sdkconfig.old
+
+# VIM files
+*.swp
+*.swo
+
+# Sublime Text files
+*.sublime-project
+*.sublime-workspace
+
+# Clion IDE CMake build & config
+.idea/
+cmake-build-*/
+
+# ESP-IDF default build directory name
+build
+
+# lock files for examples and components
+dependencies.lock
+
+# managed_components for examples
+managed_components
