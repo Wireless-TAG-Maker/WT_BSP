@@ -88,5 +88,18 @@ wt_bsp_rgb_t wt_bsp_get_rgb(void)
 #endif
 }
 
+wt_bsp_lcd_t wt_bsp_get_lcd(void)
+{
+    if ( g_bsp.interface == NULL || g_bsp.interface->get_lcd == NULL) {
+        ESP_LOGE(TAG, "BSP is NULL");
+        return NULL;
+    }
+#if WT_BSP_LCD_ENABLE_IS_ENABLED
+    return g_bsp.interface->get_lcd();
+#else
+    return NULL;
+#endif
+}
+
 
 /* ==================== [Static Functions] ================================== */

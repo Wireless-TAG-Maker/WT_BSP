@@ -18,6 +18,7 @@
 #include "wt_bsp_board.h"
 #include "wt_bsp_button.h"
 #include "wt_bsp_rgb.h"
+#include "wt_bsp_lcd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,6 +78,15 @@ typedef struct{
      */
     wt_bsp_rgb_t (*get_rgb)(void);
 #endif
+
+#if WT_BSP_LCD_ENABLE_IS_ENABLED
+    /**
+     * @brief 获取默认 LCD 句柄。
+     *
+     * @return LCD 句柄；不可用时返回 NULL。
+     */
+    wt_bsp_lcd_t (*get_lcd)(void);
+#endif
 } wt_bsp_interface_t;
 
 /**
@@ -127,6 +137,13 @@ wt_bsp_button_t wt_bsp_get_button(void);
  * @return RGB LED 句柄；BSP 未初始化或 RGB 支持关闭时返回 NULL。
  */
 wt_bsp_rgb_t wt_bsp_get_rgb(void);
+
+/**
+ * @brief 获取已初始化的默认 LCD 句柄。
+ *
+ * @return LCD 句柄；BSP 未初始化或 LCD 支持关闭时返回 NULL。
+ */
+wt_bsp_lcd_t wt_bsp_get_lcd(void);
 
 /* ==================== [Macros] ============================================ */
 

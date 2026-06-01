@@ -1,3 +1,17 @@
 config WT_BSP_BOARD_WT9932P4_TINY
     bool "WT9932P4-TINY"
     depends on IDF_TARGET_ESP32P4
+
+if WT_BSP_BOARD_WT9932P4_TINY
+    choice WT_BSP_LCD_MODEL
+        prompt "Select LCD model"
+        default WT_BSP_LCD_EK79007
+        help
+            Select the LCD model used on the board.
+
+        config WT_BSP_LCD_ILI9881C
+            bool "ILI9881C (800x1280)"
+        config WT_BSP_LCD_EK79007
+            bool "EK79007 (1024x600)"
+    endchoice
+endif
