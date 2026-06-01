@@ -1,0 +1,5 @@
+if(CONFIG_WT_BSP_BOARD_WT9932P4_TINY)
+    list(APPEND WT_BSP_BOARD_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}")
+    file(GLOB board_sources "${CMAKE_CURRENT_LIST_DIR}/*.c")
+    list(APPEND WT_BSP_BOARD_SRCS ${board_sources})
+endif()

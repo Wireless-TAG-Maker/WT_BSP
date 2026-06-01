@@ -1,0 +1,3 @@
+config WT_BSP_BOARD_WT9932C3_TINY
+    bool "WT9932C3-TINY"
+    depends on IDF_TARGET_ESP32C3
