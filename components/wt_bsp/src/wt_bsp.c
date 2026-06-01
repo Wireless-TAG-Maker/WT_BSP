@@ -88,5 +88,18 @@ wt_bsp_rgb_t wt_bsp_get_rgb(void)
 #endif
 }
 
+wt_bsp_sdmmc_t wt_bsp_get_sdmmc(void)
+{
+    if ( g_bsp.interface == NULL || g_bsp.interface->get_sdmmc == NULL) {
+        ESP_LOGE(TAG, "BSP is NULL");
+        return NULL;
+    }
+#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
+    return g_bsp.interface->get_sdmmc();
+#else
+    return NULL;
+#endif
+}
+
 
 /* ==================== [Static Functions] ================================== */

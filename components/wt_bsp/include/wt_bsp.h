@@ -18,6 +18,7 @@
 #include "wt_bsp_board.h"
 #include "wt_bsp_button.h"
 #include "wt_bsp_rgb.h"
+#include "wt_bsp_sdmmc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,6 +78,15 @@ typedef struct{
      */
     wt_bsp_rgb_t (*get_rgb)(void);
 #endif
+
+#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
+    /**
+     * @brief 获取默认 SD 卡句柄。
+     *
+     * @return SD 卡句柄；不可用时返回 NULL。
+     */
+    wt_bsp_sdmmc_t (*get_sdmmc)(void);
+#endif
 } wt_bsp_interface_t;
 
 /**
@@ -124,9 +134,16 @@ wt_bsp_button_t wt_bsp_get_button(void);
 /**
  * @brief 获取已初始化的默认 RGB LED 句柄。
  *
- * @return RGB LED 句柄；BSP 未初始化或 RGB 支持关闭时返回 NULL。
+ * @return RGB LED 句柄；BSP 未初始化 or RGB 支持关闭时返回 NULL。
  */
 wt_bsp_rgb_t wt_bsp_get_rgb(void);
+
+/**
+ * @brief 获取已初始化的默认 SD 卡句柄。
+ *
+ * @return SD 卡句柄；BSP 未初始化或 SD 卡支持关闭时返回 NULL。
+ */
+wt_bsp_sdmmc_t wt_bsp_get_sdmmc(void);
 
 /* ==================== [Macros] ============================================ */
 
