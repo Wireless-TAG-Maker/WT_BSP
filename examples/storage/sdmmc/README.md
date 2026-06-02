@@ -1,5 +1,5 @@
-| Supported Targets | ESP32-P4 |
-| ----------------- | -------- |
+| Supported Targets | WT9932P4-TINY |
+| ----------------- | ------------- |
 
 # SDMMC 示例
 
