@@ -1,3 +1,6 @@
+| Supported Targets | ESP32-P4 |
+| ----------------- | -------- |
+
 # SDMMC 示例
 
 (参见 [storage/sdmmc](../../../README.md) 了解更多信息。)
