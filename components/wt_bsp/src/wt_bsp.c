@@ -101,5 +101,14 @@ wt_bsp_sdmmc_t wt_bsp_get_sdmmc(void)
 #endif
 }
 
+const char *wt_bsp_get_sdmmc_mount_point(void)
+{
+    wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
+    if (sdmmc == NULL) {
+        return "";
+    }
+    return wt_bsp_sdmmc_get_mount_point(sdmmc);
+}
+
 
 /* ==================== [Static Functions] ================================== */

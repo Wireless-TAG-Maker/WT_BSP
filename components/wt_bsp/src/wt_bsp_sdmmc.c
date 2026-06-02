@@ -161,4 +161,12 @@ sdmmc_card_t *wt_bsp_sdmmc_get_card(wt_bsp_sdmmc_t sdmmc)
     return sdmmc->card;
 }
 
+const char *wt_bsp_sdmmc_get_mount_point(wt_bsp_sdmmc_t sdmmc)
+{
+    if (sdmmc == NULL) {
+        return "";
+    }
+    return sdmmc->info.mount_point;
+}
+
 #endif // WT_BSP_SDCARD_ENABLE_IS_ENABLED

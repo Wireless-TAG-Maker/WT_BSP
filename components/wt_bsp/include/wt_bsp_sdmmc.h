@@ -165,6 +165,15 @@ esp_err_t wt_bsp_sdmmc_unmount(wt_bsp_sdmmc_t sdmmc);
  */
 sdmmc_card_t *wt_bsp_sdmmc_get_card(wt_bsp_sdmmc_t sdmmc);
 
+/**
+ * @brief 获取挂载点路径。
+ *
+ * @param[in] sdmmc SDMMC 对象句柄。
+ *
+ * @return 挂载点路径字符串；当 @p sdmmc 为 NULL 时返回空字符串。
+ */
+const char *wt_bsp_sdmmc_get_mount_point(wt_bsp_sdmmc_t sdmmc);
+
 /* ==================== [Macros] ============================================ */
 
 #ifdef __cplusplus

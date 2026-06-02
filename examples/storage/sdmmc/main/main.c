@@ -7,75 +7,76 @@
 
 static const char *TAG = "sdmmc_example";
 
-#define MOUNT_POINT "/sdcard"
-
 void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing BSP");
+    /* 
+     * 在本 BSP 框架中，wt_bsp_init() 会自动初始化并挂载 SDMMC 文件系统。
+     * 用户无需手动调用挂载接口，初始化成功后即可直接使用 POSIX 文件操作。
+     */
     ESP_ERROR_CHECK(wt_bsp_init());
 
-    wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
-    if (sdmmc == NULL) {
-        ESP_LOGE(TAG, "Failed to get SDMMC handle");
+    // 获取 BSP 内部设置的挂载点
+    const char *mount_point = wt_bsp_get_sdmmc_mount_point();
+    if (strlen(mount_point) == 0) {
+        ESP_LOGE(TAG, "Failed to get SDMMC mount point");
         return;
     }
 
-    ESP_LOGI(TAG, "Mounting SD card");
-    esp_err_t ret = wt_bsp_sdmmc_mount(sdmmc);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to mount SD card");
-        return;
-    }
+    ESP_LOGI(TAG, "SD card is automatically mounted at: %s", mount_point);
 
-    // Use POSIX and C standard library functions to work with files.
+    // 使用标准 C 库和 POSIX 接口操作文件
+    char file_hello[128];
+    snprintf(file_hello, sizeof(file_hello), "%s/hello.txt", mount_point);
 
-    // First create a file.
-    const char *file_hello = MOUNT_POINT"/hello.txt";
-
-    ESP_LOGI(TAG, "Opening file %s", file_hello);
+    ESP_LOGI(TAG, "Creating file: %s", file_hello);
     FILE *f = fopen(file_hello, "w");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing");
         return;
     }
-    fprintf(f, "Hello SDMMC!\n");
+    fprintf(f, "Hello SDMMC from WT_BSP!\n");
     fclose(f);
-    ESP_LOGI(TAG, "File written");
+    ESP_LOGI(TAG, "File written successfully");
 
-    // Check if destination file exists before renaming
+    // 准备重命名后的文件名
+    char file_foo[128];
+    snprintf(file_foo, sizeof(file_foo), "%s/foo.txt", mount_point);
+
+    // 如果目标文件已存在，先删除它
     struct stat st;
-    if (stat(file_hello, &st) == 0) {
-        // Delete it if it exists
-        unlink(MOUNT_POINT"/foo.txt");
+    if (stat(file_foo, &st) == 0) {
+        unlink(file_foo);
     }
 
-    // Rename original file
-    ESP_LOGI(TAG, "Renaming file %s to %s", file_hello, MOUNT_POINT"/foo.txt");
-    if (rename(file_hello, MOUNT_POINT"/foo.txt") != 0) {
+    // 重命名文件
+    ESP_LOGI(TAG, "Renaming %s to %s", file_hello, file_foo);
+    if (rename(file_hello, file_foo) != 0) {
         ESP_LOGE(TAG, "Rename failed");
         return;
     }
 
-    // Open renamed file for reading
-    ESP_LOGI(TAG, "Reading file %s", MOUNT_POINT"/foo.txt");
-    f = fopen(MOUNT_POINT"/foo.txt", "r");
+    // 读取重命名后的文件
+    ESP_LOGI(TAG, "Reading file: %s", file_foo);
+    f = fopen(file_foo, "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         return;
     }
     char line[64];
-    fgets(line, sizeof(line), f);
+    if (fgets(line, sizeof(line), f) != NULL) {
+        // 移除换行符
+        char *pos = strchr(line, '\n');
+        if (pos) {
+            *pos = '\0';
+        }
+        ESP_LOGI(TAG, "Read from file: '%s'", line);
+    }
     fclose(f);
 
-    // strip newline
-    char *pos = strchr(line, '\n');
-    if (pos) {
-        *pos = '\0';
-    }
-    ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-    // All done, unmount partition and disable SDMMC host peripheral
-    ESP_LOGI(TAG, "Unmounting SD card");
-    wt_bsp_sdmmc_unmount(sdmmc);
-    ESP_LOGI(TAG, "Done");
+    /* 
+     * 注意：本 BSP 在 wt_bsp_deinit() 时会自动卸载 SDMMC。
+     * 在典型的嵌入式应用中，app_main 通常不会返回。
+     */
+    ESP_LOGI(TAG, "Example finished successfully");
 }

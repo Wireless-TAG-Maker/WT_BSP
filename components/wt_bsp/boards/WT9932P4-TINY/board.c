@@ -154,6 +154,16 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Automatically mount SDMMC
+    ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
+    if (ret != ESP_OK) {
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to mount SDMMC: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     s_board_is_init = true;
 
     return ESP_OK;
