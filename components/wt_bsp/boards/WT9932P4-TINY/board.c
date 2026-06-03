@@ -16,6 +16,7 @@
 #include "wt_bsp_board.h"
 #include "wt_bsp_button.h"
 #include "wt_bsp_rgb.h"
+#include "wt_bsp_sdmmc.h"
 #include "esp_log.h"
 
 /* ==================== [Defines] =========================================== */
@@ -33,6 +34,18 @@
 #define BOARD_RGB_FORMAT WT_BSP_RGB_FORMAT_GRB
 #define BOARD_RGB_INVERT_OUT false
 
+#define BOARD_SDMMC_MOUNT_POINT "/sdcard"
+#define BOARD_SDMMC_SLOT 0
+#define BOARD_SDMMC_WIDTH 4
+#define BOARD_SDMMC_CD_GPIO -1
+#define BOARD_SDMMC_WP_GPIO -1
+#define BOARD_SDMMC_CLK_GPIO 43
+#define BOARD_SDMMC_CMD_GPIO 44
+#define BOARD_SDMMC_D0_GPIO 39
+#define BOARD_SDMMC_D1_GPIO 40
+#define BOARD_SDMMC_D2_GPIO 41
+#define BOARD_SDMMC_D3_GPIO 42
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Static Prototypes] ================================= */
@@ -42,6 +55,7 @@ static esp_err_t board_deinit(void);
 static wt_bsp_board_t board_get_board(void);
 static wt_bsp_button_t board_get_button(void);
 static wt_bsp_rgb_t board_get_rgb(void);
+static wt_bsp_sdmmc_t board_get_sdmmc(void);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -55,11 +69,13 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_board = board_get_board,
     .get_button = board_get_button,
     .get_rgb = board_get_rgb,
+    .get_sdmmc = board_get_sdmmc,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
 static wt_bsp_button_obj_t s_bsp_button = {0};
 static wt_bsp_rgb_obj_t s_bsp_rgb = {0};
+static wt_bsp_sdmmc_obj_t s_bsp_sdmmc = {0};
 
 /* ==================== [Macros] ============================================ */
 
@@ -117,6 +133,37 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Initialize SDMMC
+    ret = wt_bsp_sdmmc_init(&s_bsp_sdmmc, &(wt_bsp_sdmmc_info_t) {
+        .mount_point = BOARD_SDMMC_MOUNT_POINT,
+        .slot = BOARD_SDMMC_SLOT,
+        .width = BOARD_SDMMC_WIDTH,
+        .cd_gpio = BOARD_SDMMC_CD_GPIO,
+        .wp_gpio = BOARD_SDMMC_WP_GPIO,
+        .clk_gpio = BOARD_SDMMC_CLK_GPIO,
+        .cmd_gpio = BOARD_SDMMC_CMD_GPIO,
+        .d0_gpio = BOARD_SDMMC_D0_GPIO,
+        .d1_gpio = BOARD_SDMMC_D1_GPIO,
+        .d2_gpio = BOARD_SDMMC_D2_GPIO,
+        .d3_gpio = BOARD_SDMMC_D3_GPIO,
+    });
+    if (ret != ESP_OK) {
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to initialize SDMMC: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    // Automatically mount SDMMC
+    ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
+    if (ret != ESP_OK) {
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to mount SDMMC: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     s_board_is_init = true;
 
     return ESP_OK;
@@ -128,6 +175,12 @@ static esp_err_t board_deinit(void)
     if (!s_board_is_init) {
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
+    }
+
+    // Deinitialize SDMMC
+    ret = wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize SDMMC: %s", esp_err_to_name(ret));
     }
 
     // Deinitialize RGB
@@ -161,4 +214,9 @@ static wt_bsp_button_t board_get_button(void)
 static wt_bsp_rgb_t board_get_rgb(void)
 {
     return &s_bsp_rgb;
+}
+
+static wt_bsp_sdmmc_t board_get_sdmmc(void)
+{
+    return &s_bsp_sdmmc;
 }
