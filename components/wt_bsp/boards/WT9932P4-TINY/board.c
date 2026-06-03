@@ -17,6 +17,7 @@
 #include "wt_bsp_button.h"
 #include "wt_bsp_rgb.h"
 #include "wt_bsp_sdmmc.h"
+#include "wt_bsp_dsi.h"
 #include "esp_log.h"
 
 /* ==================== [Defines] =========================================== */
@@ -46,6 +47,20 @@
 #define BOARD_SDMMC_D2_GPIO 41
 #define BOARD_SDMMC_D3_GPIO 42
 
+#define BOARD_DSI_BACKLIGHT_GPIO_NUM 26
+#define BOARD_DSI_RESET_GPIO_NUM 27
+#define BOARD_DSI_WIDTH 1024
+#define BOARD_DSI_HEIGHT 600
+#define BOARD_DSI_LANE_NUM 2
+#define BOARD_DSI_PANEL_TYPE WT_BSP_DSI_PANEL_EK79007_1024_600
+#define BOARD_DSI_COLOR_FORMAT WT_BSP_DSI_COLOR_FORMAT_RGB565
+#define BOARD_DSI_DPI_FB_NUM 1
+#define BOARD_DSI_LANE_BITRATE_MBPS 1000
+#define BOARD_DSI_PHY_LDO_CHANNEL 3
+#define BOARD_DSI_PHY_LDO_VOLTAGE_MV 2500
+#define BOARD_DSI_LEDC_CHANNEL 1
+#define BOARD_DSI_LEDC_TIMER 1
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Static Prototypes] ================================= */
@@ -56,6 +71,7 @@ static wt_bsp_board_t board_get_board(void);
 static wt_bsp_button_t board_get_button(void);
 static wt_bsp_rgb_t board_get_rgb(void);
 static wt_bsp_sdmmc_t board_get_sdmmc(void);
+static wt_bsp_dsi_t board_get_dsi(void);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -70,12 +86,14 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_button = board_get_button,
     .get_rgb = board_get_rgb,
     .get_sdmmc = board_get_sdmmc,
+    .get_dsi = board_get_dsi,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
 static wt_bsp_button_obj_t s_bsp_button = {0};
 static wt_bsp_rgb_obj_t s_bsp_rgb = {0};
 static wt_bsp_sdmmc_obj_t s_bsp_sdmmc = {0};
+static wt_bsp_dsi_obj_t s_bsp_dsi = {0};
 
 /* ==================== [Macros] ============================================ */
 
@@ -164,6 +182,30 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Initialize DSI
+    ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
+        .backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM,
+        .reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM,
+        .width = BOARD_DSI_WIDTH,
+        .height = BOARD_DSI_HEIGHT,
+        .dsi_lane_num = BOARD_DSI_LANE_NUM,
+        .panel_type = BOARD_DSI_PANEL_TYPE,
+        .color_format = BOARD_DSI_COLOR_FORMAT,
+        .dpi_frame_buffer_num = BOARD_DSI_DPI_FB_NUM,
+        .lane_bit_rate_mbps = BOARD_DSI_LANE_BITRATE_MBPS,
+        .phy_ldo_channel = BOARD_DSI_PHY_LDO_CHANNEL,
+        .phy_ldo_voltage_mv = BOARD_DSI_PHY_LDO_VOLTAGE_MV,
+        .ledc_channel = BOARD_DSI_LEDC_CHANNEL,
+        .ledc_timer = BOARD_DSI_LEDC_TIMER,
+    });
+    if (ret != ESP_OK) {
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to initialize DSI: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     s_board_is_init = true;
 
     return ESP_OK;
@@ -175,6 +217,12 @@ static esp_err_t board_deinit(void)
     if (!s_board_is_init) {
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
+    }
+
+    // Deinitialize DSI
+    ret = wt_bsp_dsi_deinit(&s_bsp_dsi);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize DSI: %s", esp_err_to_name(ret));
     }
 
     // Deinitialize SDMMC
@@ -219,4 +267,9 @@ static wt_bsp_rgb_t board_get_rgb(void)
 static wt_bsp_sdmmc_t board_get_sdmmc(void)
 {
     return &s_bsp_sdmmc;
+}
+
+static wt_bsp_dsi_t board_get_dsi(void)
+{
+    return &s_bsp_dsi;
 }
