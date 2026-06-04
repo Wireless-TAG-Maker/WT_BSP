@@ -26,6 +26,8 @@
 #define WT_BSP_LCD_ENABLE 1
 /** @brief 是否启用该板卡的 SD 卡支持。 */
 #define WT_BSP_SDCARD_ENABLE 1
+/** @brief 是否启用该板卡的 DSI 显示支持。 */
+#define WT_BSP_DSI_ENABLE 1
 
 /* ==================== [Typedefs] ========================================== */
 

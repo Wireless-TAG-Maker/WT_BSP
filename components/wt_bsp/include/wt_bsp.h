@@ -19,6 +19,7 @@
 #include "wt_bsp_button.h"
 #include "wt_bsp_rgb.h"
 #include "wt_bsp_sdmmc.h"
+#include "wt_bsp_dsi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,6 +88,15 @@ typedef struct{
      */
     wt_bsp_sdmmc_t (*get_sdmmc)(void);
 #endif
+
+#if WT_BSP_DSI_ENABLE_IS_ENABLED
+    /**
+     * @brief 获取默认 DSI 显示句柄。
+     *
+     * @return DSI 显示句柄；不可用时返回 NULL。
+     */
+    wt_bsp_dsi_t (*get_dsi)(void);
+#endif
 } wt_bsp_interface_t;
 
 /**
@@ -151,6 +161,13 @@ wt_bsp_sdmmc_t wt_bsp_get_sdmmc(void);
  * @return 挂载点字符串；BSP 未初始化或 SD 卡支持关闭时返回空字符串。
  */
 const char *wt_bsp_get_sdmmc_mount_point(void);
+
+/**
+ * @brief 获取已初始化的默认 DSI 显示句柄。
+ *
+ * @return DSI 显示句柄；BSP 未初始化或 DSI 支持关闭时返回 NULL。
+ */
+wt_bsp_dsi_t wt_bsp_get_dsi(void);
 
 /* ==================== [Macros] ============================================ */
 

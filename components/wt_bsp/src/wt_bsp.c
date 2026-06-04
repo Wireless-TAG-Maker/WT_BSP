@@ -110,5 +110,18 @@ const char *wt_bsp_get_sdmmc_mount_point(void)
     return wt_bsp_sdmmc_get_mount_point(sdmmc);
 }
 
+wt_bsp_dsi_t wt_bsp_get_dsi(void)
+{
+    if ( g_bsp.interface == NULL || g_bsp.interface->get_dsi == NULL) {
+        ESP_LOGE(TAG, "BSP is NULL");
+        return NULL;
+    }
+#if WT_BSP_DSI_ENABLE_IS_ENABLED
+    return g_bsp.interface->get_dsi();
+#else
+    return NULL;
+#endif
+}
+
 
 /* ==================== [Static Functions] ================================== */
