@@ -19,3 +19,19 @@ dependencies:
     require: public
     rules:
       - if: "target == esp32p4"
+  espressif/esp_video:
+    version: "*"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_cam_sensor:
+    version: "*"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_sccb_intf:
+    version: "*"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_ipa:
+    version: "*"
+    rules:
+      - if: "target == esp32p4"

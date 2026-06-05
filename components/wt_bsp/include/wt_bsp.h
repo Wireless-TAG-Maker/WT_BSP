@@ -20,6 +20,7 @@
 #include "wt_bsp_rgb.h"
 #include "wt_bsp_sdmmc.h"
 #include "wt_bsp_dsi.h"
+#include "wt_bsp_csi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,6 +98,15 @@ typedef struct{
      */
     wt_bsp_dsi_t (*get_dsi)(void);
 #endif
+
+#if WT_BSP_CSI_ENABLE_IS_ENABLED
+    /**
+     * @brief 获取默认 CSI 摄像头句柄。
+     *
+     * @return CSI 摄像头句柄；不可用时返回 NULL。
+     */
+    wt_bsp_csi_t (*get_csi)(void);
+#endif
 } wt_bsp_interface_t;
 
 /**
@@ -168,6 +178,13 @@ const char *wt_bsp_get_sdmmc_mount_point(void);
  * @return DSI 显示句柄；BSP 未初始化或 DSI 支持关闭时返回 NULL。
  */
 wt_bsp_dsi_t wt_bsp_get_dsi(void);
+
+/**
+ * @brief 获取已初始化的默认 CSI 摄像头句柄。
+ *
+ * @return CSI 摄像头句柄；BSP 未初始化或 CSI 支持关闭时返回 NULL。
+ */
+wt_bsp_csi_t wt_bsp_get_csi(void);
 
 /* ==================== [Macros] ============================================ */
 

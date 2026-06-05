@@ -123,5 +123,18 @@ wt_bsp_dsi_t wt_bsp_get_dsi(void)
 #endif
 }
 
+wt_bsp_csi_t wt_bsp_get_csi(void)
+{
+    if ( g_bsp.interface == NULL || g_bsp.interface->get_csi == NULL) {
+        ESP_LOGE(TAG, "BSP is NULL");
+        return NULL;
+    }
+#if WT_BSP_CSI_ENABLE_IS_ENABLED
+    return g_bsp.interface->get_csi();
+#else
+    return NULL;
+#endif
+}
+
 
 /* ==================== [Static Functions] ================================== */

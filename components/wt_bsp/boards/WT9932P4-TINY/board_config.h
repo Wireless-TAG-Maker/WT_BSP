@@ -28,6 +28,8 @@
 #define WT_BSP_SDCARD_ENABLE 1
 /** @brief 是否启用该板卡的 DSI 显示支持。 */
 #define WT_BSP_DSI_ENABLE 1
+/** @brief 是否启用该板卡的 CSI 摄像头支持。 */
+#define WT_BSP_CSI_ENABLE 1
 
 /* ==================== [Typedefs] ========================================== */
 

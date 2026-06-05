@@ -61,6 +61,15 @@
 #define BOARD_DSI_LEDC_CHANNEL 1
 #define BOARD_DSI_LEDC_TIMER 1
 
+#define BOARD_CSI_SCCB_SCL_PIN 8
+#define BOARD_CSI_SCCB_SDA_PIN 7
+#define BOARD_CSI_RESET_PIN -1
+#define BOARD_CSI_PWDN_PIN -1
+#define BOARD_CSI_WIDTH 1024
+#define BOARD_CSI_HEIGHT 600
+#define BOARD_CSI_FPS 30
+#define BOARD_CSI_BUF_COUNT 3
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Static Prototypes] ================================= */
@@ -72,6 +81,7 @@ static wt_bsp_button_t board_get_button(void);
 static wt_bsp_rgb_t board_get_rgb(void);
 static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_dsi_t board_get_dsi(void);
+static wt_bsp_csi_t board_get_csi(void);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -87,6 +97,7 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_rgb = board_get_rgb,
     .get_sdmmc = board_get_sdmmc,
     .get_dsi = board_get_dsi,
+    .get_csi = board_get_csi,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
@@ -94,6 +105,7 @@ static wt_bsp_button_obj_t s_bsp_button = {0};
 static wt_bsp_rgb_obj_t s_bsp_rgb = {0};
 static wt_bsp_sdmmc_obj_t s_bsp_sdmmc = {0};
 static wt_bsp_dsi_obj_t s_bsp_dsi = {0};
+static wt_bsp_csi_obj_t s_bsp_csi = {0};
 
 /* ==================== [Macros] ============================================ */
 
@@ -206,6 +218,26 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Initialize CSI
+    ret = wt_bsp_csi_init(&s_bsp_csi, &(wt_bsp_csi_info_t) {
+        .sccb_scl_pin = BOARD_CSI_SCCB_SCL_PIN,
+        .sccb_sda_pin = BOARD_CSI_SCCB_SDA_PIN,
+        .reset_pin = BOARD_CSI_RESET_PIN,
+        .pwdn_pin = BOARD_CSI_PWDN_PIN,
+        .width = BOARD_CSI_WIDTH,
+        .height = BOARD_CSI_HEIGHT,
+        .fps = BOARD_CSI_FPS,
+        .buffer_count = BOARD_CSI_BUF_COUNT,
+    });
+    if (ret != ESP_OK) {
+        wt_bsp_dsi_deinit(&s_bsp_dsi);
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to initialize CSI: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     s_board_is_init = true;
 
     return ESP_OK;
@@ -217,6 +249,12 @@ static esp_err_t board_deinit(void)
     if (!s_board_is_init) {
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
+    }
+
+    // Deinitialize CSI
+    ret = wt_bsp_csi_deinit(&s_bsp_csi);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize CSI: %s", esp_err_to_name(ret));
     }
 
     // Deinitialize DSI
@@ -272,4 +310,9 @@ static wt_bsp_sdmmc_t board_get_sdmmc(void)
 static wt_bsp_dsi_t board_get_dsi(void)
 {
     return &s_bsp_dsi;
+}
+
+static wt_bsp_csi_t board_get_csi(void)
+{
+    return &s_bsp_csi;
 }
