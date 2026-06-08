@@ -30,6 +30,10 @@
 
 /* ==================== [Defines] =========================================== */
 
+#ifndef MAP_FAILED
+#define MAP_FAILED ((void *)-1)
+#endif
+
 #define CSI_STREAM_TASK_STACK_SIZE    (4096)
 #define CSI_STREAM_TASK_PRIO          (5)
 
@@ -81,7 +85,7 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 
     /* Give the sensor some time to power up, especially if LDOs were just enabled */
     vTaskDelay(pdMS_TO_TICKS(50));
-
+    
     ret = esp_video_init(&cam_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_video_init failed: %s", esp_err_to_name(ret));
@@ -147,7 +151,7 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
         }
 
         csi->buffers[i] = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
-        if (csi->buffers[i] == NULL) {
+        if (csi->buffers[i] == MAP_FAILED) {
             ESP_LOGE(TAG, "Failed to mmap buffer %d", i);
             goto err;
         }
