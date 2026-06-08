@@ -79,6 +79,9 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
         .csi = csi_config,
     };
 
+    /* Give the sensor some time to power up, especially if LDOs were just enabled */
+    vTaskDelay(pdMS_TO_TICKS(50));
+
     ret = esp_video_init(&cam_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_video_init failed: %s", esp_err_to_name(ret));
