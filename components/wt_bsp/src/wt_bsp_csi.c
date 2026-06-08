@@ -147,7 +147,7 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
         }
 
         csi->buffers[i] = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
-        if (csi->buffers[i] == MAP_FAILED) {
+        if (csi->buffers[i] == NULL) {
             ESP_LOGE(TAG, "Failed to mmap buffer %d", i);
             goto err;
         }
