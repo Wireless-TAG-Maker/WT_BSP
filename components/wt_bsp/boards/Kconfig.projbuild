@@ -7,12 +7,14 @@ menu "Board selection"
         default WT_BSP_BOARD_WT9932C5_TINY if IDF_TARGET_ESP32C5
         default WT_BSP_BOARD_WT9932C61_TINY if IDF_TARGET_ESP32C61
         default WT_BSP_BOARD_WT9932P4_TINY if IDF_TARGET_ESP32P4
+        default WT_BSP_BOARD_WT9932P4C61_TINY if IDF_TARGET_ESP32P4
 
     rsource "WT9932C2-TINY/Kconfig.projbuild"
     rsource "WT9932C3-TINY/Kconfig.projbuild"
     rsource "WT9932C5-TINY/Kconfig.projbuild"
     rsource "WT9932C61-TINY/Kconfig.projbuild"
     rsource "WT9932P4-TINY/Kconfig.projbuild"
+    rsource "WT9932P4C61-TINY/Kconfig.projbuild"
 
     endchoice
 
