@@ -30,7 +30,7 @@ idf_component_register(SRCS
 	                                  ${WT_BSP_BOARD_INCLUDE_DIRS}
 	                    PRIV_INCLUDE_DIRS "${WT_BSP_LED_STRIP_DIR}/interface"
 	                                      "${WT_BSP_LED_STRIP_DIR}/src"
-	                    REQUIRES esp_driver_gpio esp_timer esp_driver_rmt esp_driver_spi fatfs sdmmc esp_lcd esp_hw_support
-	                    PRIV_REQUIRES freertos esp_driver_ledc esp_lcd_ek79007 esp_lcd_ili9881c esp_lvgl_port lvgl
+	                    REQUIRES esp_driver_gpio esp_timer esp_driver_rmt esp_driver_spi fatfs sdmmc esp_lcd esp_hw_support esp_video esp_cam_sensor
+	                    PRIV_REQUIRES freertos esp_driver_ledc esp_lcd_ek79007 esp_lcd_ili9881c esp_lvgl_port lvgl esp_sccb_intf esp_ipa
 
 	                    )

@@ -87,6 +87,16 @@
 #define WT_BSP_DSI_ENABLE_IS_ENABLED 0
 #endif
 
+/**
+ * @def WT_BSP_CSI_ENABLE_IS_ENABLED
+ * @brief CSI 摄像头支持是否启用。
+ */
+#if !defined(WT_BSP_CSI_ENABLE) || (WT_BSP_CSI_ENABLE)
+#define WT_BSP_CSI_ENABLE_IS_ENABLED 1
+#else
+#define WT_BSP_CSI_ENABLE_IS_ENABLED 0
+#endif
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Global Prototypes] ================================= */
