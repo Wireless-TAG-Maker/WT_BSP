@@ -164,7 +164,36 @@ static esp_err_t board_init(void)
         return ret;
     }
 
-  
+    // Initialize SDMMC
+    ret = wt_bsp_sdmmc_init(&s_bsp_sdmmc, &(wt_bsp_sdmmc_info_t) {
+        .mount_point = BOARD_SDMMC_MOUNT_POINT,
+        .slot = BOARD_SDMMC_SLOT,
+        .width = BOARD_SDMMC_WIDTH,
+        .cd_gpio = BOARD_SDMMC_CD_GPIO,
+        .wp_gpio = BOARD_SDMMC_WP_GPIO,
+        .clk_gpio = BOARD_SDMMC_CLK_GPIO,
+        .cmd_gpio = BOARD_SDMMC_CMD_GPIO,
+        .d0_gpio = BOARD_SDMMC_D0_GPIO,
+        .d1_gpio = BOARD_SDMMC_D1_GPIO,
+        .d2_gpio = BOARD_SDMMC_D2_GPIO,
+        .d3_gpio = BOARD_SDMMC_D3_GPIO,
+    });
+    if (ret != ESP_OK) {
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to initialize SDMMC: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    // Automatically mount SDMMC
+    ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
+    if (ret != ESP_OK) {
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        ESP_LOGE(TAG, "Failed to mount SDMMC: %s", esp_err_to_name(ret));
+        return ret;
+    }
 
     // Initialize DSI
     ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
