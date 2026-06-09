@@ -19,6 +19,7 @@
 #include "wt_bsp_sdmmc.h"
 #include "wt_bsp_dsi.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -163,36 +164,7 @@ static esp_err_t board_init(void)
         return ret;
     }
 
-    // Initialize SDMMC
-    ret = wt_bsp_sdmmc_init(&s_bsp_sdmmc, &(wt_bsp_sdmmc_info_t) {
-        .mount_point = BOARD_SDMMC_MOUNT_POINT,
-        .slot = BOARD_SDMMC_SLOT,
-        .width = BOARD_SDMMC_WIDTH,
-        .cd_gpio = BOARD_SDMMC_CD_GPIO,
-        .wp_gpio = BOARD_SDMMC_WP_GPIO,
-        .clk_gpio = BOARD_SDMMC_CLK_GPIO,
-        .cmd_gpio = BOARD_SDMMC_CMD_GPIO,
-        .d0_gpio = BOARD_SDMMC_D0_GPIO,
-        .d1_gpio = BOARD_SDMMC_D1_GPIO,
-        .d2_gpio = BOARD_SDMMC_D2_GPIO,
-        .d3_gpio = BOARD_SDMMC_D3_GPIO,
-    });
-    if (ret != ESP_OK) {
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
-        ESP_LOGE(TAG, "Failed to initialize SDMMC: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
-    // Automatically mount SDMMC
-    ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
-    if (ret != ESP_OK) {
-        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
-        ESP_LOGE(TAG, "Failed to mount SDMMC: %s", esp_err_to_name(ret));
-        return ret;
-    }
+  
 
     // Initialize DSI
     ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
@@ -219,6 +191,18 @@ static esp_err_t board_init(void)
     }
 
     // Initialize CSI
+    /* 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
+     * 正常使用摄像头前，必须将 IO0 拉高以启用摄像头供电及解除复位。 */
+    gpio_config_t csi_pwr_conf = {
+        .pin_bit_mask = (1ULL << 0),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&csi_pwr_conf);
+    gpio_set_level(0, 1);
+
     ret = wt_bsp_csi_init(&s_bsp_csi, &(wt_bsp_csi_info_t) {
         .sccb_scl_pin = BOARD_CSI_SCCB_SCL_PIN,
         .sccb_sda_pin = BOARD_CSI_SCCB_SDA_PIN,
