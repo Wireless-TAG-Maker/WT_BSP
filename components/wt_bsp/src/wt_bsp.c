@@ -136,5 +136,18 @@ wt_bsp_csi_t wt_bsp_get_csi(void)
 #endif
 }
 
+wt_bsp_touch_t wt_bsp_get_touch(void)
+{
+    if ( g_bsp.interface == NULL || g_bsp.interface->get_touch == NULL) {
+        ESP_LOGE(TAG, "BSP is NULL");
+        return NULL;
+    }
+#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
+    return g_bsp.interface->get_touch();
+#else
+    return NULL;
+#endif
+}
+
 
 /* ==================== [Static Functions] ================================== */

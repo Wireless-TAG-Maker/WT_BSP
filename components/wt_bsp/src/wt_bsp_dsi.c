@@ -26,6 +26,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_ek79007.h"
 #include "esp_lcd_ili9881c.h"
+#include "esp_lcd_st7102.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -51,6 +52,7 @@ static esp_err_t wt_bsp_dsi_enable_phy_power(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi);
+static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_send_display_command(wt_bsp_dsi_t dsi, bool on);
 static esp_err_t wt_bsp_dsi_cleanup(wt_bsp_dsi_t dsi);
@@ -323,10 +325,16 @@ static esp_err_t wt_bsp_dsi_resolve_info(wt_bsp_dsi_info_t *resolved, const wt_b
             resolved->panel_type = WT_BSP_DSI_PANEL_EK79007_1024_600;
         } else if (resolved->width == 800U && resolved->height == 1280U) {
             resolved->panel_type = WT_BSP_DSI_PANEL_ILI9881C_800_1280;
+        } else if (resolved->width == 480U && resolved->height == 640U) {
+            resolved->panel_type = WT_BSP_DSI_PANEL_ST7102_480_640;
         } else {
             ESP_LOGE(TAG, "Unsupported DSI panel resolution: %ux%u", resolved->width, resolved->height);
             return ESP_ERR_INVALID_ARG;
         }
+    }
+
+    if (resolved->panel_type == WT_BSP_DSI_PANEL_ST7102_480_640 && info->color_format == WT_BSP_DSI_COLOR_FORMAT_RGB565) {
+        resolved->color_format = WT_BSP_DSI_COLOR_FORMAT_RGB888;
     }
 
     if (resolved->width == 0U || resolved->height == 0U) {
@@ -336,6 +344,9 @@ static esp_err_t wt_bsp_dsi_resolve_info(wt_bsp_dsi_info_t *resolved, const wt_b
         } else if (resolved->panel_type == WT_BSP_DSI_PANEL_ILI9881C_800_1280) {
             resolved->width = 800U;
             resolved->height = 1280U;
+        } else if (resolved->panel_type == WT_BSP_DSI_PANEL_ST7102_480_640) {
+            resolved->width = 480U;
+            resolved->height = 640U;
         }
     }
 
@@ -375,6 +386,12 @@ static esp_err_t wt_bsp_dsi_validate_info(const wt_bsp_dsi_info_t *info)
     case WT_BSP_DSI_PANEL_ILI9881C_800_1280:
         if (info->width != 800U || info->height != 1280U) {
             ESP_LOGE(TAG, "ILI9881C requires 800x1280, got %ux%u", info->width, info->height);
+            return ESP_ERR_INVALID_ARG;
+        }
+        break;
+    case WT_BSP_DSI_PANEL_ST7102_480_640:
+        if (info->width != 480U || info->height != 640U) {
+            ESP_LOGE(TAG, "ST7102 requires 480x640, got %ux%u", info->width, info->height);
             return ESP_ERR_INVALID_ARG;
         }
         break;
@@ -439,6 +456,8 @@ static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi)
         return wt_bsp_dsi_new_ek79007_panel(dsi);
     case WT_BSP_DSI_PANEL_ILI9881C_800_1280:
         return wt_bsp_dsi_new_ili9881c_panel(dsi);
+    case WT_BSP_DSI_PANEL_ST7102_480_640:
+        return wt_bsp_dsi_new_st7102_panel(dsi);
     default:
         return ESP_ERR_INVALID_ARG;
     }
@@ -488,6 +507,43 @@ static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi)
     };
 
     return esp_lcd_new_panel_ili9881c(dsi->io, &panel_config, &dsi->panel);
+}
+
+static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi)
+{
+    esp_lcd_dpi_panel_config_t dpi_config = {
+        .virtual_channel = 0,
+        .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+        .dpi_clock_freq_mhz = 24,
+        .in_color_format = wt_bsp_dsi_get_lcd_pixel_format(dsi->info.color_format),
+        .video_timing = {
+            .h_size = 480,
+            .v_size = 640,
+            .hsync_back_porch = 40,
+            .hsync_pulse_width = 2,
+            .hsync_front_porch = 40,
+            .vsync_back_porch = 10,
+            .vsync_pulse_width = 2,
+            .vsync_front_porch = 145,
+        },
+    };
+    dpi_config.num_fbs = dsi->info.dpi_frame_buffer_num;
+
+    st7102_vendor_config_t vendor_config = {
+        .mipi_config = {
+            .dsi_bus = dsi->mipi_dsi_bus,
+            .dpi_config = &dpi_config,
+        },
+        .flags.use_mipi_interface = 1,
+    };
+    esp_lcd_panel_dev_config_t panel_config = {
+        .reset_gpio_num = dsi->info.reset_gpio_num,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+        .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format),
+        .vendor_config = &vendor_config,
+    };
+
+    return esp_lcd_new_panel_st7102(dsi->io, &panel_config, &dsi->panel);
 }
 
 static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi)

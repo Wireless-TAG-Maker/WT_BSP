@@ -97,6 +97,16 @@
 #define WT_BSP_CSI_ENABLE_IS_ENABLED 0
 #endif
 
+/**
+ * @def WT_BSP_TOUCH_ENABLE_IS_ENABLED
+ * @brief 触摸支持是否启用。
+ */
+#if !defined(WT_BSP_TOUCH_ENABLE) || (WT_BSP_TOUCH_ENABLE)
+#define WT_BSP_TOUCH_ENABLE_IS_ENABLED 1
+#else
+#define WT_BSP_TOUCH_ENABLE_IS_ENABLED 0
+#endif
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Global Prototypes] ================================= */

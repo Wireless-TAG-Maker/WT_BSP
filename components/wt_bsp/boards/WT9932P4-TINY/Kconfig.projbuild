@@ -1,3 +1,12 @@
 config WT_BSP_BOARD_WT9932P4_TINY
     bool "WT9932P4-TINY"
     depends on IDF_TARGET_ESP32P4
+
+if WT_BSP_BOARD_WT9932P4_TINY
+    config WT_BSP_BOARD_WT9932P4_TINY_2_8CUN
+        bool "Use 2.8 inch (480x640) MIPI DSI screen"
+        default n
+        help
+            Select this if you are using the 2.8 inch ST7102 based screen.
+            Default is the 7 inch 1024x600 EK79007 screen.
+endif

@@ -5,11 +5,24 @@ dependencies:
     version: "1.*"
     rules:
       - if: "target == esp32p4"
-  esp_lcd_ili9881c:
+  espressif/esp_lcd_ili9881c:
+    version: "1.*"
+    rules:
+      - if: "target == esp32p4"
+  kevincoooool/esp_lcd_st7102:
+    version: "1.*"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_lcd_touch:
+    version: "*"
+    rules:
+      - if: "target == esp32p4"
+  espressif/esp_lcd_touch_st7123:
     version: "1.*"
     rules:
       - if: "target == esp32p4"
   esp_lvgl_port:
+
     version: "^2"
     require: public
     rules:
