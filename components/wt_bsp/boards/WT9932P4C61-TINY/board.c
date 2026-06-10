@@ -50,10 +50,10 @@
 
 #define BOARD_DSI_BACKLIGHT_GPIO_NUM 26
 #define BOARD_DSI_RESET_GPIO_NUM 27
-#define BOARD_DSI_WIDTH 1024
-#define BOARD_DSI_HEIGHT 600
+#define BOARD_DSI_WIDTH 480
+#define BOARD_DSI_HEIGHT 640
+#define BOARD_DSI_PANEL_TYPE WT_BSP_DSI_PANEL_ST7102_480_640
 #define BOARD_DSI_LANE_NUM 2
-#define BOARD_DSI_PANEL_TYPE WT_BSP_DSI_PANEL_EK79007_1024_600
 #define BOARD_DSI_COLOR_FORMAT WT_BSP_DSI_COLOR_FORMAT_RGB565
 #define BOARD_DSI_DPI_FB_NUM 1
 #define BOARD_DSI_LANE_BITRATE_MBPS 1000
@@ -71,6 +71,12 @@
 #define BOARD_CSI_FPS 30
 #define BOARD_CSI_BUF_COUNT 3
 
+#define BOARD_TOUCH_I2C_PORT 0
+#define BOARD_TOUCH_I2C_SDA_PIN 7
+#define BOARD_TOUCH_I2C_SCL_PIN 8
+#define BOARD_TOUCH_RST_PIN -1
+#define BOARD_TOUCH_INT_PIN -1
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Static Prototypes] ================================= */
@@ -83,6 +89,7 @@ static wt_bsp_rgb_t board_get_rgb(void);
 static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_dsi_t board_get_dsi(void);
 static wt_bsp_csi_t board_get_csi(void);
+static wt_bsp_touch_t board_get_touch(void);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -99,6 +106,7 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_sdmmc = board_get_sdmmc,
     .get_dsi = board_get_dsi,
     .get_csi = board_get_csi,
+    .get_touch = board_get_touch,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
@@ -107,6 +115,7 @@ static wt_bsp_rgb_obj_t s_bsp_rgb = {0};
 static wt_bsp_sdmmc_obj_t s_bsp_sdmmc = {0};
 static wt_bsp_dsi_obj_t s_bsp_dsi = {0};
 static wt_bsp_csi_obj_t s_bsp_csi = {0};
+static wt_bsp_touch_obj_t s_bsp_touch = {0};
 
 /* ==================== [Macros] ============================================ */
 
@@ -251,6 +260,20 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Initialize touch
+    ret = wt_bsp_touch_init(&s_bsp_touch, &(wt_bsp_touch_info_t) {
+        .i2c_port = BOARD_TOUCH_I2C_PORT,
+        .scl_pin = BOARD_TOUCH_I2C_SCL_PIN,
+        .sda_pin = BOARD_TOUCH_I2C_SDA_PIN,
+        .rst_pin = BOARD_TOUCH_RST_PIN,
+        .int_pin = BOARD_TOUCH_INT_PIN,
+        .width = BOARD_DSI_WIDTH,
+        .height = BOARD_DSI_HEIGHT,
+    });
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize touch: %s", esp_err_to_name(ret));
+    }
+
     s_board_is_init = true;
 
     return ESP_OK;
@@ -262,6 +285,12 @@ static esp_err_t board_deinit(void)
     if (!s_board_is_init) {
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
+    }
+
+    // Deinitialize touch
+    ret = wt_bsp_touch_deinit(&s_bsp_touch);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize touch: %s", esp_err_to_name(ret));
     }
 
     // Deinitialize CSI
@@ -328,4 +357,9 @@ static wt_bsp_dsi_t board_get_dsi(void)
 static wt_bsp_csi_t board_get_csi(void)
 {
     return &s_bsp_csi;
+}
+
+static wt_bsp_touch_t board_get_touch(void)
+{
+    return &s_bsp_touch;
 }
