@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "wt_bsp.h"
+#include "lv_demos.h"
 
 static const char *TAG = "dsi_example";
 
@@ -59,19 +61,7 @@ void app_main(void)
     // Use LVGL API to create UI
     // Note: LVGL API calls must be protected by lock/unlock
     if (wt_bsp_dsi_lvgl_lock(0)) {
-        lv_obj_t *scr = lv_scr_act();
-        
-        lv_obj_t *label = lv_label_create(scr);
-        lv_label_set_text(label, "Hello Wireless-Tag DSI!");
-        lv_obj_set_style_text_font(label, &lv_font_montserrat_48, 0);
-        lv_obj_align(label, LV_ALIGN_CENTER, 0, -40);
-
-        if (touch) {
-            lv_obj_t *touch_label = lv_label_create(scr);
-            lv_label_set_text(touch_label, "Touch supported");
-            lv_obj_align(touch_label, LV_ALIGN_CENTER, 0, 40);
-        }
-
+        lv_demo_widgets();
         wt_bsp_dsi_lvgl_unlock();
     }
 

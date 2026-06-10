@@ -673,8 +673,11 @@ static esp_err_t wt_bsp_dsi_cleanup(wt_bsp_dsi_t dsi)
 
 static void wt_bsp_dsi_get_default_lvgl_config(wt_bsp_dsi_t dsi, wt_bsp_dsi_lvgl_config_t *config)
 {
+    lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
+    port_cfg.task_stack = 16384; // 为 widgets demo 分配 16KB 堆栈
+
     *config = (wt_bsp_dsi_lvgl_config_t) {
-        .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
+        .lvgl_port_cfg = port_cfg,
         .buffer_size = (uint32_t)dsi->info.width * WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT,
         .double_buffer = false,
         .flags = {
