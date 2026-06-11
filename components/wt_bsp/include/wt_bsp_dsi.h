@@ -37,8 +37,8 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
-#if LVGL_VERSION_MAJOR != 8
-#error "wt_bsp_dsi LVGL integration requires LVGL 8.x"
+#if LVGL_VERSION_MAJOR < 8
+#error "wt_bsp_dsi LVGL integration requires at least LVGL 8.x"
 #endif
 
 #ifdef __cplusplus
@@ -52,7 +52,7 @@ extern "C" {
  *
  * 默认 draw buffer 大小为 `hres * WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT` 个像素。
  */
-#define WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT (50U)
+#define WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT (64U)
 
 /**
  * @brief 表示未连接或不使用的 GPIO。

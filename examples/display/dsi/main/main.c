@@ -8,9 +8,9 @@
 
 static const char *TAG = "dsi_example";
 
-static void touch_callback(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
+static void touch_callback(lv_indev_t *indev, lv_indev_data_t *data)
 {
-    wt_bsp_touch_t touch = (wt_bsp_touch_t)indev_drv->user_data;
+    wt_bsp_touch_t touch = (wt_bsp_touch_t)lv_indev_get_user_data(indev);
     uint16_t x, y;
     uint8_t num;
 
@@ -45,13 +45,11 @@ void app_main(void)
     wt_bsp_touch_t touch = wt_bsp_get_touch();
     if (touch) {
         ESP_LOGI(TAG, "Starting Touch");
-        static lv_indev_drv_t indev_drv;
-        lv_indev_drv_init(&indev_drv);
-        indev_drv.type = LV_INDEV_TYPE_POINTER;
-        indev_drv.disp = display;
-        indev_drv.user_data = touch;
-        indev_drv.read_cb = touch_callback;
-        lv_indev_drv_register(&indev_drv);
+        lv_indev_t *indev = lv_indev_create();
+        lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+        lv_indev_set_display(indev, display);
+        lv_indev_set_user_data(indev, touch);
+        lv_indev_set_read_cb(indev, touch_callback);
     }
 
     ESP_LOGI(TAG, "Turning on display and setting brightness");
