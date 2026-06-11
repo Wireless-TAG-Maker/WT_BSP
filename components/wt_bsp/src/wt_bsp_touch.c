@@ -60,7 +60,7 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
 
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
     esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_ST7123_CONFIG();
-    tp_io_config.scl_speed_hz = 400000;
+    //tp_io_config.scl_speed_hz = 400000;
 
     ret = esp_lcd_new_panel_io_i2c_v2(i2c_handle, &tp_io_config, &tp_io_handle);
     if (ret != ESP_OK) {
@@ -123,6 +123,8 @@ bool wt_bsp_touch_get_coordinates(wt_bsp_touch_t touch, uint16_t *x, uint16_t *y
     if (touch == NULL || !touch->is_initialized) {
         return false;
     }
+
+    wt_bsp_touch_read(touch);
     return esp_lcd_touch_get_coordinates(touch->handle, x, y, strength, point_num, max_point_num);
 }
 
