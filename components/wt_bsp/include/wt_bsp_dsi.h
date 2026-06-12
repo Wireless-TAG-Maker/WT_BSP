@@ -37,8 +37,8 @@
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
 
-#if LVGL_VERSION_MAJOR != 8
-#error "wt_bsp_dsi LVGL integration requires LVGL 8.x"
+#if LVGL_VERSION_MAJOR < 8
+#error "wt_bsp_dsi LVGL integration requires at least LVGL 8.x"
 #endif
 
 #ifdef __cplusplus
@@ -52,7 +52,7 @@ extern "C" {
  *
  * 默认 draw buffer 大小为 `hres * WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT` 个像素。
  */
-#define WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT (50U)
+#define WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT (64U)
 
 /**
  * @brief 表示未连接或不使用的 GPIO。
@@ -68,6 +68,7 @@ typedef enum {
     WT_BSP_DSI_PANEL_AUTO = 0,             /*!< 根据分辨率自动选择面板。当前支持 1024x600 和 800x1280。 */
     WT_BSP_DSI_PANEL_EK79007_1024_600,     /*!< 1024x600 EK79007 MIPI DSI 面板。 */
     WT_BSP_DSI_PANEL_ILI9881C_800_1280,    /*!< 800x1280 ILI9881C MIPI DSI 面板。 */
+    WT_BSP_DSI_PANEL_ST7102_480_640,       /*!< 480x640 ST7102 MIPI DSI 面板 (2.8寸)。 */
 } wt_bsp_dsi_panel_t;
 
 /**

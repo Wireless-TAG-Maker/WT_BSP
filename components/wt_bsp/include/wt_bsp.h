@@ -21,6 +21,7 @@
 #include "wt_bsp_sdmmc.h"
 #include "wt_bsp_dsi.h"
 #include "wt_bsp_csi.h"
+#include "wt_bsp_touch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,15 @@ typedef struct{
      */
     wt_bsp_csi_t (*get_csi)(void);
 #endif
+
+#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
+    /**
+     * @brief 获取默认触摸句柄。
+     *
+     * @return 触摸句柄；不可用时返回 NULL。
+     */
+    wt_bsp_touch_t (*get_touch)(void);
+#endif
 } wt_bsp_interface_t;
 
 /**
@@ -185,6 +195,13 @@ wt_bsp_dsi_t wt_bsp_get_dsi(void);
  * @return CSI 摄像头句柄；BSP 未初始化或 CSI 支持关闭时返回 NULL。
  */
 wt_bsp_csi_t wt_bsp_get_csi(void);
+
+/**
+ * @brief 获取已初始化的默认触摸句柄。
+ *
+ * @return 触摸句柄；BSP 未初始化或触摸支持关闭时返回 NULL。
+ */
+wt_bsp_touch_t wt_bsp_get_touch(void);
 
 /* ==================== [Macros] ============================================ */
 
