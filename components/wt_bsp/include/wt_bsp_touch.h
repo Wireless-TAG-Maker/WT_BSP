@@ -39,6 +39,7 @@ typedef struct wt_bsp_touch_obj_t *wt_bsp_touch_t;
  * @brief 触摸硬件配置。
  */
 typedef struct {
+    void *i2c_bus_handle;   /*!< 外部提供的 I2C 总线句柄 (i2c_master_bus_handle_t)。如果非 NULL，则不内部初始化 I2C。 */
     int i2c_port;           /*!< I2C 端口号。 */
     int scl_pin;            /*!< I2C SCL 引脚。 */
     int sda_pin;            /*!< I2C SDA 引脚。 */

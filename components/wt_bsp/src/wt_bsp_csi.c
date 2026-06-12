@@ -66,13 +66,14 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
     esp_video_init_csi_config_t csi_config[] = {
         {
             .sccb_config = {
-                .init_sccb = true,
+                .init_sccb = (info->i2c_bus_handle == NULL),
+                .i2c_handle = info->i2c_bus_handle,
                 .i2c_config = {
                     .port      = 0,
                     .scl_pin   = info->sccb_scl_pin,
                     .sda_pin   = info->sccb_sda_pin,
                 },
-                .freq      = 100000,
+                .freq      = 400000, // Factory firmware uses 400k
             },
             .reset_pin = info->reset_pin,
             .pwdn_pin  = info->pwdn_pin,

@@ -53,6 +53,7 @@ typedef void (*wt_bsp_csi_frame_cb_t)(uint8_t *buf, uint32_t width, uint32_t hei
  * @brief CSI 硬件配置。
  */
 typedef struct {
+    void *i2c_bus_handle;    /*!< 外部提供的 I2C 总线句柄 (i2c_master_bus_handle_t)。如果非 NULL，则不内部初始化 SCCB I2C。 */
     int sccb_scl_pin;        /*!< SCCB (I2C) SCL 引脚。 */
     int sccb_sda_pin;        /*!< SCCB (I2C) SDA 引脚。 */
     int reset_pin;           /*!< 摄像头复位引脚，未使用设为 -1。 */
