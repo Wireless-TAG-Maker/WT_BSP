@@ -49,6 +49,8 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             .out.block_offset_y = 0,
             .out.srm_cm = PPA_SRM_COLOR_MODE_RGB888,
             .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
+            .scale_x = 1.0f,
+            .scale_y = 1.0f,
             .mode = PPA_TRANS_MODE_BLOCKING,
         };
 
