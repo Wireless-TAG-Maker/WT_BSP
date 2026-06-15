@@ -49,7 +49,7 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             .in.pic_h = height,
             .in.srm_cm = PPA_SRM_COLOR_MODE_RGB565,
             .out.buffer = s_ui_cam_buffer[s_current_buf_idx],
-            .out.srm_cm = PPA_SRM_COLOR_MODE_RGB565,
+            .out.srm_cm = PPA_SRM_COLOR_MODE_RGB888,
             .scale_x = 1.0f,
             .scale_y = 1.0f,
             .rgb_swap = 0,
@@ -68,7 +68,7 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             
             srm_config.out.pic_w = 480;
             srm_config.out.pic_h = 640;
-            srm_config.out.buffer_size = 480 * 640 * 2;
+            srm_config.out.buffer_size = 480 * 640 * 3;
             srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_90;
             out_w = 480;
             out_h = 640;
@@ -81,22 +81,21 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             
             srm_config.out.pic_w = 480;
             srm_config.out.pic_h = 384;
-            srm_config.out.buffer_size = 480 * 640 * 2; /* Keep max size */
+            srm_config.out.buffer_size = 480 * 640 * 3; /* Keep max size */
             srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
             out_w = 480;
             out_h = 384;
         }
 
         if (ppa_do_scale_rotate_mirror(s_ppa_srm_handle, &srm_config) == ESP_OK) {
-            /* Invalidate CPU cache (RGB565 is 2 bytes/pixel) */
-            esp_cache_msync((void *)s_ui_cam_buffer[s_current_buf_idx], out_w * out_h * 2, ESP_CACHE_MSYNC_FLAG_DIR_M2C);
+            /* Invalidate CPU cache (RGB888 is 3 bytes/pixel) */
+            esp_cache_msync((void *)s_ui_cam_buffer[s_current_buf_idx], out_w * out_h * 3, ESP_CACHE_MSYNC_FLAG_DIR_M2C);
 
             if (wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(100))) {
                 update_camera_frame(s_ui_cam_buffer[s_current_buf_idx], out_w, out_h);
                 wt_bsp_dsi_lvgl_unlock();
+                s_current_buf_idx = !s_current_buf_idx;
             }
-
-            s_current_buf_idx = !s_current_buf_idx;
         }
     }
 }
@@ -157,8 +156,11 @@ void app_main(void)
     wt_bsp_dsi_lvgl_config_t lvgl_cfg = {
         .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
         .double_buffer = true,
-        /* Allocate buffer for 1/10th of the screen */
-        .buffer_size = 480 * 64, 
+        /* Allocate buffer for full screen to eliminate tearing */
+        .buffer_size = 480 * 640,
+        .flags = {
+            .avoid_tearing = true,
+        }
     };
     lvgl_cfg.lvgl_port_cfg.task_stack = 16384;
     lv_display_t *disp = wt_bsp_dsi_lvgl_start(dsi, &lvgl_cfg);
@@ -193,9 +195,9 @@ void app_main(void)
             s_ppa_srm_handle = ppa_srm_handle;
             size_t data_cache_line_size = 0;
             esp_cache_get_alignment(MALLOC_CAP_SPIRAM, &data_cache_line_size);
-            /* Buffers sized for 480x640 RGB565 fullscreen support */
-            s_ui_cam_buffer[0] = heap_caps_aligned_calloc(data_cache_line_size, 1, 480 * 640 * 2, MALLOC_CAP_SPIRAM);
-            s_ui_cam_buffer[1] = heap_caps_aligned_calloc(data_cache_line_size, 1, 480 * 640 * 2, MALLOC_CAP_SPIRAM);
+            /* Buffers sized for 480x640 RGB888 fullscreen support */
+            s_ui_cam_buffer[0] = heap_caps_aligned_calloc(data_cache_line_size, 1, 480 * 640 * 3, MALLOC_CAP_SPIRAM);
+            s_ui_cam_buffer[1] = heap_caps_aligned_calloc(data_cache_line_size, 1, 480 * 640 * 3, MALLOC_CAP_SPIRAM);
         }
 
         /* Configure camera to output RGB565 for the factory UI */
