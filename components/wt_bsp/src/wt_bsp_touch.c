@@ -43,19 +43,23 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
     memset(touch, 0, sizeof(*touch));
     touch->info = *info;
 
-    // Create I2C bus
-    i2c_master_bus_handle_t i2c_handle = NULL;
-    i2c_master_bus_config_t i2c_config = {
-        .i2c_port = info->i2c_port,
-        .sda_io_num = info->sda_pin,
-        .scl_io_num = info->scl_pin,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .flags.enable_internal_pullup = true,
-    };
-    esp_err_t ret = i2c_new_master_bus(&i2c_config, &i2c_handle);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "new I2C master bus failed: %s", esp_err_to_name(ret));
-        return ret;
+    // Create or use I2C bus
+    i2c_master_bus_handle_t i2c_handle = (i2c_master_bus_handle_t)info->i2c_bus_handle;
+    esp_err_t ret = ESP_OK;
+    
+    if (i2c_handle == NULL) {
+        i2c_master_bus_config_t i2c_config = {
+            .i2c_port = info->i2c_port,
+            .sda_io_num = info->sda_pin,
+            .scl_io_num = info->scl_pin,
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .flags.enable_internal_pullup = true,
+        };
+        ret = i2c_new_master_bus(&i2c_config, &i2c_handle);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "new I2C master bus failed: %s", esp_err_to_name(ret));
+            return ret;
+        }
     }
 
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;

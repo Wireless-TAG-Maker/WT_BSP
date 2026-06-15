@@ -20,6 +20,7 @@
 #include "wt_bsp_dsi.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "driver/i2c_master.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -96,6 +97,7 @@ static wt_bsp_touch_t board_get_touch(void);
 static const char *TAG = "board";
 
 static bool s_board_is_init = false;
+static i2c_master_bus_handle_t s_shared_i2c_bus = NULL;
 
 static wt_bsp_interface_t s_bsp_interface = {
     .init = board_init,
@@ -228,6 +230,20 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+    // Create shared I2C bus for Touch and CSI
+    i2c_master_bus_config_t i2c_config = {
+        .i2c_port = BOARD_TOUCH_I2C_PORT,
+        .sda_io_num = BOARD_TOUCH_I2C_SDA_PIN,
+        .scl_io_num = BOARD_TOUCH_I2C_SCL_PIN,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .flags.enable_internal_pullup = true,
+    };
+    ret = i2c_new_master_bus(&i2c_config, &s_shared_i2c_bus);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize shared I2C bus: %s", esp_err_to_name(ret));
+        s_shared_i2c_bus = NULL;
+    }
+
     // Initialize CSI
     /* 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
      * 正常使用摄像头前，必须将 IO0 拉高以启用摄像头供电及解除复位。 */
@@ -240,8 +256,10 @@ static esp_err_t board_init(void)
     };
     gpio_config(&csi_pwr_conf);
     gpio_set_level(0, 1);
+    vTaskDelay(pdMS_TO_TICKS(50));
 
     ret = wt_bsp_csi_init(&s_bsp_csi, &(wt_bsp_csi_info_t) {
+        .i2c_bus_handle = s_shared_i2c_bus,
         .sccb_scl_pin = BOARD_CSI_SCCB_SCL_PIN,
         .sccb_sda_pin = BOARD_CSI_SCCB_SDA_PIN,
         .reset_pin = BOARD_CSI_RESET_PIN,
@@ -262,6 +280,7 @@ static esp_err_t board_init(void)
 
     // Initialize touch
     ret = wt_bsp_touch_init(&s_bsp_touch, &(wt_bsp_touch_info_t) {
+        .i2c_bus_handle = s_shared_i2c_bus,
         .i2c_port = BOARD_TOUCH_I2C_PORT,
         .scl_pin = BOARD_TOUCH_I2C_SCL_PIN,
         .sda_pin = BOARD_TOUCH_I2C_SDA_PIN,

@@ -63,24 +63,24 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
     csi->info = *info;
     csi->v4l2_fd = -1;
 
-    esp_video_init_csi_config_t csi_config[] = {
-        {
-            .sccb_config = {
-                .init_sccb = true,
-                .i2c_config = {
-                    .port      = 0,
-                    .scl_pin   = info->sccb_scl_pin,
-                    .sda_pin   = info->sccb_sda_pin,
-                },
-                .freq      = 100000,
-            },
-            .reset_pin = info->reset_pin,
-            .pwdn_pin  = info->pwdn_pin,
-        },
-    };
+    esp_video_init_csi_config_t csi_config = {0};
+    csi_config.sccb_config.init_sccb = (info->i2c_bus_handle == NULL);
+    csi_config.sccb_config.freq = 400000;
+    csi_config.reset_pin = info->reset_pin;
+    csi_config.pwdn_pin = info->pwdn_pin;
+
+    if (info->i2c_bus_handle != NULL) {
+        csi_config.sccb_config.i2c_handle = (i2c_master_bus_handle_t)info->i2c_bus_handle;
+    } else {
+        csi_config.sccb_config.i2c_config.port = 0;
+        csi_config.sccb_config.i2c_config.scl_pin = info->sccb_scl_pin;
+        csi_config.sccb_config.i2c_config.sda_pin = info->sccb_sda_pin;
+    }
+
+    esp_video_init_csi_config_t csi_config_arr[] = { csi_config };
 
     esp_video_init_config_t cam_config = {
-        .csi = csi_config,
+        .csi = csi_config_arr,
     };
 
     /* Give the sensor some time to power up, especially if LDOs were just enabled */
@@ -119,7 +119,7 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
         .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
         .fmt.pix.width = csi->info.width,
         .fmt.pix.height = csi->info.height,
-        .fmt.pix.pixelformat = V4L2_PIX_FMT_RGB565, // Default to RGB565 for display
+        .fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24, // Change to RGB24 (which is RGB888) to match default panel
     };
 
     if (ioctl(fd, VIDIOC_S_FMT, &format) != 0) {
