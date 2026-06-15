@@ -91,7 +91,7 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             /* Invalidate CPU cache (RGB888 is 3 bytes/pixel) */
             esp_cache_msync((void *)s_ui_cam_buffer[s_current_buf_idx], out_w * out_h * 3, ESP_CACHE_MSYNC_FLAG_DIR_M2C);
 
-            if (wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(100))) {
+            if (wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(10))) {
                 update_camera_frame(s_ui_cam_buffer[s_current_buf_idx], out_w, out_h);
                 wt_bsp_dsi_lvgl_unlock();
                 s_current_buf_idx = !s_current_buf_idx;
@@ -157,12 +157,13 @@ void app_main(void)
         .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
         .double_buffer = true,
         /* Allocate buffer for 1/10th of the screen */
-        .buffer_size = 480 * 64,
+        .buffer_size = 480 * 640,
         .flags = {
             .avoid_tearing = false,
         }
     };
     lvgl_cfg.lvgl_port_cfg.task_stack = 16384;
+    //lvgl_cfg.lvgl_port_cfg.task_priority = 10;
     lv_display_t *disp = wt_bsp_dsi_lvgl_start(dsi, &lvgl_cfg);
     if (disp == NULL) {
         ESP_LOGE(TAG, "Failed to start LVGL display");
@@ -217,6 +218,6 @@ void app_main(void)
     ESP_LOGI(TAG, "Factory firmware example running");
     
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(100000));
     }
 }
