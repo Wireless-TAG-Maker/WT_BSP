@@ -61,6 +61,7 @@ typedef struct {
     uint32_t width;          /*!< 采集宽度。 */
     uint32_t height;         /*!< 采集高度。 */
     uint32_t fps;            /*!< 帧率。 */
+    uint32_t pixel_format;   /*!< 采集像素格式 (如 V4L2_PIX_FMT_RGB565)。为 0 则默认 V4L2_PIX_FMT_RGB24。 */
     uint8_t buffer_count;    /*!< 缓冲区数量，建议 2 或 3。 */
 } wt_bsp_csi_info_t;
 

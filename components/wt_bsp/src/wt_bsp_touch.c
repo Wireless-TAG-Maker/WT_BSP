@@ -19,6 +19,7 @@
 #include "esp_log.h"
 #include "driver/i2c_master.h"
 #include "esp_lcd_touch_st7123.h"
+#include "esp_lvgl_port.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -136,5 +137,19 @@ esp_lcd_touch_handle_t wt_bsp_touch_get_handle(wt_bsp_touch_t touch)
 {
     return (touch == NULL) ? NULL : touch->handle;
 }
+
+lv_indev_t *wt_bsp_touch_lvgl_start(wt_bsp_touch_t touch, lv_display_t *disp)
+{
+    if (touch == NULL || !touch->is_initialized || disp == NULL) return NULL;
+    
+    lvgl_port_touch_cfg_t touch_cfg = {
+        .disp = disp,
+        .handle = touch->handle,
+    };
+    
+    return lvgl_port_add_touch(&touch_cfg);
+}
+
+/* ==================== [Static Functions] ================================== */
 
 #endif // WT_BSP_TOUCH_ENABLE_IS_ENABLED

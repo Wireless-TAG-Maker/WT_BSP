@@ -22,6 +22,8 @@
 #include "esp_err.h"
 #include "esp_lcd_touch.h"
 
+#include "lvgl.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -102,6 +104,11 @@ bool wt_bsp_touch_get_coordinates(wt_bsp_touch_t touch, uint16_t *x, uint16_t *y
  * @brief 获取底层 esp_lcd_touch 句柄。
  */
 esp_lcd_touch_handle_t wt_bsp_touch_get_handle(wt_bsp_touch_t touch);
+
+/**
+ * @brief 将触摸注册到 LVGL。
+ */
+lv_indev_t *wt_bsp_touch_lvgl_start(wt_bsp_touch_t touch, lv_display_t *disp);
 
 #ifdef __cplusplus
 }
