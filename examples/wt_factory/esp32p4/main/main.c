@@ -156,10 +156,10 @@ void app_main(void)
     wt_bsp_dsi_lvgl_config_t lvgl_cfg = {
         .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
         .double_buffer = true,
-        /* Allocate buffer for full screen to eliminate tearing */
-        .buffer_size = 480 * 640,
+        /* Allocate buffer for 1/10th of the screen */
+        .buffer_size = 480 * 64,
         .flags = {
-            .avoid_tearing = true,
+            .avoid_tearing = false,
         }
     };
     lvgl_cfg.lvgl_port_cfg.task_stack = 16384;
