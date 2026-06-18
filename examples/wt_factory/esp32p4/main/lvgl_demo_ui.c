@@ -34,13 +34,13 @@ static void cam_click_event_cb(lv_event_t * e)
 static lv_image_dsc_t cam_img_dsc = {
     .header = {
         .magic = LV_IMAGE_HEADER_MAGIC,
-        .cf = LV_COLOR_FORMAT_RGB565,
+        .cf = LV_COLOR_FORMAT_RGB888,
         .flags = 0,
         .w = 480,
         .h = 384,
-        .stride = 480 * 2,
+        .stride = 480 * 3,
     },
-    .data_size = 480 * 384 * 2,
+    .data_size = 480 * 384 * 3,
     .data = NULL
 };
 
@@ -53,8 +53,8 @@ void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height)
 
     cam_img_dsc.header.w = width;
     cam_img_dsc.header.h = height;
-    cam_img_dsc.header.stride = width * 2;
-    cam_img_dsc.data_size = width * height * 2;
+    cam_img_dsc.header.stride = width * 3;
+    cam_img_dsc.data_size = width * height * 3;
     cam_img_dsc.data = buf;
     
     // Set the source and invalidate to force a redraw
