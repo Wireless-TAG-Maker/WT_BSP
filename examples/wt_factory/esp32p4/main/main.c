@@ -36,6 +36,15 @@ extern bool is_fullscreen;
 static ppa_client_handle_t s_ppa_srm_handle = NULL;
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
 static uint8_t s_current_buf_idx = 0;
+static bool s_csi_detected = false;
+
+/**
+ * @brief Callback for camera detection. Just sets flag on first frame.
+ */
+static void s_csi_detect_cb(uint8_t *buf, uint32_t width, uint32_t height, size_t len, void *user_data)
+{
+    s_csi_detected = true;
+}
 
 /**
  * @brief Camera frame callback. Processes frame using PPA and updates UI.
@@ -153,12 +162,27 @@ void app_main(void)
 
     /* Hardware status detection */
     bool dsi_ok = (dsi != NULL && dsi->is_initialized);
-    bool csi_ok = (csi != NULL && csi->is_initialized);
     bool sdmmc_ok = (sdmmc != NULL && sdmmc->is_mounted);
+
+    /* CSI detection requires actually starting the camera to verify it's connected */
+    bool csi_ok = false;
+    if (csi != NULL && csi->is_initialized) {
+        /* Try to start CSI with a detection callback to verify camera is present */
+        s_csi_detected = false;
+        esp_err_t ret = wt_bsp_csi_start(csi, s_csi_detect_cb, NULL);
+        if (ret == ESP_OK) {
+            csi_ok = true;
+            /* Stop it immediately since we were just detecting */
+            wt_bsp_csi_stop(csi);
+            ESP_LOGI(TAG, "Camera detected");
+        } else {
+            ESP_LOGW(TAG, "Camera not detected (wt_bsp_csi_start failed: %s)", esp_err_to_name(ret));
+        }
+    }
 
     ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI=%d, SDMMC=%d", dsi_ok, csi_ok, sdmmc_ok);
 
-    /* Set LED color based on hardware status (priority: red > orange > yellow > blue > green) */
+    /* Set LED color based on hardware status (only indicate missing hardware) */
     wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
     if (rgb) {
         if (!dsi_ok && !csi_ok && !sdmmc_ok) {
@@ -182,15 +206,18 @@ void app_main(void)
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
             wt_bsp_rgb_refresh(rgb);
         } else {
-            /* All hardware connected: GREEN */
-            ESP_LOGI(TAG, "All peripherals detected - LED GREEN");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 255, 0});
-            wt_bsp_rgb_refresh(rgb);
+            /* All hardware connected: no LED indication */
+            ESP_LOGI(TAG, "All peripherals detected - LED OFF");
         }
     }
 
-    if (dsi == NULL) {
-        ESP_LOGE(TAG, "DSI handle is NULL. Check board_config.h");
+    /* Check if display is available before proceeding with UI */
+    if (!dsi_ok) {
+        ESP_LOGW(TAG, "Display not available, skipping UI initialization");
+        ESP_LOGI(TAG, "Factory firmware example running (no display mode)");
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(100000));
+        }
         return;
     }
 
@@ -259,7 +286,7 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "Factory firmware example running");
-    
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(100000));
     }
