@@ -1,0 +1,28 @@
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+CONFIG_COMPILER_DISABLE_DEFAULT_ERRORS=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_HEX=y
+CONFIG_SPIRAM_SPEED_200M=y
+
+CONDFI_WT_BSP_RGB_ENABLE=y
+
+/** @brief 是否启用该板卡的 RGB LED 支持。 */
+#define WT_BSP_RGB_ENABLE 1
+/** @brief 该板卡暴露的 RGB LED 数量。 */
+#define WT_BSP_RGB_NUM 1
+/** @brief 是否启用该板卡的按键支持。 */
+#define WT_BSP_BUTTON_ENABLE 1
+/** @brief 是否启用该板卡的 LCD 支持。 */
+#define WT_BSP_LCD_ENABLE 1
+/** @brief 是否启用该板卡的 SD 卡支持。 */
+#define WT_BSP_SDCARD_ENABLE 1
+/** @brief 是否启用该板卡的 DSI 显示支持。 */
+#define WT_BSP_DSI_ENABLE 1
+/** @brief 是否启用该板卡的 CSI 摄像头支持。 */
+#define WT_BSP_CSI_ENABLE 1

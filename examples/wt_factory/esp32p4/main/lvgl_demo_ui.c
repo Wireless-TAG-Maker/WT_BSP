@@ -43,7 +43,7 @@ static lv_image_dsc_t cam_img_dsc = {
     .data_size = 480 * 384 * 2,
     .data = NULL
 };
-
+ 
 void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height)
 {
     if (cam_msg != NULL && !lv_obj_has_flag(cam_msg, LV_OBJ_FLAG_HIDDEN)) {
