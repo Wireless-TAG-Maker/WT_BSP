@@ -34,7 +34,7 @@
 #define MAP_FAILED ((void *)-1)
 #endif
 
-#define CSI_STREAM_TASK_STACK_SIZE    (4096)
+#define CSI_STREAM_TASK_STACK_SIZE    (8192)
 #define CSI_STREAM_TASK_PRIO          (5)
 
 /* ==================== [Typedefs] ========================================== */
