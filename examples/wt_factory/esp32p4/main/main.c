@@ -171,10 +171,21 @@ void app_main(void)
         s_csi_detected = false;
         esp_err_t ret = wt_bsp_csi_start(csi, s_csi_detect_cb, NULL);
         if (ret == ESP_OK) {
-            csi_ok = true;
-            /* Stop it immediately since we were just detecting */
+            /* Give some time for at least one frame to be captured */
+            vTaskDelay(pdMS_TO_TICKS(500));
+            if (s_csi_detected) {
+                csi_ok = true;
+            }
+            /* Stop the camera after detection */
             wt_bsp_csi_stop(csi);
-            ESP_LOGI(TAG, "Camera detected");
+            /* Additional delay to ensure cleanup is complete */
+            vTaskDelay(pdMS_TO_TICKS(200));
+
+            if (csi_ok) {
+                ESP_LOGI(TAG, "Camera detected");
+            } else {
+                ESP_LOGW(TAG, "Camera not detected (no frames received)");
+            }
         } else {
             ESP_LOGW(TAG, "Camera not detected (wt_bsp_csi_start failed: %s)", esp_err_to_name(ret));
         }
