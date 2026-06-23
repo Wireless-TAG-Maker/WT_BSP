@@ -15,18 +15,13 @@
 
 #if WT_BSP_BUTTON_ENABLE_IS_ENABLED
 
-#include <stdlib.h>
 #include "esp_log.h"
 #include "driver/gpio.h"
+#include "button_gpio.h"
 
 /* ==================== [Defines] =========================================== */
 
-#define WT_BSP_BUTTON_DEFAULT_POLL_PERIOD_MS       10U
-#define WT_BSP_BUTTON_DEFAULT_DEBOUNCE_PRESS_MS    20U
-#define WT_BSP_BUTTON_DEFAULT_DEBOUNCE_RELEASE_MS  20U
 #define WT_BSP_BUTTON_DEFAULT_CLICK_MIN_MS         20U
-#define WT_BSP_BUTTON_DEFAULT_CLICK_MAX_MS         500U
-#define WT_BSP_BUTTON_DEFAULT_MULTI_CLICK_MS       400U
 #define WT_BSP_BUTTON_DEFAULT_KEEPALIVE_PERIOD_MS  1000U
 #define WT_BSP_BUTTON_DEFAULT_MAX_CLICK_COUNT      3U
 
@@ -34,9 +29,10 @@
 
 /* ==================== [Static Prototypes] ================================= */
 
-static uint8_t wt_bsp_button_lwbtn_get_state(struct lwbtn *lwobj, struct lwbtn_btn *btn);
-static void wt_bsp_button_lwbtn_event(struct lwbtn *lwobj, struct lwbtn_btn *btn, lwbtn_evt_t evt);
-static void wt_bsp_button_timer_cb(void *arg);
+static esp_err_t wt_bsp_button_create_device(wt_bsp_button_t button);
+static esp_err_t wt_bsp_button_register_driver_cbs(wt_bsp_button_t button);
+static void wt_bsp_button_driver_event_cb(void *button_handle, void *usr_data);
+static bool wt_bsp_button_map_event(button_event_t driver_event, wt_bsp_button_event_t *bsp_event);
 static void wt_bsp_button_cleanup(wt_bsp_button_t button);
 
 /* ==================== [Static Variables] ================================== */
@@ -61,54 +57,10 @@ esp_err_t wt_bsp_button_init(wt_bsp_button_t button, const wt_bsp_button_info_t 
         button->info.active_level = WT_BSP_BUTTON_ACTIVE_LOW;
     }
 
-    gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << button->info.gpio_num),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = (button->info.active_level == WT_BSP_BUTTON_ACTIVE_LOW) ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
-        .pull_down_en = (button->info.active_level == WT_BSP_BUTTON_ACTIVE_HIGH) ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-
-    ret = gpio_config(&io_conf);
+    button->event_cb = NULL;
+    button->user_data = NULL;
+    ret = wt_bsp_button_create_device(button);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "button gpio config failed: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
-    button->lwbtn_btn.arg = button;
-    if (!lwbtn_init_ex(&button->lwbtn, &button->lwbtn_btn, 1,
-                       wt_bsp_button_lwbtn_get_state,
-                       wt_bsp_button_lwbtn_event)) {
-        wt_bsp_button_cleanup(button);
-        return ESP_FAIL;
-    }
-
-    button->lwbtn_btn.time_debounce = WT_BSP_BUTTON_DEFAULT_DEBOUNCE_PRESS_MS;
-    button->lwbtn_btn.time_debounce_release = WT_BSP_BUTTON_DEFAULT_DEBOUNCE_RELEASE_MS;
-    button->lwbtn_btn.time_click_pressed_min = WT_BSP_BUTTON_DEFAULT_CLICK_MIN_MS;
-    button->lwbtn_btn.time_click_pressed_max = WT_BSP_BUTTON_DEFAULT_CLICK_MAX_MS;
-    button->lwbtn_btn.time_click_multi_max = WT_BSP_BUTTON_DEFAULT_MULTI_CLICK_MS;
-    button->lwbtn_btn.time_keepalive_period = WT_BSP_BUTTON_DEFAULT_KEEPALIVE_PERIOD_MS;
-    button->lwbtn_btn.max_consecutive = WT_BSP_BUTTON_DEFAULT_MAX_CLICK_COUNT;
-
-    esp_timer_create_args_t timer_args = {
-        .callback = wt_bsp_button_timer_cb,
-        .arg = button,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "wt_bsp_btn",
-    };
-
-    ret = esp_timer_create(&timer_args, &button->timer);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "button timer create failed: %s", esp_err_to_name(ret));
-        wt_bsp_button_cleanup(button);
-        return ret;
-    }
-
-    ret = esp_timer_start_periodic(button->timer, WT_BSP_BUTTON_DEFAULT_POLL_PERIOD_MS * 1000ULL);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "button timer start failed: %s", esp_err_to_name(ret));
-        wt_bsp_button_cleanup(button);
         return ret;
     }
 
@@ -145,7 +97,12 @@ esp_err_t wt_bsp_button_reset(wt_bsp_button_t button)
         return ESP_ERR_INVALID_ARG;
     }
 
-    return lwbtn_reset(&button->lwbtn, &button->lwbtn_btn) ? ESP_OK : ESP_FAIL;
+    if (button->handle == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    wt_bsp_button_cleanup(button);
+    return wt_bsp_button_create_device(button);
 }
 
 uint8_t wt_bsp_button_get_click_count(wt_bsp_button_t button)
@@ -155,7 +112,7 @@ uint8_t wt_bsp_button_get_click_count(wt_bsp_button_t button)
         return 0;
     }
 
-    return lwbtn_click_get_count(&button->lwbtn_btn);
+    return button->handle != NULL ? iot_button_get_repeat(button->handle) : 0;
 }
 
 uint16_t wt_bsp_button_get_keepalive_count(wt_bsp_button_t button)
@@ -165,43 +122,111 @@ uint16_t wt_bsp_button_get_keepalive_count(wt_bsp_button_t button)
         return 0;
     }
 
-    return lwbtn_keepalive_get_count(&button->lwbtn_btn);
+    return button->handle != NULL ? iot_button_get_long_press_hold_cnt(button->handle) : 0;
 }
 
 /* ==================== [Static Functions] ================================== */
 
-static uint8_t wt_bsp_button_lwbtn_get_state(struct lwbtn *lwobj, struct lwbtn_btn *btn)
+static esp_err_t wt_bsp_button_create_device(wt_bsp_button_t button)
 {
-    wt_bsp_button_t button = (wt_bsp_button_t)btn->arg;
+    button_config_t button_config = {
+        .long_press_time = WT_BSP_BUTTON_DEFAULT_KEEPALIVE_PERIOD_MS,
+        .short_press_time = WT_BSP_BUTTON_DEFAULT_CLICK_MIN_MS,
+    };
+    button_gpio_config_t gpio_config = {
+        .gpio_num = button->info.gpio_num,
+        .active_level = button->info.active_level,
+        .enable_power_save = false,
+        .disable_pull = false,
+    };
 
-    (void)lwobj;
+    esp_err_t ret = iot_button_new_gpio_device(&button_config, &gpio_config, &button->handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "create gpio button failed: %s", esp_err_to_name(ret));
+        button->handle = NULL;
+        return ret;
+    }
 
-    return (gpio_get_level(button->info.gpio_num) == (int)button->info.active_level);
+    ret = wt_bsp_button_register_driver_cbs(button);
+    if (ret != ESP_OK) {
+        wt_bsp_button_cleanup(button);
+    }
+
+    return ret;
 }
 
-static void wt_bsp_button_lwbtn_event(struct lwbtn *lwobj, struct lwbtn_btn *btn, lwbtn_evt_t evt)
+static esp_err_t wt_bsp_button_register_driver_cbs(wt_bsp_button_t button)
 {
-    wt_bsp_button_t button = (wt_bsp_button_t)btn->arg;
+    static button_event_args_t multiple_click_args = {
+        .multiple_clicks.clicks = WT_BSP_BUTTON_DEFAULT_MAX_CLICK_COUNT,
+    };
+    static const button_event_t events[] = {
+        BUTTON_PRESS_DOWN,
+        BUTTON_PRESS_UP,
+        BUTTON_SINGLE_CLICK,
+        BUTTON_DOUBLE_CLICK,
+        BUTTON_LONG_PRESS_HOLD,
+    };
 
-    (void)lwobj;
+    esp_err_t ret = ESP_OK;
+    for (size_t i = 0; i < sizeof(events) / sizeof(events[0]); i++) {
+        ret = iot_button_register_cb(button->handle, events[i], NULL, wt_bsp_button_driver_event_cb, button);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "register button callback failed: event=%d, err=%s",
+                     events[i], esp_err_to_name(ret));
+            return ret;
+        }
+    }
+
+    ret = iot_button_register_cb(button->handle, BUTTON_MULTIPLE_CLICK, &multiple_click_args,
+                                 wt_bsp_button_driver_event_cb, button);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "register multiple click callback failed: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}
+
+static void wt_bsp_button_driver_event_cb(void *button_handle, void *usr_data)
+{
+    wt_bsp_button_t button = (wt_bsp_button_t)usr_data;
+    wt_bsp_button_event_t bsp_event = WT_BSP_BUTTON_EVENT_PRESS;
 
     if (button == NULL || button->event_cb == NULL) {
-        ESP_LOGE(TAG, "Invalid argument: button=%p", button);
         return;
     }
 
-    button->event_cb(button, evt, button->user_data);
+    if (!wt_bsp_button_map_event(iot_button_get_event((button_handle_t)button_handle), &bsp_event)) {
+        return;
+    }
+
+    button->event_cb(button, bsp_event, button->user_data);
 }
 
-static void wt_bsp_button_timer_cb(void *arg)
+static bool wt_bsp_button_map_event(button_event_t driver_event, wt_bsp_button_event_t *bsp_event)
 {
-    wt_bsp_button_t button = (wt_bsp_button_t)arg;
-
-    if (button == NULL) {
-        return;
+    if (bsp_event == NULL) {
+        return false;
     }
 
-    (void)lwbtn_process_ex(&button->lwbtn, (lwbtn_time_t)(esp_timer_get_time() / 1000ULL));
+    switch (driver_event) {
+    case BUTTON_PRESS_DOWN:
+        *bsp_event = WT_BSP_BUTTON_EVENT_PRESS;
+        return true;
+    case BUTTON_PRESS_UP:
+        *bsp_event = WT_BSP_BUTTON_EVENT_RELEASE;
+        return true;
+    case BUTTON_SINGLE_CLICK:
+    case BUTTON_DOUBLE_CLICK:
+    case BUTTON_MULTIPLE_CLICK:
+        *bsp_event = WT_BSP_BUTTON_EVENT_CLICK;
+        return true;
+    case BUTTON_LONG_PRESS_HOLD:
+        *bsp_event = WT_BSP_BUTTON_EVENT_KEEPALIVE;
+        return true;
+    default:
+        return false;
+    }
 }
 
 static void wt_bsp_button_cleanup(wt_bsp_button_t button)
@@ -211,19 +236,15 @@ static void wt_bsp_button_cleanup(wt_bsp_button_t button)
         return;
     }
 
-    if (button->timer == NULL) {
+    if (button->handle == NULL) {
         return;
     }
 
-    esp_err_t ret = esp_timer_stop(button->timer);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGW(TAG, "button timer stop failed: %s", esp_err_to_name(ret));
-    }
-    ret = esp_timer_delete(button->timer);
+    esp_err_t ret = iot_button_delete(button->handle);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "button timer delete failed: %s", esp_err_to_name(ret));
+        ESP_LOGW(TAG, "delete button failed: %s", esp_err_to_name(ret));
     }
-    button->timer = NULL;
+    button->handle = NULL;
 
 }
 

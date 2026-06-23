@@ -19,8 +19,7 @@
 #include "wt_bsp_config_internal.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
-#include "lwbtn/lwbtn.h"
-#include "esp_timer.h"
+#include "iot_button.h"
 
 #if WT_BSP_BUTTON_ENABLE_IS_ENABLED
 
@@ -114,19 +113,9 @@ typedef struct wt_bsp_button_obj_t{
     wt_bsp_button_info_t info;
 
     /**
-     * @brief 内部 lwbtn 核心对象。
+     * @brief 内部 iot_button 句柄。
      */
-    lwbtn_t lwbtn;
-
-    /**
-     * @brief 内部 lwbtn 按键对象。
-     */
-    lwbtn_btn_t lwbtn_btn;
-
-    /**
-     * @brief 用于轮询按键状态的周期定时器。
-     */
-    esp_timer_handle_t timer;
+    button_handle_t handle;
 
     /**
      * @brief 用户事件回调函数。

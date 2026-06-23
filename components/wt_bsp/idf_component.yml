@@ -1,6 +1,12 @@
 dependencies:
   idf:
     version: ">=5.3"
+  button:
+    version: "^4.1.6"
+    require: public
+  led_strip:
+    version: "^3.0.3"
+    require: public
   esp_lcd_ek79007:
     version: "1.*"
     rules:

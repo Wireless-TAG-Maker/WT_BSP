@@ -4,7 +4,6 @@ dependencies:
   esp_lcd_ek79007: ^1.0.0
   kevincoooool/esp_lcd_st7102: ^1.0.0
   espressif/esp_lcd_touch_st7123: ^1.0.2
-  espressif/led_strip: "^2.0.0"
   espressif/esp_video: "0.8.*"
   espressif/esp_cam_sensor: "0.9.*"
   espressif/esp_sccb_intf: "*"

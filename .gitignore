@@ -4,6 +4,7 @@ build/
 .claude/
 .codex/
 temp/
+bsp_self_test/
 
 # Example project files
 examples/**/build/
