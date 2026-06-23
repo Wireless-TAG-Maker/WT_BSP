@@ -92,6 +92,9 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
         return ret;
     }
 
+    /* Give additional time for /dev/video0 device to be ready */
+    vTaskDelay(pdMS_TO_TICKS(200));
+
     csi->is_initialized = true;
     ESP_LOGI(TAG, "CSI initialized successfully");
 

@@ -198,20 +198,6 @@ void app_main(void)
             ESP_LOGI(TAG, "All peripherals initialized - LED OFF");
         }
     }
-            /* Only camera not connected: BLUE */
-            ESP_LOGW(TAG, "Camera not detected - LED BLUE");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
-            wt_bsp_rgb_refresh(rgb);
-        } else if (!sdmmc_ok) {
-            /* Only SD card not connected: YELLOW */
-            ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
-            wt_bsp_rgb_refresh(rgb);
-        } else {
-            /* All hardware connected: no LED indication */
-            ESP_LOGI(TAG, "All peripherals detected - LED OFF");
-        }
-    }
 
     /* Check if display is available before proceeding with UI */
     if (!dsi_ok) {
