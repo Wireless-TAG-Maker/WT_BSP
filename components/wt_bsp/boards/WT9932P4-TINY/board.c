@@ -203,17 +203,16 @@ static esp_err_t board_init(void)
         return ret;
     }
 
-    // Automatically mount SDMMC
+    // Automatically mount SDMMC (non-fatal if no card is present)
     ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
     if (ret != ESP_OK) {
-        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
-        ESP_LOGE(TAG, "Failed to mount SDMMC: %s", esp_err_to_name(ret));
-        return ret;
+        ESP_LOGW(TAG, "SDMMC mount failed (card may not be present): %s", esp_err_to_name(ret));
+        // Continue initialization even if SD card is not mounted
+    } else {
+        ESP_LOGI(TAG, "SDMMC mounted successfully");
     }
 
-    // Initialize DSI
+    // Initialize DSI (non-fatal if display is not connected)
     ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
         .backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM,
         .reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM,
@@ -230,11 +229,10 @@ static esp_err_t board_init(void)
         .ledc_timer = BOARD_DSI_LEDC_TIMER,
     });
     if (ret != ESP_OK) {
-        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
-        ESP_LOGE(TAG, "Failed to initialize DSI: %s", esp_err_to_name(ret));
-        return ret;
+        ESP_LOGW(TAG, "DSI initialization failed (display may not be connected): %s", esp_err_to_name(ret));
+        // Continue initialization even if DSI display is not available
+    } else {
+        ESP_LOGI(TAG, "DSI initialized successfully");
     }
 
     // Create shared I2C bus for Touch and CSI
@@ -251,7 +249,7 @@ static esp_err_t board_init(void)
         s_shared_i2c_bus = NULL;
     }
 
-    // Initialize CSI
+    // Initialize CSI (non-fatal if camera is not connected)
     /* 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
      * 正常使用摄像头前，必须将 IO0 拉高以启用摄像头供电及解除复位。 */
     gpio_config_t csi_pwr_conf = {
@@ -277,12 +275,10 @@ static esp_err_t board_init(void)
         .buffer_count = BOARD_CSI_BUF_COUNT,
     });
     if (ret != ESP_OK) {
-        wt_bsp_dsi_deinit(&s_bsp_dsi);
-        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
-        ESP_LOGE(TAG, "Failed to initialize CSI: %s", esp_err_to_name(ret));
-        return ret;
+        ESP_LOGW(TAG, "CSI initialization failed (camera may not be connected): %s", esp_err_to_name(ret));
+        // Continue initialization even if CSI camera is not available
+    } else {
+        ESP_LOGI(TAG, "CSI initialized successfully");
     }
 
     // Initialize touch
