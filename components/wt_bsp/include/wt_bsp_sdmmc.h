@@ -21,6 +21,7 @@
 #include "esp_err.h"
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
+#include "sd_pwr_ctrl.h"
 
 #if WT_BSP_SDCARD_ENABLE_IS_ENABLED
 
@@ -95,6 +96,21 @@ typedef struct {
      * @brief 数据 3 信号 GPIO 编号。
      */
     int d3_gpio;
+
+    /**
+     * @brief 是否启用片上 LDO 为 SD 卡供电（仅 ESP32-P4 需要）。
+     */
+    bool use_on_chip_ldo;
+
+    /**
+     * @brief 片上 LDO 通道 ID（如 VO4 则设为 4）。
+     */
+    int ldo_chan_id;
+
+    /**
+     * @brief LDO 输出电压（单位 mV，IDF v5.5.4 暂不支持）。
+     */
+    int ldo_voltage_mv;
 } wt_bsp_sdmmc_info_t;
 
 /**
@@ -115,6 +131,11 @@ typedef struct wt_bsp_sdmmc_obj_t {
      * @brief 是否已挂载文件系统。
      */
     bool is_mounted;
+
+    /**
+     * @brief SD 电源控制句柄（用于 ESP32-P4 片上 LDO）。
+     */
+    sd_pwr_ctrl_handle_t pwr_ctrl_handle;
 } wt_bsp_sdmmc_obj_t;
 
 /* ==================== [Global Prototypes] ================================= */

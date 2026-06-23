@@ -49,6 +49,10 @@
 #define BOARD_SDMMC_D2_GPIO 41
 #define BOARD_SDMMC_D3_GPIO 42
 
+#define BOARD_SDMMC_USE_ON_CHIP_LDO 1
+#define BOARD_SDMMC_LDO_CHAN_ID 4
+#define BOARD_SDMMC_LDO_VOLTAGE_MV 3300
+
 #define BOARD_DSI_BACKLIGHT_GPIO_NUM 26
 #define BOARD_DSI_RESET_GPIO_NUM 27
 #define BOARD_DSI_WIDTH 480
@@ -188,6 +192,9 @@ static esp_err_t board_init(void)
         .d1_gpio = BOARD_SDMMC_D1_GPIO,
         .d2_gpio = BOARD_SDMMC_D2_GPIO,
         .d3_gpio = BOARD_SDMMC_D3_GPIO,
+        .use_on_chip_ldo = BOARD_SDMMC_USE_ON_CHIP_LDO,
+        .ldo_chan_id = BOARD_SDMMC_LDO_CHAN_ID,
+        .ldo_voltage_mv = BOARD_SDMMC_LDO_VOLTAGE_MV,
     });
     if (ret != ESP_OK) {
         wt_bsp_rgb_deinit(&s_bsp_rgb);
