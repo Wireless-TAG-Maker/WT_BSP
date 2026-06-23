@@ -113,10 +113,14 @@ void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 
 esp_err_t example_sdcard_mount(void)
 {
-    /* BSP already mounts the SD card in init() */
+    /* Check if SD card is actually mounted */
     wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
     if (sdmmc == NULL) {
         return ESP_ERR_NOT_FOUND;
+    }
+    /* Check is_mounted flag and card handle */
+    if (!sdmmc->is_mounted || sdmmc->card == NULL) {
+        return ESP_FAIL;
     }
     return ESP_OK;
 }
@@ -145,6 +149,45 @@ void app_main(void)
     wt_bsp_dsi_t dsi = wt_bsp_get_dsi();
     wt_bsp_csi_t csi = wt_bsp_get_csi();
     wt_bsp_touch_t touch = wt_bsp_get_touch();
+    wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
+
+    /* Hardware status detection */
+    bool dsi_ok = (dsi != NULL && dsi->is_initialized);
+    bool csi_ok = (csi != NULL && csi->is_initialized);
+    bool sdmmc_ok = (sdmmc != NULL && sdmmc->is_mounted);
+
+    ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI=%d, SDMMC=%d", dsi_ok, csi_ok, sdmmc_ok);
+
+    /* Set LED color based on hardware status (priority: red > orange > yellow > blue > green) */
+    wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
+    if (rgb) {
+        if (!dsi_ok && !csi_ok && !sdmmc_ok) {
+            /* Screen, camera, and SD card all not connected: RED */
+            ESP_LOGW(TAG, "No peripherals detected - LED RED");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!csi_ok && !sdmmc_ok) {
+            /* Camera and SD card not connected: ORANGE */
+            ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!csi_ok) {
+            /* Only camera not connected: BLUE */
+            ESP_LOGW(TAG, "Camera not detected - LED BLUE");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!sdmmc_ok) {
+            /* Only SD card not connected: YELLOW */
+            ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else {
+            /* All hardware connected: GREEN */
+            ESP_LOGI(TAG, "All peripherals detected - LED GREEN");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 255, 0});
+            wt_bsp_rgb_refresh(rgb);
+        }
+    }
 
     if (dsi == NULL) {
         ESP_LOGE(TAG, "DSI handle is NULL. Check board_config.h");
