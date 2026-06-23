@@ -163,50 +163,41 @@ void app_main(void)
     /* Hardware status detection */
     bool dsi_ok = (dsi != NULL && dsi->is_initialized);
     bool sdmmc_ok = (sdmmc != NULL && sdmmc->is_mounted);
+    bool csi_initialized = (csi != NULL && csi->is_initialized);
 
-    /* CSI detection requires actually starting the camera to verify it's connected */
-    bool csi_ok = false;
-    if (csi != NULL && csi->is_initialized) {
-        /* Try to start CSI with a detection callback to verify camera is present */
-        s_csi_detected = false;
-        esp_err_t ret = wt_bsp_csi_start(csi, s_csi_detect_cb, NULL);
-        if (ret == ESP_OK) {
-            /* Give some time for at least one frame to be captured */
-            vTaskDelay(pdMS_TO_TICKS(500));
-            if (s_csi_detected) {
-                csi_ok = true;
-            }
-            /* Stop the camera after detection */
-            wt_bsp_csi_stop(csi);
-            /* Additional delay to ensure cleanup is complete */
-            vTaskDelay(pdMS_TO_TICKS(200));
+    /* CSI status will be determined later when we actually try to start it */
+    /* For LED indication, we assume CSI is OK if it initialized, will update if start fails */
 
-            if (csi_ok) {
-                ESP_LOGI(TAG, "Camera detected");
-            } else {
-                ESP_LOGW(TAG, "Camera not detected (no frames received)");
-            }
-        } else {
-            ESP_LOGW(TAG, "Camera not detected (wt_bsp_csi_start failed: %s)", esp_err_to_name(ret));
-        }
-    }
+    ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI_init=%d, SDMMC=%d", dsi_ok, csi_initialized, sdmmc_ok);
 
-    ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI=%d, SDMMC=%d", dsi_ok, csi_ok, sdmmc_ok);
-
-    /* Set LED color based on hardware status (only indicate missing hardware) */
+    /* Set LED color based on initial hardware status (CSI will be verified later) */
     wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
     if (rgb) {
-        if (!dsi_ok && !csi_ok && !sdmmc_ok) {
+        if (!dsi_ok && !csi_initialized && !sdmmc_ok) {
             /* Screen, camera, and SD card all not connected: RED */
             ESP_LOGW(TAG, "No peripherals detected - LED RED");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
             wt_bsp_rgb_refresh(rgb);
-        } else if (!csi_ok && !sdmmc_ok) {
-            /* Camera and SD card not connected: ORANGE */
+        } else if (!csi_initialized && !sdmmc_ok) {
+            /* Camera and SD card not connected (based on init): ORANGE */
             ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
             wt_bsp_rgb_refresh(rgb);
-        } else if (!csi_ok) {
+        } else if (!csi_initialized) {
+            /* Only camera not connected (based on init): BLUE */
+            ESP_LOGW(TAG, "Camera not detected (init failed) - LED BLUE");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!sdmmc_ok) {
+            /* Only SD card not connected: YELLOW */
+            ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else {
+            /* All hardware initialized: no LED indication */
+            ESP_LOGI(TAG, "All peripherals initialized - LED OFF");
+        }
+    }
             /* Only camera not connected: BLUE */
             ESP_LOGW(TAG, "Camera not detected - LED BLUE");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
