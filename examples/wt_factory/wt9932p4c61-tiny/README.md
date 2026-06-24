@@ -1,5 +1,5 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4C61-TINY |
+| ----------------- | ---------------- |
 
 # Comprehensive Factory Test Example (Factory Firmware)
 
