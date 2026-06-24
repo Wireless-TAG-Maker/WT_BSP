@@ -178,15 +178,15 @@ void app_main(void)
             ESP_LOGW(TAG, "No peripherals detected - LED RED");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
             wt_bsp_rgb_refresh(rgb);
-        } else if (!dsi_ok) {
-            /* Screen not connected (with any other state): PINK */
-            ESP_LOGW(TAG, "Screen not detected - LED PINK");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
-            wt_bsp_rgb_refresh(rgb);
         } else if (!csi_initialized && !sdmmc_ok) {
             /* Camera and SD card not connected (based on init): ORANGE */
             ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!dsi_ok) {
+            /* Screen not connected (with any other state): PINK */
+            ESP_LOGW(TAG, "Screen not detected - LED PINK");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
             wt_bsp_rgb_refresh(rgb);
         } else if (!csi_initialized) {
             /* Only camera not connected (based on init): BLUE */
@@ -208,6 +208,7 @@ void app_main(void)
     if (!dsi_ok) {
         ESP_LOGW(TAG, "Display not available, skipping UI initialization");
         ESP_LOGI(TAG, "Factory firmware example running (no display mode)");
+        wt_bsp_deinit();
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(100000));
         }

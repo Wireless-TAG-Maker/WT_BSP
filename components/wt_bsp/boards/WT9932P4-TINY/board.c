@@ -323,9 +323,8 @@ static esp_err_t board_init(void)
         ESP_LOGE(TAG, "I2C device detection failed: no devices found");
         i2c_del_master_bus(s_shared_i2c_bus);
         s_shared_i2c_bus = NULL;
-        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
-        wt_bsp_rgb_deinit(&s_bsp_rgb);
-        wt_bsp_button_deinit(&s_bsp_button);
+        // Keep RGB, Button, and SDMMC for status indication
+        s_board_is_init = true;  // Mark as init to allow deinit later
         return ESP_ERR_NOT_FOUND;
     }
 
