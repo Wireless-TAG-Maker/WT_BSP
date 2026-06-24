@@ -1,67 +1,59 @@
 | Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
 | ----------------- | ------------- | ---------------- |
 
-# 综合工厂测试示例 (Factory Firmware)
+# Comprehensive Factory Test Example (Factory Firmware)
 
-本示例是一个综合性的工厂固件，集成了 Wireless-Tag BSP 提供的多种外设功能，包括：
-* **MIPI DSI 液晶屏显示**：使用 LVGL 9.4.0 展示图形界面。
-* **MIPI CSI 摄像头采集**：实时采集摄像头画面并通过 PPA 硬件加速显示在屏幕上。
-* **触摸控制**：支持 DSI 屏配套的触摸功能。
-* **SD 卡测试**：支持 SDMMC 接口的 SD 卡挂载及容量查看。
-* **RGB LED 控制**：支持板载 WS2812 RGB LED 控制。
+This example is a comprehensive factory firmware that integrates various peripheral features provided by the Wireless-Tag BSP, including:
+* **MIPI DSI LCD Display**: Uses LVGL 9.4.0 to render the graphical user interface.
+* **MIPI CSI Camera Capture**: Captures the real-time camera feed and displays it on the screen via PPA hardware acceleration.
+* **Touch Control**: Supports the touch functionality associated with the DSI screen.
+* **SD Card Test**: Supports mounting and capacity checking of SD cards using the SDMMC interface.
+* **RGB LED Control**: Supports control of the onboard WS2812 RGB LED.
 
-## 硬件状态指示 (RGB LED)
+## Hardware Status Indication (RGB LED)
 
-系统启动时会自动检测外设连接状态，并通过板载 RGB LED 显示不同的颜色来指示硬件状态：
+Upon startup, the system automatically detects the connection status of peripherals and uses the onboard RGB LED to display different colors indicating the hardware status:
 
-| LED 颜色 | 硬件状态 | 说明 |
-|----------|----------|------|
-| ⚫ 熄灭 | 全部正常 | 屏幕、摄像头、SD 卡均已正确连接并初始化成功 |
-| 🔵 蓝色 | 摄像头未连接 |  |
-| 🟡 黄色 | SD 卡未连接 |  |
-| 🟠 粉色 | 屏幕未连接 |
-| 🔴 红色 | 全部未连接 | 屏幕、摄像头、SD 卡均未连接 |
+| LED Color | Hardware Status | Description |
+|-----------|-----------------|-------------|
+| ⚫ Off | All Normal | Screen, camera, and SD card are correctly connected and successfully initialized |
+| 🔵 Blue | Camera Disconnected | |
+| 🟡 Yellow | SD Card Disconnected | |
+| 🟠 Pink | Screen Disconnected | |
+| 🔴 Red | All Disconnected | Screen, camera, and SD card are all disconnected |
 
-**RGB 颜色参考值：**
-- 蓝色: R=0, G=0, B=255
-- 黄色: R=255, G=255, B=0
-- 橙色: R=255, G=165, B=0
-- 红色: R=255, G=0, B=0
+**RGB Color Reference Values:**
+- Blue: R=0, G=0, B=255
+- Yellow: R=255, G=255, B=0
+- Orange: R=255, G=165, B=0
+- Red: R=255, G=0, B=0
 
-## 如何使用示例
+## How to Use the Example
 
-### 硬件要求
+### Hardware Requirements
 
-目前支持的开发板：
-* **WT9932P4-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
-* **WT9932P4C61-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
+Currently supported development boards:
+* **WT9932P4-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
+* **WT9932P4C61-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
 
-### 配置工程
+### Configure the Project
 
-在编译之前，您需要设置目标芯片为 `esp32p4`：
+Before building, you need to set the target chip to `esp32p4`:
 
 ```bash
 idf.py set-target esp32p4
 ```
 
-本示例已包含默认的 `sdkconfig.defaults`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
+This example already includes a default `sdkconfig.defaults`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
 
-### 编译与烧录
+### Build and Flash
 
-编译工程并烧录到开发板：
+Build the project and flash it to the development board:
 
 ```bash
 idf.py build flash monitor
 ```
 
-## 核心功能说明
+## Core Features Explanation
 
-* **摄像头预览**：顶部区域显示实时摄像头画面。点击画面可以切换全屏预览和普通预览模式。全屏模式下会使用 PPA 硬件进行 90 度旋转。
-* **LED 控制**：底部左侧滑块可调节板载 RGB LED 的颜色。
-* **SD 卡状态**：底部右侧按钮可测试 SD 卡挂载，并显示其容量信息。
-
-## 工程结构
-
-* `main/main.c`：主入口，负责 BSP 初始化、硬件状态检测、LVGL 启动及外设逻辑。
-* `main/lvgl_demo_ui.c`：UI 界面实现。
-* `managed_components/`：依赖的 ESP-IDF 组件。
+* **Camera Preview**: The top area displays the real-time camera feed. Tapping the feed toggles between full-screen preview and normal preview modes. In full
