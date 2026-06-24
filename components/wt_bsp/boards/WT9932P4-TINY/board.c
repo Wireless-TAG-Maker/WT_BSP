@@ -76,6 +76,13 @@
 #define BOARD_CSI_FPS 30
 #define BOARD_CSI_BUF_COUNT 3
 
+#define BOARD_I2C_SCAN_TIMEOUT_MS 200
+
+/* I2C 设备地址定义 */
+#define BOARD_I2C_ADDR_DISPLAY  0x28
+#define BOARD_I2C_ADDR_TOUCH    0x55
+#define BOARD_I2C_ADDR_CAMERA   0x30
+
 #define BOARD_TOUCH_I2C_PORT 0
 #define BOARD_TOUCH_I2C_SDA_PIN 7
 #define BOARD_TOUCH_I2C_SCL_PIN 8
@@ -83,6 +90,15 @@
 #define BOARD_TOUCH_INT_PIN -1
 
 /* ==================== [Typedefs] ========================================== */
+
+/**
+ * @brief I2C 设备检测状态
+ */
+typedef struct {
+    bool display_detected;
+    bool touch_detected;
+    bool camera_detected;
+} board_i2c_device_status_t;
 
 /* ==================== [Static Prototypes] ================================= */
 
@@ -95,6 +111,7 @@ static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_dsi_t board_get_dsi(void);
 static wt_bsp_csi_t board_get_csi(void);
 static wt_bsp_touch_t board_get_touch(void);
+static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -133,6 +150,61 @@ wt_bsp_interface_t *board_get_bsp_interface(void)
 }
 
 /* ==================== [Static Functions] ================================== */
+
+/**
+ * @brief 扫描 I2C 总线上的指定设备
+ * @param bus_handle I2C 总线句柄
+ * @param status 输出检测到的设备状态
+ * @return ESP_OK 或 ESP_ERR_NOT_FOUND（如果没有检测到任何设备）
+ */
+static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status)
+{
+    if (status == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memset(status, 0, sizeof(board_i2c_device_status_t));
+    bool any_device_found = false;
+
+    ESP_LOGI(TAG, "Scanning I2C bus for devices...");
+
+    // 检测屏幕 (0x28)
+    esp_err_t ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_DISPLAY, BOARD_I2C_SCAN_TIMEOUT_MS);
+    if (ret == ESP_OK) {
+        status->display_detected = true;
+        any_device_found = true;
+        ESP_LOGI(TAG, "Found display device at address: 0x%02x", BOARD_I2C_ADDR_DISPLAY);
+    } else {
+        ESP_LOGW(TAG, "Display device not found at address: 0x%02x", BOARD_I2C_ADDR_DISPLAY);
+    }
+
+    // 检测触摸屏 (0x55)
+    ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_TOUCH, BOARD_I2C_SCAN_TIMEOUT_MS);
+    if (ret == ESP_OK) {
+        status->touch_detected = true;
+        any_device_found = true;
+        ESP_LOGI(TAG, "Found touch device at address: 0x%02x", BOARD_I2C_ADDR_TOUCH);
+    } else {
+        ESP_LOGW(TAG, "Touch device not found at address: 0x%02x", BOARD_I2C_ADDR_TOUCH);
+    }
+
+    // 检测摄像头 (0x30)
+    ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_CAMERA, BOARD_I2C_SCAN_TIMEOUT_MS);
+    if (ret == ESP_OK) {
+        status->camera_detected = true;
+        any_device_found = true;
+        ESP_LOGI(TAG, "Found camera device at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
+    } else {
+        ESP_LOGW(TAG, "Camera device not found at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
+    }
+
+    ESP_LOGI(TAG, "I2C scan complete. Display: %s, Touch: %s, Camera: %s",
+             status->display_detected ? "YES" : "NO",
+             status->touch_detected ? "YES" : "NO",
+             status->camera_detected ? "YES" : "NO");
+
+    return any_device_found ? ESP_OK : ESP_ERR_NOT_FOUND;
+}
 
 static esp_err_t board_init(void)
 {
@@ -212,28 +284,19 @@ static esp_err_t board_init(void)
         ESP_LOGI(TAG, "SDMMC mounted successfully");
     }
 
-    // Initialize DSI (non-fatal if display is not connected)
-    ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
-        .backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM,
-        .reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM,
-        .width = BOARD_DSI_WIDTH,
-        .height = BOARD_DSI_HEIGHT,
-        .dsi_lane_num = BOARD_DSI_LANE_NUM,
-        .panel_type = BOARD_DSI_PANEL_TYPE,
-        .color_format = BOARD_DSI_COLOR_FORMAT,
-        .dpi_frame_buffer_num = BOARD_DSI_DPI_FB_NUM,
-        .lane_bit_rate_mbps = BOARD_DSI_LANE_BITRATE_MBPS,
-        .phy_ldo_channel = BOARD_DSI_PHY_LDO_CHANNEL,
-        .phy_ldo_voltage_mv = BOARD_DSI_PHY_LDO_VOLTAGE_MV,
-        .ledc_channel = BOARD_DSI_LEDC_CHANNEL,
-        .ledc_timer = BOARD_DSI_LEDC_TIMER,
-    });
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "DSI initialization failed (display may not be connected): %s", esp_err_to_name(ret));
-        // Continue initialization even if DSI display is not available
-    } else {
-        ESP_LOGI(TAG, "DSI initialized successfully");
-    }
+    // 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
+    // 正常使用摄像头前，必须将 IO0 拉高以启用摄像头供电及解除复位。
+    // 在 I2C 扫描前需要先开启摄像头电源，确保摄像头能被检测到。
+    gpio_config_t csi_pwr_conf = {
+        .pin_bit_mask = (1ULL << 0),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&csi_pwr_conf);
+    gpio_set_level(0, 1);
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     // Create shared I2C bus for Touch and CSI
     i2c_master_bus_config_t i2c_config = {
@@ -247,54 +310,92 @@ static esp_err_t board_init(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize shared I2C bus: %s", esp_err_to_name(ret));
         s_shared_i2c_bus = NULL;
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        return ESP_ERR_NOT_FOUND;
     }
 
-    // Initialize CSI (non-fatal if camera is not connected)
-    /* 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
-     * 正常使用摄像头前，必须将 IO0 拉高以启用摄像头供电及解除复位。 */
-    gpio_config_t csi_pwr_conf = {
-        .pin_bit_mask = (1ULL << 0),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    gpio_config(&csi_pwr_conf);
-    gpio_set_level(0, 1);
-    vTaskDelay(pdMS_TO_TICKS(50));
-
-    ret = wt_bsp_csi_init(&s_bsp_csi, &(wt_bsp_csi_info_t) {
-        .i2c_bus_handle = s_shared_i2c_bus,
-        .sccb_scl_pin = BOARD_CSI_SCCB_SCL_PIN,
-        .sccb_sda_pin = BOARD_CSI_SCCB_SDA_PIN,
-        .reset_pin = BOARD_CSI_RESET_PIN,
-        .pwdn_pin = BOARD_CSI_PWDN_PIN,
-        .width = BOARD_CSI_WIDTH,
-        .height = BOARD_CSI_HEIGHT,
-        .fps = BOARD_CSI_FPS,
-        .buffer_count = BOARD_CSI_BUF_COUNT,
-    });
+    // Scan I2C bus for expected devices
+    board_i2c_device_status_t device_status = {0};
+    ret = board_i2c_scan_devices(s_shared_i2c_bus, &device_status);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "CSI initialization failed (camera may not be connected): %s", esp_err_to_name(ret));
-        // Continue initialization even if CSI camera is not available
+        ESP_LOGE(TAG, "I2C device detection failed: no devices found");
+        i2c_del_master_bus(s_shared_i2c_bus);
+        s_shared_i2c_bus = NULL;
+        wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
+        wt_bsp_rgb_deinit(&s_bsp_rgb);
+        wt_bsp_button_deinit(&s_bsp_button);
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    // Initialize DSI only if display device was detected
+    if (device_status.display_detected) {
+        ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
+            .backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM,
+            .reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM,
+            .width = BOARD_DSI_WIDTH,
+            .height = BOARD_DSI_HEIGHT,
+            .dsi_lane_num = BOARD_DSI_LANE_NUM,
+            .panel_type = BOARD_DSI_PANEL_TYPE,
+            .color_format = BOARD_DSI_COLOR_FORMAT,
+            .dpi_frame_buffer_num = BOARD_DSI_DPI_FB_NUM,
+            .lane_bit_rate_mbps = BOARD_DSI_LANE_BITRATE_MBPS,
+            .phy_ldo_channel = BOARD_DSI_PHY_LDO_CHANNEL,
+            .phy_ldo_voltage_mv = BOARD_DSI_PHY_LDO_VOLTAGE_MV,
+            .ledc_channel = BOARD_DSI_LEDC_CHANNEL,
+            .ledc_timer = BOARD_DSI_LEDC_TIMER,
+        });
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "DSI initialization failed: %s", esp_err_to_name(ret));
+        } else {
+            ESP_LOGI(TAG, "DSI initialized successfully");
+        }
     } else {
-        ESP_LOGI(TAG, "CSI initialized successfully");
+        ESP_LOGW(TAG, "Display device not detected, skipping DSI initialization");
     }
 
-    // Initialize touch
-    ret = wt_bsp_touch_init(&s_bsp_touch, &(wt_bsp_touch_info_t) {
-        .i2c_bus_handle = s_shared_i2c_bus,
-        .i2c_port = BOARD_TOUCH_I2C_PORT,
-        .scl_pin = BOARD_TOUCH_I2C_SCL_PIN,
-        .sda_pin = BOARD_TOUCH_I2C_SDA_PIN,
-        .rst_pin = BOARD_TOUCH_RST_PIN,
-        .int_pin = BOARD_TOUCH_INT_PIN,
-        .width = BOARD_DSI_WIDTH,
-        .height = BOARD_DSI_HEIGHT,
-    });
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize touch: %s", esp_err_to_name(ret));
-        // Touch failure is not fatal
+    // Initialize CSI only if camera device was detected
+    if (device_status.camera_detected) {
+        ret = wt_bsp_csi_init(&s_bsp_csi, &(wt_bsp_csi_info_t) {
+            .i2c_bus_handle = s_shared_i2c_bus,
+            .sccb_scl_pin = BOARD_CSI_SCCB_SCL_PIN,
+            .sccb_sda_pin = BOARD_CSI_SCCB_SDA_PIN,
+            .reset_pin = BOARD_CSI_RESET_PIN,
+            .pwdn_pin = BOARD_CSI_PWDN_PIN,
+            .width = BOARD_CSI_WIDTH,
+            .height = BOARD_CSI_HEIGHT,
+            .fps = BOARD_CSI_FPS,
+            .buffer_count = BOARD_CSI_BUF_COUNT,
+        });
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "CSI initialization failed: %s", esp_err_to_name(ret));
+        } else {
+            ESP_LOGI(TAG, "CSI initialized successfully");
+        }
+    } else {
+        ESP_LOGW(TAG, "Camera device not detected, skipping CSI initialization");
+    }
+
+    // Initialize touch only if touch device was detected
+    if (device_status.touch_detected) {
+        ret = wt_bsp_touch_init(&s_bsp_touch, &(wt_bsp_touch_info_t) {
+            .i2c_bus_handle = s_shared_i2c_bus,
+            .i2c_port = BOARD_TOUCH_I2C_PORT,
+            .scl_pin = BOARD_TOUCH_I2C_SCL_PIN,
+            .sda_pin = BOARD_TOUCH_I2C_SDA_PIN,
+            .rst_pin = BOARD_TOUCH_RST_PIN,
+            .int_pin = BOARD_TOUCH_INT_PIN,
+            .width = BOARD_DSI_WIDTH,
+            .height = BOARD_DSI_HEIGHT,
+        });
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Touch initialization failed: %s", esp_err_to_name(ret));
+        } else {
+            ESP_LOGI(TAG, "Touch initialized successfully");
+        }
+    } else {
+        ESP_LOGW(TAG, "Touch device not detected, skipping touch initialization");
     }
 
     s_board_is_init = true;
@@ -326,6 +427,15 @@ static esp_err_t board_deinit(void)
     ret = wt_bsp_dsi_deinit(&s_bsp_dsi);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to deinitialize DSI: %s", esp_err_to_name(ret));
+    }
+
+    // Delete I2C bus
+    if (s_shared_i2c_bus != NULL) {
+        ret = i2c_del_master_bus(s_shared_i2c_bus);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to delete I2C bus: %s", esp_err_to_name(ret));
+        }
+        s_shared_i2c_bus = NULL;
     }
 
     // Deinitialize SDMMC
