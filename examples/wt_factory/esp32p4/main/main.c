@@ -152,7 +152,7 @@ void app_main(void)
     esp_err_t ret = wt_bsp_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "BSP init failed: %s", esp_err_to_name(ret));
-        return;
+        //return;
     }
 
     wt_bsp_dsi_t dsi = wt_bsp_get_dsi();
@@ -177,6 +177,11 @@ void app_main(void)
             /* Screen, camera, and SD card all not connected: RED */
             ESP_LOGW(TAG, "No peripherals detected - LED RED");
             wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!dsi_ok) {
+            /* Screen not connected (with any other state): PINK */
+            ESP_LOGW(TAG, "Screen not detected - LED PINK");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
             wt_bsp_rgb_refresh(rgb);
         } else if (!csi_initialized && !sdmmc_ok) {
             /* Camera and SD card not connected (based on init): ORANGE */

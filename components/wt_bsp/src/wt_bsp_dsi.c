@@ -96,9 +96,21 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
 
     memset(dsi, 0, sizeof(*dsi));
     dsi->info = resolved;
+    dsi->is_initialized = false;
 
-    ESP_GOTO_ON_ERROR(wt_bsp_dsi_init_backlight(dsi), err, TAG, "init backlight failed");
-    ESP_GOTO_ON_ERROR(wt_bsp_dsi_enable_phy_power(dsi), err, TAG, "enable DSI PHY power failed");
+    /* Initialize backlight (non-critical) */
+    ret = wt_bsp_dsi_init_backlight(dsi);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Backlight initialization failed: %s", esp_err_to_name(ret));
+        /* Continue without backlight */
+    }
+
+    /* Enable DSI PHY power (non-critical) */
+    ret = wt_bsp_dsi_enable_phy_power(dsi);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "DSI PHY power enable failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
 
     esp_lcd_dsi_bus_config_t bus_config = {
         .bus_id = 0,
@@ -106,17 +118,40 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
         .phy_clk_src = MIPI_DSI_PHY_CLK_SRC_DEFAULT,
         .lane_bit_rate_mbps = dsi->info.lane_bit_rate_mbps,
     };
-    ESP_GOTO_ON_ERROR(esp_lcd_new_dsi_bus(&bus_config, &dsi->mipi_dsi_bus), err, TAG, "new DSI bus failed");
+    ret = esp_lcd_new_dsi_bus(&bus_config, &dsi->mipi_dsi_bus);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "DSI bus creation failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
 
     esp_lcd_dbi_io_config_t dbi_config = {
         .virtual_channel = 0,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
     };
-    ESP_GOTO_ON_ERROR(esp_lcd_new_panel_io_dbi(dsi->mipi_dsi_bus, &dbi_config, &dsi->io), err, TAG, "new panel IO failed");
-    ESP_GOTO_ON_ERROR(wt_bsp_dsi_new_panel(dsi), err, TAG, "new LCD panel failed");
-    ESP_GOTO_ON_ERROR(esp_lcd_panel_reset(dsi->panel), err, TAG, "LCD panel reset failed");
-    ESP_GOTO_ON_ERROR(esp_lcd_panel_init(dsi->panel), err, TAG, "LCD panel init failed");
+    ret = esp_lcd_new_panel_io_dbi(dsi->mipi_dsi_bus, &dbi_config, &dsi->io);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Panel IO creation failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
+
+    ret = wt_bsp_dsi_new_panel(dsi);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "LCD panel creation failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
+
+    ret = esp_lcd_panel_reset(dsi->panel);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "LCD panel reset failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
+
+    ret = esp_lcd_panel_init(dsi->panel);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "LCD panel init failed: %s", esp_err_to_name(ret));
+        goto err;
+    }
 
     dsi->is_initialized = true;
     ESP_LOGI(TAG, "DSI display initialized: %ux%u, panel=%d, lanes=%u",
