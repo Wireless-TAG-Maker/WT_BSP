@@ -27,7 +27,7 @@
 static const char *TAG = "factory_firmware";
 
 /* External UI functions from lvgl_demo_ui.c */
-extern void example_lvgl_demo_ui(lv_display_t *disp);
+extern void lvgl_ui(lv_display_t *disp);
 extern void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height);
 extern void set_camera_error(const char *msg);
 extern bool is_fullscreen;
@@ -36,6 +36,15 @@ extern bool is_fullscreen;
 static ppa_client_handle_t s_ppa_srm_handle = NULL;
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
 static uint8_t s_current_buf_idx = 0;
+static bool s_csi_detected = false;
+
+/**
+ * @brief Callback for camera detection. Just sets flag on first frame.
+ */
+static void s_csi_detect_cb(uint8_t *buf, uint32_t width, uint32_t height, size_t len, void *user_data)
+{
+    s_csi_detected = true;
+}
 
 /**
  * @brief Camera frame callback. Processes frame using PPA and updates UI.
@@ -113,10 +122,14 @@ void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 
 esp_err_t example_sdcard_mount(void)
 {
-    /* BSP already mounts the SD card in init() */
+    /* Check if SD card is actually mounted */
     wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
     if (sdmmc == NULL) {
         return ESP_ERR_NOT_FOUND;
+    }
+    /* Check is_mounted flag and card handle */
+    if (!sdmmc->is_mounted || sdmmc->card == NULL) {
+        return ESP_FAIL;
     }
     return ESP_OK;
 }
@@ -139,15 +152,66 @@ void app_main(void)
     esp_err_t ret = wt_bsp_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "BSP init failed: %s", esp_err_to_name(ret));
-        return;
+        //return;
     }
 
     wt_bsp_dsi_t dsi = wt_bsp_get_dsi();
     wt_bsp_csi_t csi = wt_bsp_get_csi();
     wt_bsp_touch_t touch = wt_bsp_get_touch();
+    wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
 
-    if (dsi == NULL) {
-        ESP_LOGE(TAG, "DSI handle is NULL. Check board_config.h");
+    /* Hardware status detection */
+    bool dsi_ok = (dsi != NULL && dsi->is_initialized);
+    bool sdmmc_ok = (sdmmc != NULL && sdmmc->is_mounted);
+    bool csi_initialized = (csi != NULL && csi->is_initialized);
+
+    /* CSI status will be determined later when we actually try to start it */
+    /* For LED indication, we assume CSI is OK if it initialized, will update if start fails */
+
+    ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI_init=%d, SDMMC=%d", dsi_ok, csi_initialized, sdmmc_ok);
+
+    /* Set LED color based on initial hardware status (CSI will be verified later) */
+    wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
+    if (rgb) {
+        if (!dsi_ok && !csi_initialized && !sdmmc_ok) {
+            /* Screen, camera, and SD card all not connected: RED */
+            ESP_LOGW(TAG, "No peripherals detected - LED RED");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!csi_initialized && !sdmmc_ok) {
+            /* Camera and SD card not connected (based on init): ORANGE */
+            ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!dsi_ok) {
+            /* Screen not connected (with any other state): PINK */
+            ESP_LOGW(TAG, "Screen not detected - LED PINK");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!csi_initialized) {
+            /* Only camera not connected (based on init): BLUE */
+            ESP_LOGW(TAG, "Camera not detected (init failed) - LED BLUE");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
+            wt_bsp_rgb_refresh(rgb);
+        } else if (!sdmmc_ok) {
+            /* Only SD card not connected: YELLOW */
+            ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
+            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
+            wt_bsp_rgb_refresh(rgb);
+        } else {
+            /* All hardware initialized: no LED indication */
+            ESP_LOGI(TAG, "All peripherals initialized - LED OFF");
+        }
+    }
+
+    /* Check if display is available before proceeding with UI */
+    if (!dsi_ok) {
+        ESP_LOGW(TAG, "Display not available, skipping UI initialization");
+        ESP_LOGI(TAG, "Factory firmware example running (no display mode)");
+        wt_bsp_deinit();
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(100000));
+        }
         return;
     }
 
@@ -177,7 +241,7 @@ void app_main(void)
 
     /* 3. Setup UI */
     if (wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
-        example_lvgl_demo_ui(disp);
+        lvgl_ui(disp);
         wt_bsp_dsi_lvgl_unlock();
     }
 
@@ -216,7 +280,7 @@ void app_main(void)
     }
 
     ESP_LOGI(TAG, "Factory firmware example running");
-    
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(100000));
     }

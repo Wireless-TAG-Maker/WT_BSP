@@ -34,7 +34,7 @@
 #define MAP_FAILED ((void *)-1)
 #endif
 
-#define CSI_STREAM_TASK_STACK_SIZE    (4096)
+#define CSI_STREAM_TASK_STACK_SIZE    (8192)
 #define CSI_STREAM_TASK_PRIO          (5)
 
 /* ==================== [Typedefs] ========================================== */
@@ -54,7 +54,7 @@ static const char *TAG = "wt_bsp_csi";
 esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 {
     esp_err_t ret = ESP_OK;
-
+    
     if (csi == NULL || info == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -62,6 +62,7 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
     memset(csi, 0, sizeof(*csi));
     csi->info = *info;
     csi->v4l2_fd = -1;
+    csi->is_initialized = false;
 
     esp_video_init_csi_config_t csi_config = {0};
     csi_config.sccb_config.init_sccb = (info->i2c_bus_handle == NULL);
@@ -91,6 +92,9 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
         ESP_LOGE(TAG, "esp_video_init failed: %s", esp_err_to_name(ret));
         return ret;
     }
+
+    /* Give additional time for /dev/video0 device to be ready */
+    vTaskDelay(pdMS_TO_TICKS(200));
 
     csi->is_initialized = true;
     ESP_LOGI(TAG, "CSI initialized successfully");
