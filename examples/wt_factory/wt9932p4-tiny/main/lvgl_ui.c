@@ -104,7 +104,7 @@ static void sd_mount_event_cb(lv_event_t * e)
     }
 }
 
-void example_lvgl_demo_ui(lv_display_t *disp)
+void lvgl_ui(lv_display_t *disp)
 {
     lv_obj_t *scr = lv_display_get_screen_active(disp);
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);

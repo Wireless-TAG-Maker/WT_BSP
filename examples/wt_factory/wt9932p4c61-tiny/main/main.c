@@ -27,7 +27,7 @@
 static const char *TAG = "factory_firmware";
 
 /* External UI functions from lvgl_demo_ui.c */
-extern void example_lvgl_demo_ui(lv_display_t *disp);
+extern void lvgl_ui(lv_display_t *disp);
 extern void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height);
 extern void set_camera_error(const char *msg);
 extern bool is_fullscreen;
@@ -241,7 +241,7 @@ void app_main(void)
 
     /* 3. Setup UI */
     if (wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
-        example_lvgl_demo_ui(disp);
+        lvgl_ui(disp);
         wt_bsp_dsi_lvgl_unlock();
     }
 
