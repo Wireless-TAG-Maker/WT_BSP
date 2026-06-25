@@ -18,6 +18,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
+#include "sd_pwr_ctrl_by_on_chip_ldo.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -43,6 +44,24 @@ esp_err_t wt_bsp_sdmmc_init(wt_bsp_sdmmc_t sdmmc, const wt_bsp_sdmmc_info_t *inf
     sdmmc->info = *info;
     sdmmc->is_mounted = false;
     sdmmc->card = NULL;
+    sdmmc->pwr_ctrl_handle = NULL;
+
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+    // Initialize on-chip LDO for SD card power if requested
+    if (sdmmc->info.use_on_chip_ldo) {
+        ESP_LOGI(TAG, "Initializing on-chip LDO channel %d for SD card",
+                 sdmmc->info.ldo_chan_id);
+        sd_pwr_ctrl_ldo_config_t ldo_config = {
+            .ldo_chan_id = sdmmc->info.ldo_chan_id,
+        };
+        esp_err_t ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &sdmmc->pwr_ctrl_handle);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to initialize on-chip LDO: %s", esp_err_to_name(ret));
+            return ret;
+        }
+        ESP_LOGI(TAG, "On-chip LDO initialized successfully");
+    }
+#endif
 
     return ESP_OK;
 }
@@ -56,6 +75,15 @@ esp_err_t wt_bsp_sdmmc_deinit(wt_bsp_sdmmc_t sdmmc)
     if (sdmmc->is_mounted) {
         wt_bsp_sdmmc_unmount(sdmmc);
     }
+
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+    // Release on-chip LDO power control handle
+    if (sdmmc->pwr_ctrl_handle != NULL) {
+        ESP_LOGI(TAG, "Releasing on-chip LDO power control");
+        sd_pwr_ctrl_del_on_chip_ldo(sdmmc->pwr_ctrl_handle);
+        sdmmc->pwr_ctrl_handle = NULL;
+    }
+#endif
 
     return ESP_OK;
 }
@@ -88,6 +116,11 @@ esp_err_t wt_bsp_sdmmc_mount(wt_bsp_sdmmc_t sdmmc)
     // For ESP32-P4, we need to check if we can use other slots.
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.slot = sdmmc->info.slot;
+
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+    // Set the power control handle for SDMMC (required for ESP32-P4)
+    host.pwr_ctrl_handle = sdmmc->pwr_ctrl_handle;
+#endif
 
     // This initializes the slot without card detect or write protect signals.
     // Modify slot_config.cd and slot_config.wp if your board has these signals.
