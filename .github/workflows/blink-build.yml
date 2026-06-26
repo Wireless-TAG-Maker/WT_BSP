@@ -1,0 +1,39 @@
+name: Blink Build
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blink-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build blink (${{ matrix.target }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - esp32c2
+          - esp32c3
+          - esp32c5
+          - esp32c61
+          - esp32p4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build examples/get-started/blink
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v6.0.1
+          target: ${{ matrix.target }}
+          path: examples/get-started/blink
