@@ -305,15 +305,6 @@ static esp_err_t board_init(void)
         return ret;
     }
 
-    // Automatically mount SDMMC (non-fatal if no card is present)
-    ret = wt_bsp_sdmmc_mount(&s_bsp_sdmmc);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "SDMMC mount failed (card may not be present): %s", esp_err_to_name(ret));
-        // Continue initialization even if SD card is not mounted
-    } else {
-        ESP_LOGI(TAG, "SDMMC mounted successfully");
-    }
-
 #endif
 #if BOARD_I2C_FEATURE_ENABLED
     // 硬件限制：IO0 连接到了摄像头的 PWDN/LDO/RESET 引脚。
@@ -546,7 +537,7 @@ static wt_bsp_rgb_t board_get_rgb(void)
 static wt_bsp_sdmmc_t board_get_sdmmc(void)
 {
 #if WT_BSP_SDMMC_ENABLED
-    return (s_bsp_sdmmc.is_mounted && s_bsp_sdmmc.card != NULL) ? &s_bsp_sdmmc : NULL;
+    return s_bsp_sdmmc.is_initialized ? &s_bsp_sdmmc : NULL;
 #else
     return NULL;
 #endif

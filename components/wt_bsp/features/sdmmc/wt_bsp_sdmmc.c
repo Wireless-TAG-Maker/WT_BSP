@@ -42,6 +42,7 @@ esp_err_t wt_bsp_sdmmc_init(wt_bsp_sdmmc_t sdmmc, const wt_bsp_sdmmc_info_t *inf
 
     memset(sdmmc, 0, sizeof(wt_bsp_sdmmc_obj_t));
     sdmmc->info = *info;
+    sdmmc->is_initialized = false;
     sdmmc->is_mounted = false;
     sdmmc->card = NULL;
     sdmmc->pwr_ctrl_handle = NULL;
@@ -62,6 +63,8 @@ esp_err_t wt_bsp_sdmmc_init(wt_bsp_sdmmc_t sdmmc, const wt_bsp_sdmmc_info_t *inf
         ESP_LOGI(TAG, "On-chip LDO initialized successfully");
     }
 #endif
+
+    sdmmc->is_initialized = true;
 
     return ESP_OK;
 }
@@ -84,6 +87,8 @@ esp_err_t wt_bsp_sdmmc_deinit(wt_bsp_sdmmc_t sdmmc)
         sdmmc->pwr_ctrl_handle = NULL;
     }
 #endif
+
+    sdmmc->is_initialized = false;
 
     return ESP_OK;
 }

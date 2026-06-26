@@ -5,7 +5,7 @@
 
 (参见 [storage/sdmmc](../../../README.md) 了解更多信息。)
 
-本示例演示了如何使用 Wireless-Tag BSP 提供的 SDMMC 接口来自动挂载 SD 卡，并使用标准 C 库和 POSIX 函数进行基本的文件读写操作。
+本示例演示了如何使用 Wireless-Tag BSP 提供的 SDMMC 接口显式挂载 SD 卡，并使用标准 C 库和 POSIX 函数进行基本的文件读写操作。
 
 ## 如何使用示例
 
@@ -58,7 +58,7 @@ Speed: 20.00 MHz (limit: 20.00 MHz)
 Size: 3763MB
 CSD: ver=2, sector_size=512, capacity=7706624 read_bl_len=9
 SSR: bus_width=4
-I (364) sdmmc_example: SD card is automatically mounted at: /sdcard
+I (364) sdmmc_example: SD card mounted at: /sdcard
 I (374) sdmmc_example: Creating file: /sdcard/hello.txt
 I (404) sdmmc_example: File written successfully
 I (414) sdmmc_example: Renaming /sdcard/hello.txt to /sdcard/foo.txt

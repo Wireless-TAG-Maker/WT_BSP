@@ -56,6 +56,7 @@ typedef struct {
 typedef struct wt_bsp_sdmmc_obj_t {
     wt_bsp_sdmmc_info_t info;              /*!< SDMMC 硬件配置。 */
     sdmmc_card_t *card;                    /*!< SDMMC 卡句柄。 */
+    bool is_initialized;                   /*!< 是否已初始化 SDMMC 对象。 */
     bool is_mounted;                       /*!< 是否已挂载文件系统。 */
     sd_pwr_ctrl_handle_t pwr_ctrl_handle;  /*!< SD 电源控制句柄（用于 ESP32-P4 片上 LDO）。 */
 } wt_bsp_sdmmc_obj_t;

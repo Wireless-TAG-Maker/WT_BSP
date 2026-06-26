@@ -126,7 +126,7 @@ esp_err_t example_sdcard_mount(void)
     if (sdmmc == NULL) {
         return ESP_ERR_NOT_FOUND;
     }
-    return ESP_OK;
+    return wt_bsp_sdmmc_mount(sdmmc);
 }
 
 uint64_t example_sdcard_get_capacity(void)
@@ -157,7 +157,15 @@ void app_main(void)
 
     /* Hardware status detection */
     bool dsi_ok = (dsi != NULL);
-    bool sdmmc_ok = (sdmmc != NULL);
+    bool sdmmc_ok = false;
+    if (sdmmc != NULL) {
+        ret = wt_bsp_sdmmc_mount(sdmmc);
+        if (ret == ESP_OK) {
+            sdmmc_ok = true;
+        } else {
+            ESP_LOGW(TAG, "SDMMC mount failed: %s", esp_err_to_name(ret));
+        }
+    }
     bool csi_initialized = (csi != NULL);
 
     /* CSI status will be determined later when we actually try to start it */
