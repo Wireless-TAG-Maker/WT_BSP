@@ -5,6 +5,8 @@ build/
 .codex/
 temp/
 bsp_self_test/
+build_slave
+
 
 # Example project files
 examples/**/build/
