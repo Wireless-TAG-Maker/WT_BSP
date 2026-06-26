@@ -1,0 +1,21 @@
+# Wi-Fi 配置
+menu "Example Wi-Fi Configuration"
+
+    config ESP_WIFI_SSID
+        string "Wi-Fi SSID"
+        help
+            Wi-Fi网络的SSID名称
+
+    config ESP_WIFI_PASSWORD
+        string "Wi-Fi Password"
+        help
+            Wi-Fi网络的密码（至少8个字符）
+
+    config ESP_MAXIMUM_RETRY
+        int "Maximum retry attempts"
+        range 1 20
+        default 5
+        help
+            连接失败时的最大重试次数
+
+endmenu
