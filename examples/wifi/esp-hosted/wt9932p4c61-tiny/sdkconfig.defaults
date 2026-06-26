@@ -1,5 +1,14 @@
 # ESP32-P4 ESP-Hosted Master 配置
 
+# 分区表配置 - 使用自定义 2MB app 分区以容纳 esp-wifi-connect 组件
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# 系统事件任务栈大小 - esp-wifi-connect 需要更大的栈
+CONFIG_ESP_SYSTEM_EVENT_TASK_STACK_SIZE=8192
+
 # 注意：SDIO GPIO 配置需要在 menuconfig 中设置
 # Component config -> ESP-Hosted config -> SDIO Configuration
 # 请手动设置:
