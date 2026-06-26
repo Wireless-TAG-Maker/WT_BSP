@@ -41,24 +41,12 @@ typedef struct {
     esp_err_t (*init)(void);               /*!< 初始化当前选中板卡的资源。 */
     esp_err_t (*deinit)(void);             /*!< 反初始化当前选中板卡的资源。 */
     wt_bsp_board_t (*get_board)(void);     /*!< 获取板卡信息句柄。 */
-#if WT_BSP_BUTTON_ENABLE_IS_ENABLED
     wt_bsp_button_t (*get_button)(void);   /*!< 获取默认按键句柄。 */
-#endif
-#if WT_BSP_RGB_ENABLE_IS_ENABLED
     wt_bsp_rgb_t (*get_rgb)(void);         /*!< 获取默认 RGB LED 句柄。 */
-#endif
-#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
     wt_bsp_sdmmc_t (*get_sdmmc)(void);     /*!< 获取默认 SD 卡句柄。 */
-#endif
-#if WT_BSP_DSI_ENABLE_IS_ENABLED
     wt_bsp_dsi_t (*get_dsi)(void);         /*!< 获取默认 DSI 显示句柄。 */
-#endif
-#if WT_BSP_CSI_ENABLE_IS_ENABLED
     wt_bsp_csi_t (*get_csi)(void);         /*!< 获取默认 CSI 摄像头句柄。 */
-#endif
-#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
     wt_bsp_touch_t (*get_touch)(void);     /*!< 获取默认触摸句柄。 */
-#endif
 } wt_bsp_interface_t;
 
 /**

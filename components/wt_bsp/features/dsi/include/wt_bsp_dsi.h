@@ -8,9 +8,9 @@
  * @ref wt_bsp_dsi_lvgl_start 获取 LVGL display 后，直接使用 LVGL API 构建界面。
  * @version 0.1
  * @date 2026-05-20
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 #ifndef __WT_BSP_DSI_H__
@@ -25,7 +25,7 @@
  */
 typedef struct wt_bsp_dsi_obj_t *wt_bsp_dsi_t;
 
-#if WT_BSP_DSI_ENABLE_IS_ENABLED
+#if WT_BSP_DSI_ENABLED
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -130,6 +130,6 @@ esp_lcd_panel_handle_t wt_bsp_dsi_get_panel_handle(wt_bsp_dsi_t dsi);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_DSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_DSI_ENABLED
 
 #endif // __WT_BSP_DSI_H__

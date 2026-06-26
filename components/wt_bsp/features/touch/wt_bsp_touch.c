@@ -4,16 +4,16 @@
  * @brief
  * @version 0.1
  * @date 2026-06-11
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 /* ==================== [Includes] ========================================== */
 
 #include "wt_bsp_touch_port.h"
 
-#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#if WT_BSP_TOUCH_ENABLED
 
 #include <string.h>
 #include "esp_log.h"
@@ -47,7 +47,7 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
     // Create or use I2C bus
     i2c_master_bus_handle_t i2c_handle = (i2c_master_bus_handle_t)info->i2c_bus_handle;
     esp_err_t ret = ESP_OK;
-    
+
     if (i2c_handle == NULL) {
         i2c_master_bus_config_t i2c_config = {
             .i2c_port = info->i2c_port,
@@ -141,15 +141,15 @@ esp_lcd_touch_handle_t wt_bsp_touch_get_handle(wt_bsp_touch_t touch)
 lv_indev_t *wt_bsp_touch_lvgl_start(wt_bsp_touch_t touch, lv_display_t *disp)
 {
     if (touch == NULL || !touch->is_initialized || disp == NULL) return NULL;
-    
+
     lvgl_port_touch_cfg_t touch_cfg = {
         .disp = disp,
         .handle = touch->handle,
     };
-    
+
     return lvgl_port_add_touch(&touch_cfg);
 }
 
 /* ==================== [Static Functions] ================================== */
 
-#endif // WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#endif // WT_BSP_TOUCH_ENABLED

@@ -25,7 +25,7 @@
  */
 typedef struct wt_bsp_rgb_obj_t *wt_bsp_rgb_t;
 
-#if WT_BSP_RGB_ENABLE_IS_ENABLED
+#if WT_BSP_RGB_ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +53,7 @@ typedef struct {
      * @brief 蓝色分量。
      */
     uint8_t b;
-#if WT_BSP_RGBW_ENABLE_IS_ENABLED
+#if WT_BSP_RGBW_ENABLED
     /**
      * @brief 白色分量。
      */
@@ -128,6 +128,6 @@ esp_err_t wt_bsp_rgb_clear(wt_bsp_rgb_t rgb);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_RGB_ENABLE_IS_ENABLED
+#endif // WT_BSP_RGB_ENABLED
 
 #endif // __WT_BSP_RGB_H__

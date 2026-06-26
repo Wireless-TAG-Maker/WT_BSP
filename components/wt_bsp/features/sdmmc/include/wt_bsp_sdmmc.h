@@ -18,15 +18,16 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "esp_err.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
 
 /**
  * @brief SDMMC 对象句柄。
  */
 typedef struct wt_bsp_sdmmc_obj_t *wt_bsp_sdmmc_t;
 
-#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#if WT_BSP_SDMMC_ENABLED
+
+#include "sdmmc_cmd.h"
+#include "driver/sdmmc_host.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,6 +81,6 @@ const char *wt_bsp_sdmmc_get_mount_point(wt_bsp_sdmmc_t sdmmc);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#endif // WT_BSP_SDMMC_ENABLED
 
 #endif // __WT_BSP_SDMMC_H__

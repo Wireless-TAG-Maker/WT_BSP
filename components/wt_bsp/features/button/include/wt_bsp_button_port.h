@@ -16,7 +16,7 @@
 
 #include "wt_bsp_button.h"
 
-#if WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#if WT_BSP_BUTTON_ENABLED
 
 #include "iot_button.h"
 
@@ -99,6 +99,6 @@ esp_err_t wt_bsp_button_deinit(wt_bsp_button_t button);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#endif // WT_BSP_BUTTON_ENABLED
 
 #endif // __WT_BSP_BUTTON_PORT_H__

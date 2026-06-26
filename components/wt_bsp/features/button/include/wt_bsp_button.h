@@ -25,7 +25,7 @@
  */
 typedef struct wt_bsp_button_obj_t *wt_bsp_button_t;
 
-#if WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#if WT_BSP_BUTTON_ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -138,6 +138,6 @@ uint16_t wt_bsp_button_get_keepalive_count(wt_bsp_button_t button);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#endif // WT_BSP_BUTTON_ENABLED
 
 #endif // __WT_BSP_BUTTON_H__

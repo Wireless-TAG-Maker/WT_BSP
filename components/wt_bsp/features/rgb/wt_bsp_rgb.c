@@ -13,7 +13,7 @@
 
 #include "wt_bsp_rgb_port.h"
 
-#if WT_BSP_RGB_ENABLE_IS_ENABLED
+#if WT_BSP_RGB_ENABLED
 
 #include <string.h>
 #include "esp_log.h"
@@ -206,7 +206,7 @@ esp_err_t wt_bsp_rgb_clear(wt_bsp_rgb_t rgb)
 
 static esp_err_t wt_bsp_rgb_write_pixel(wt_bsp_rgb_t rgb, uint32_t index, wt_bsp_rgb_color_t color)
 {
-#if !WT_BSP_RGBW_ENABLE_IS_ENABLED
+#if !WT_BSP_RGBW_ENABLED
     return led_strip_set_pixel(rgb->strip,
                                index,
                                color.r,
@@ -254,7 +254,7 @@ static led_color_component_format_t wt_bsp_rgb_get_component_format(wt_bsp_rgb_f
     switch (format) {
     case WT_BSP_RGB_FORMAT_RGB:
         return LED_STRIP_COLOR_COMPONENT_FMT_RGB;
-#if WT_BSP_RGBW_ENABLE_IS_ENABLED
+#if WT_BSP_RGBW_ENABLED
     case WT_BSP_RGB_FORMAT_GRBW:
         return LED_STRIP_COLOR_COMPONENT_FMT_GRBW;
     case WT_BSP_RGB_FORMAT_RGBW:
@@ -266,4 +266,4 @@ static led_color_component_format_t wt_bsp_rgb_get_component_format(wt_bsp_rgb_f
     }
 }
 
-#endif // WT_BSP_RGB_ENABLE_IS_ENABLED
+#endif // WT_BSP_RGB_ENABLED

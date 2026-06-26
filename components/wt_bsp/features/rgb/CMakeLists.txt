@@ -1,0 +1,6 @@
+list(APPEND WT_BSP_FEATURE_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/include")
+
+if("rgb" IN_LIST WT_BSP_BOARD_FEATURES AND CONFIG_WT_BSP_ENABLE_RGB)
+    list(APPEND WT_BSP_FEATURE_SRCS "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_rgb.c")
+    list(APPEND WT_BSP_FEATURE_REQUIRES led_strip esp_driver_rmt esp_driver_spi)
+endif()

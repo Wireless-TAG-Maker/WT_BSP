@@ -4,9 +4,9 @@
  * @brief Wireless-Tag BSP 组件的 MIPI CSI 摄像头接口。
  * @version 0.1
  * @date 2026-06-03
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 #ifndef __WT_BSP_CSI_H__
@@ -21,7 +21,7 @@
  */
 typedef struct wt_bsp_csi_obj_t *wt_bsp_csi_t;
 
-#if WT_BSP_CSI_ENABLE_IS_ENABLED
+#if WT_BSP_CSI_ENABLED
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -40,7 +40,7 @@ extern "C" {
 
 /**
  * @brief 帧回调函数原型。
- * 
+ *
  * @param buf 帧数据缓冲区。
  * @param width 图像宽度。
  * @param height 图像高度。
@@ -67,19 +67,19 @@ esp_err_t wt_bsp_csi_set_pixel_format(wt_bsp_csi_t csi, uint32_t pixel_format);
 
 /**
  * @brief 开始视频采集。
- * 
+ *
  * @param[in] csi CSI 对象句柄。
  * @param[in] frame_cb 帧数据回调。
  * @param[in] user_data 回调函数上下文。
- * @return esp_err_t 
+ * @return esp_err_t
  */
 esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, void *user_data);
 
 /**
  * @brief 停止视频采集。
- * 
+ *
  * @param[in] csi CSI 对象句柄。
- * @return esp_err_t 
+ * @return esp_err_t
  */
 esp_err_t wt_bsp_csi_stop(wt_bsp_csi_t csi);
 
@@ -87,6 +87,6 @@ esp_err_t wt_bsp_csi_stop(wt_bsp_csi_t csi);
 }
 #endif
 
-#endif // WT_BSP_CSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_CSI_ENABLED
 
 #endif // __WT_BSP_CSI_H__

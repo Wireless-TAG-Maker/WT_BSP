@@ -13,7 +13,7 @@
 
 #include "wt_bsp_button_port.h"
 
-#if WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#if WT_BSP_BUTTON_ENABLED
 
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -248,4 +248,4 @@ static void wt_bsp_button_cleanup(wt_bsp_button_t button)
 
 }
 
-#endif // WT_BSP_BUTTON_ENABLE_IS_ENABLED
+#endif // WT_BSP_BUTTON_ENABLED

@@ -4,9 +4,9 @@
  * @brief Wireless-Tag BSP 组件的触摸接口。
  * @version 0.1
  * @date 2026-06-11
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 #ifndef __WT_BSP_TOUCH_H__
@@ -21,7 +21,7 @@
  */
 typedef struct wt_bsp_touch_obj_t *wt_bsp_touch_t;
 
-#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#if WT_BSP_TOUCH_ENABLED
 
 #include <stdint.h>
 #include "esp_err.h"
@@ -41,15 +41,15 @@ extern "C" {
 
 /**
  * @brief 读取触摸数据。
- * 
+ *
  * @param[in] touch 触摸对象。
- * @return esp_err_t 
+ * @return esp_err_t
  */
 esp_err_t wt_bsp_touch_read(wt_bsp_touch_t touch);
 
 /**
  * @brief 获取触摸坐标。
- * 
+ *
  * @param[in] touch 触摸对象。
  * @param[out] x X 坐标数组。
  * @param[out] y Y 坐标数组。
@@ -74,6 +74,6 @@ lv_indev_t *wt_bsp_touch_lvgl_start(wt_bsp_touch_t touch, lv_display_t *disp);
 }
 #endif
 
-#endif // WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#endif // WT_BSP_TOUCH_ENABLED
 
 #endif // __WT_BSP_TOUCH_H__

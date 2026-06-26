@@ -10,10 +10,11 @@
 
 ## 目录职责
 
-- `components/wt_bsp/include/`：对外公共 API 头文件。
-- `components/wt_bsp/src/`：公共 API 的通用实现。
+- `components/wt_bsp/include/`：BSP 顶层聚合头文件，例如 `wt_bsp.h` 和 `wt_bsp_port.h`。
+- `components/wt_bsp/src/`：BSP 核心通用实现，例如 `wt_bsp.c`。
+- `components/wt_bsp/features/<FEATURE>/`：公共外设能力实现；每个功能自带 `CMakeLists.txt`、`include/wt_bsp_<feature>.h`、`include/wt_bsp_<feature>_port.h` 和实现文件。
 - `components/wt_bsp/boards/<BOARD>/`：单板适配，包括引脚、资源数量、板卡初始化、对象生命周期、Kconfig 和 CMake 接入。
-- `components/wt_bsp/wt_bsp_config_internal.h`：把各板 `board_config.h` 中的功能开关转换为公共编译期宏。
+- `components/wt_bsp/wt_bsp_config_internal.h`：把板卡能力和 menuconfig 裁剪选择合成为 BSP 内部有效功能宏。
 - `components/wt_bsp/idf_component.yml`：ESP-IDF 组件依赖声明。
 - `examples/get-started/blink/`：基础 RGB 示例。
 - `examples/display/dsi/`：ESP32-P4 DSI/LVGL 示例。
@@ -57,9 +58,10 @@ git diff --check
 
 - 应用层只能通过 `#include "wt_bsp.h"` 使用 BSP，不直接 include `boards/<BOARD>/board.h` 或 `board_config.h`。
 - 板级引脚、硬件资源数量、屏幕/摄像头型号等硬件差异只放在 `components/wt_bsp/boards/<BOARD>/`。
-- 可被多块板复用的外设能力应沉淀到 `include/` 和 `src/`，不要复制到多个板级目录。
-- `wt_bsp_init()` 获取当前 Kconfig 选中的 `board_get_bsp_interface()` 并调用板级 `init()`。
+- 可被多块板复用的外设能力应沉淀到 `features/<FEATURE>/`，不要复制到多个板级目录。
+- `wt_bsp_init()` 获取当前 Kconfig 选中的 `board_get_bsp_interface()` 并调用板级 `init()`；板级 `init()` 只初始化当前工程有效启用的 feature。
 - `wt_bsp_get_*()` 可能返回 `NULL`。示例和应用必须处理功能未启用、初始化失败或硬件缺失的情况。
+- `wt_bsp_interface_t` 字段保持固定，不按功能宏裁剪；不支持的功能由板级接口表显式填 `NULL`。
 - `board_init()` 初始化中途失败时要释放已经初始化的资源；`board_deinit()` 按初始化的反向顺序释放。
 - 对外对象优先由板级静态对象持有，避免让应用管理 BSP 资源生命周期。
 - SoC 差异优先用 ESP-IDF 配置或能力宏隔离，例如 `IDF_TARGET_*`、`CONFIG_SOC_*`，不要把专用实现强行编入所有目标。
@@ -69,20 +71,24 @@ git diff --check
 1. 新建 `components/wt_bsp/boards/<BOARD>/`。
 2. 添加 `board.c`、`board.h`、`board_config.h`、`CMakeLists.txt`、`Kconfig.projbuild`。
 3. 在 `components/wt_bsp/boards/Kconfig.projbuild` 中添加 `rsource`，并在合适的 `IDF_TARGET` 下设置默认选择。
-4. 在板级 `CMakeLists.txt` 中仅当对应 `CONFIG_WT_BSP_BOARD_*` 启用时追加源文件和 include 目录。
-5. 在 `board_config.h` 中声明该板启用的功能，例如 RGB、button、SDMMC、DSI、CSI、touch。
-6. 在 `board.c` 中实现板卡信息、资源初始化/释放、`get_*` 函数和 `board_get_bsp_interface()`。
-7. 编译至少一个该板对应的示例，并确认 `menuconfig` 中该板只在正确目标芯片下可选。
+4. 在板级 `CMakeLists.txt` 中仅当对应 `CONFIG_WT_BSP_BOARD_*` 启用时追加源文件、include 目录和 `WT_BSP_BOARD_FEATURES` 能力名。
+5. 在 `board_config.h` 中声明该板硬件具备的能力，命名使用 `WT_BSP_BOARD_HAS_<FEATURE>`，例如 RGB、button、SDMMC、DSI、CSI、touch。
+6. 在板级 `Kconfig.projbuild` 中为该板 `select WT_BSP_BOARD_HAS_<FEATURE>`，让 menuconfig 只能在板卡能力边界内裁剪。
+7. 在 `board.c` 中实现板卡信息、资源初始化/释放、`get_*` 函数和 `board_get_bsp_interface()`。
+8. 编译至少一个该板对应的示例，并确认 `menuconfig` 中该板只在正确目标芯片下可选。
 
 ## 新增公共外设能力
 
-1. 新增 `include/wt_bsp_<feature>.h` 和 `src/wt_bsp_<feature>.c`。
-2. 在 `include/wt_bsp.h` 中包含新头文件。
-3. 扩展 `wt_bsp_interface_t`，添加对应 `get_<feature>` 函数指针。
-4. 在 `src/wt_bsp.c` 中添加 `wt_bsp_get_<feature>()`，并保持未初始化或不可用时的返回语义稳定。
-5. 在 `wt_bsp_config_internal.h` 中加入或扩展对应 `WT_BSP_<FEATURE>_ENABLE_IS_ENABLED`。
-6. 在需要支持该能力的 `board_config.h` 和 `board.c` 中接入资源。
-7. 同步更新 README、示例或测试路径。
+1. 新建 `components/wt_bsp/features/<FEATURE>/`。
+2. 添加 `CMakeLists.txt`、`include/wt_bsp_<feature>.h`、`include/wt_bsp_<feature>_port.h` 和 `wt_bsp_<feature>.c`。
+3. 在 feature 的 `CMakeLists.txt` 中始终追加自身 include 目录，并仅当能力名存在于 `WT_BSP_BOARD_FEATURES` 且 `CONFIG_WT_BSP_ENABLE_<FEATURE>` 启用时追加 `WT_BSP_FEATURE_SRCS`、`WT_BSP_FEATURE_REQUIRES` 和 `WT_BSP_FEATURE_PRIV_REQUIRES`；不要调用 `idf_component_register()`。
+4. 添加 `Kconfig.projbuild`，定义隐藏的 `WT_BSP_BOARD_HAS_<FEATURE>` 和用户可见的 `CONFIG_WT_BSP_ENABLE_<FEATURE>`；后者必须 `depends on WT_BSP_BOARD_HAS_<FEATURE>` 并默认 `y`。
+5. 在 `include/wt_bsp.h` 中包含公共头，在 `include/wt_bsp_port.h` 中包含 port 头。
+6. 如需新的默认资源获取函数，在固定结构的 `wt_bsp_interface_t` 中添加对应 `get_<feature>` 指针，并在不支持的板级接口表中显式填 `NULL`。
+7. 在 `src/wt_bsp.c` 中添加 `wt_bsp_get_<feature>()`，并保持未初始化或不可用时返回 `NULL`。
+8. 在 `wt_bsp_config_internal.h` 中加入或扩展对应 `WT_BSP_<FEATURE>_ENABLED`，其语义必须是 `WT_BSP_BOARD_HAS_<FEATURE> && CONFIG_WT_BSP_ENABLE_<FEATURE>`。
+9. 在需要支持该能力的 `board_config.h` 和 `board.c` 中接入资源；`board.c` 中的对象、初始化、反初始化和 getter 必须按 `WT_BSP_<FEATURE>_ENABLED` 条件编译。
+10. 同步更新 README、示例或测试路径。
 
 ## 代码风格
 
@@ -133,7 +139,7 @@ git diff --check
 - 对象实体结构使用 `wt_bsp_<feature>_obj_t`；配置结构使用 `wt_bsp_<feature>_info_t`。
 - 板级私有函数使用 `board_<action>()`；板级静态对象使用 `s_bsp_<feature>`；文件内全局状态使用 `s_` 前缀。
 - 文件内日志 tag 使用 `static const char *TAG = "模块名";`，例如 `"wt_bsp_rgb"` 或 `"board"`。
-- 宏使用全大写。板级硬件参数使用 `BOARD_<FEATURE>_<NAME>`；公共编译期能力使用 `WT_BSP_<FEATURE>_...`。
+- 宏使用全大写。板级硬件参数使用 `BOARD_<FEATURE>_<NAME>`；板卡硬件边界使用 `WT_BSP_BOARD_HAS_<FEATURE>`；应用裁剪使用 `CONFIG_WT_BSP_ENABLE_<FEATURE>`；BSP 内部有效开关使用 `WT_BSP_<FEATURE>_ENABLED`。
 - 内部哨兵枚举值可使用 `_WT_BSP_<FEATURE>_...` 前缀，避免被应用层当作普通枚举使用。
 
 ### 格式与排版
@@ -160,7 +166,7 @@ git diff --check
 - 函数注释至少包含 `@brief`、必要的 `@param[in]`/`@param[out]`/`@param[in,out]` 和所有稳定返回语义。
 - 对象生命周期必须写清楚：由谁初始化、谁反初始化、返回的句柄是否可被应用释放。
 - 获取类 API 的注释要明确不可用时返回 `NULL`；字符串获取类 API 要明确失败时是否返回空字符串。
-- `board_config.h` 中的功能开关宏使用单行 Doxygen 注释，说明该板是否启用某能力或数量含义。
+- `board_config.h` 中的板卡能力宏使用单行 Doxygen 注释，说明该板是否具备某能力或数量含义。
 - 应用层和示例只 include `wt_bsp.h`；公共头文件不要暴露 `boards/<BOARD>/board.h` 或板级私有配置。
 
 ### 错误处理与资源生命周期
@@ -175,8 +181,12 @@ git diff --check
 
 ### 条件编译与 SoC 差异
 
-- 功能开关统一通过 `wt_bsp_config_internal.h` 中的 `WT_BSP_<FEATURE>_ENABLE_IS_ENABLED` 使用。
+- 条件编译统一通过 `wt_bsp_config_internal.h` 中的 `WT_BSP_<FEATURE>_ENABLED` 使用；不要直接用 `WT_BSP_BOARD_HAS_<FEATURE>` 代替有效开关。
+- menuconfig 裁剪项命名为 `CONFIG_WT_BSP_ENABLE_<FEATURE>`，必须依赖对应 `WT_BSP_BOARD_HAS_<FEATURE>`，避免应用打开板卡不支持的功能。
+- 功能宏可以裁剪 feature 源文件、依赖、port 对象定义和外设专用 API，但不要裁剪 `wt_bsp_interface_t` 字段。
 - 公共头文件中仅在能力启用时暴露特定外设类型和 API；公共入口 `wt_bsp.h` 可以提供稳定的获取函数声明。
+- feature 目录只通过自己的 `CMakeLists.txt` 追加源码、include 目录和依赖；顶层组件只统一收集变量并调用一次 `idf_component_register()`。
+- 板级 `CMakeLists.txt` 负责声明当前板支持的 feature 能力列表，feature `CMakeLists.txt` 不硬编码具体板名。
 - SoC 后端差异优先使用 ESP-IDF 能力宏，例如 `SOC_RMT_SUPPORTED`、`SOC_GPSPI_SUPPORTED`，不要用板名硬编码公共实现。
 - 板级目录只编译当前 Kconfig 选中的板卡文件；不要让某块板的私有实现进入所有目标。
 

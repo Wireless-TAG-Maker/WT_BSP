@@ -16,7 +16,7 @@
 
 #include "wt_bsp_rgb.h"
 
-#if WT_BSP_RGB_ENABLE_IS_ENABLED
+#if WT_BSP_RGB_ENABLED
 
 #include "led_strip.h"
 
@@ -66,7 +66,7 @@ typedef enum {
      * @brief 红色、绿色、蓝色分量顺序。
      */
     WT_BSP_RGB_FORMAT_RGB,
-#if WT_BSP_RGBW_ENABLE_IS_ENABLED
+#if WT_BSP_RGBW_ENABLED
     /**
      * @brief 绿色、红色、蓝色、白色分量顺序。
      */
@@ -164,6 +164,6 @@ esp_err_t wt_bsp_rgb_deinit(wt_bsp_rgb_t rgb);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_RGB_ENABLE_IS_ENABLED
+#endif // WT_BSP_RGB_ENABLED
 
 #endif // __WT_BSP_RGB_PORT_H__

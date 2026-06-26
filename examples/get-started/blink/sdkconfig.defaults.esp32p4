@@ -10,19 +10,9 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_HEX=y
 CONFIG_SPIRAM_SPEED_200M=y
 
-CONDFI_WT_BSP_RGB_ENABLE=y
-
-/** @brief 是否启用该板卡的 RGB LED 支持。 */
-#define WT_BSP_RGB_ENABLE 1
-/** @brief 该板卡暴露的 RGB LED 数量。 */
-#define WT_BSP_RGB_NUM 1
-/** @brief 是否启用该板卡的按键支持。 */
-#define WT_BSP_BUTTON_ENABLE 1
-/** @brief 是否启用该板卡的 LCD 支持。 */
-#define WT_BSP_LCD_ENABLE 1
-/** @brief 是否启用该板卡的 SD 卡支持。 */
-#define WT_BSP_SDCARD_ENABLE 1
-/** @brief 是否启用该板卡的 DSI 显示支持。 */
-#define WT_BSP_DSI_ENABLE 1
-/** @brief 是否启用该板卡的 CSI 摄像头支持。 */
-#define WT_BSP_CSI_ENABLE 1
+CONFIG_WT_BSP_ENABLE_RGB=y
+CONFIG_WT_BSP_ENABLE_BUTTON=y
+CONFIG_WT_BSP_ENABLE_SDMMC=n
+CONFIG_WT_BSP_ENABLE_DSI=n
+CONFIG_WT_BSP_ENABLE_CSI=n
+CONFIG_WT_BSP_ENABLE_TOUCH=n

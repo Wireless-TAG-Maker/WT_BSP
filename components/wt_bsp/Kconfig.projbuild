@@ -1,5 +1,6 @@
 menu "WT BSP"
 
     rsource "boards/Kconfig.projbuild"
+    rsource "features/Kconfig.projbuild"
 
 endmenu

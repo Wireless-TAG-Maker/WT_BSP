@@ -16,7 +16,7 @@
 
 #include "wt_bsp_sdmmc.h"
 
-#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#if WT_BSP_SDMMC_ENABLED
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -87,6 +87,6 @@ esp_err_t wt_bsp_sdmmc_deinit(wt_bsp_sdmmc_t sdmmc);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#endif // WT_BSP_SDMMC_ENABLED
 
 #endif // __WT_BSP_SDMMC_PORT_H__

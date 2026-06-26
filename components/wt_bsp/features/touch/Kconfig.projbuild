@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_TOUCH
+    bool
+
+config WT_BSP_ENABLE_TOUCH
+    bool "Enable touch BSP"
+    depends on WT_BSP_BOARD_HAS_TOUCH
+    default y

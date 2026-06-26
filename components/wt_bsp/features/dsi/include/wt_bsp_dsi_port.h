@@ -16,7 +16,7 @@
 
 #include "wt_bsp_dsi.h"
 
-#if WT_BSP_DSI_ENABLE_IS_ENABLED
+#if WT_BSP_DSI_ENABLED
 
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_ldo_regulator.h"
@@ -106,6 +106,6 @@ esp_err_t wt_bsp_dsi_deinit(wt_bsp_dsi_t dsi);
 } /* extern "C" */
 #endif
 
-#endif // WT_BSP_DSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_DSI_ENABLED
 
 #endif // __WT_BSP_DSI_PORT_H__

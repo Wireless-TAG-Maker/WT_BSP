@@ -4,16 +4,16 @@
  * @brief
  * @version 0.1
  * @date 2026-05-20
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 /* ==================== [Includes] ========================================== */
 
 #include "wt_bsp_dsi_port.h"
 
-#if WT_BSP_DSI_ENABLE_IS_ENABLED
+#if WT_BSP_DSI_ENABLED
 
 #include <string.h>
 #include <unistd.h>
@@ -377,7 +377,7 @@ static const st7102_lcd_init_cmd_t s_st7102_vendor_specific_init[] = {
     {0x75, (uint8_t []){0x03,0x04}, 2, 0},
     {0xE7, (uint8_t []){0x8B,0x3C,0x00,0x0C,0xF0,0x5D,0x00,0x5D,0x00,0x5D,0x00,0x5D,0x00,0xFF,0x00,0x08,0x7B,0x00,0x00,0xC8,0x6A,0x5A,0x08,0x1A,0x3C,0x00,0x71,0x01,0x8C,0x01,0x7F,0xF0,0x22}, 33, 0},
     {0xE9, (uint8_t []){0x3C,0x7F,0x08,0x0D,0x1A,0x7A,0x22,0x1A,0x33}, 9, 0},
-    {0x99, (uint8_t []){0x71,0x02,0x00}, 3, 0},  
+    {0x99, (uint8_t []){0x71,0x02,0x00}, 3, 0},
     {0x11, (uint8_t []){0x00}, 0, 120},
     {0x29, (uint8_t []){0x00}, 0, 20},
 	{0x35, (uint8_t []){0x00}, 1, 0},
@@ -451,4 +451,4 @@ static uint32_t wt_bsp_dsi_get_color_format_bits_per_pixel(wt_bsp_dsi_color_form
     return (color_format == WT_BSP_DSI_COLOR_FORMAT_RGB888) ? 24U : 16U;
 }
 
-#endif // WT_BSP_DSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_DSI_ENABLED

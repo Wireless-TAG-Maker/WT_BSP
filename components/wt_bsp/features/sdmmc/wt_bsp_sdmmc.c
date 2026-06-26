@@ -13,7 +13,7 @@
 
 #include "wt_bsp_sdmmc_port.h"
 
-#if WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#if WT_BSP_SDMMC_ENABLED
 
 #include <string.h>
 #include "esp_log.h"
@@ -202,4 +202,4 @@ const char *wt_bsp_sdmmc_get_mount_point(wt_bsp_sdmmc_t sdmmc)
     return sdmmc->info.mount_point;
 }
 
-#endif // WT_BSP_SDCARD_ENABLE_IS_ENABLED
+#endif // WT_BSP_SDMMC_ENABLED

@@ -1,3 +1,6 @@
 config WT_BSP_BOARD_WT9932C5_TINY
     bool "WT9932C5-TINY"
     depends on IDF_TARGET_ESP32C5
+    select WT_BSP_BOARD_HAS_BOARD
+    select WT_BSP_BOARD_HAS_BUTTON
+    select WT_BSP_BOARD_HAS_RGB

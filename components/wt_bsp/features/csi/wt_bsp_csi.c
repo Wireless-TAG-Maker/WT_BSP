@@ -4,16 +4,16 @@
  * @brief
  * @version 0.1
  * @date 2026-06-03
- * 
+ *
  * @copyright Copyright (c) 2026, Wireless-Tag. All rights reserved.
- * 
+ *
  */
 
 /* ==================== [Includes] ========================================== */
 
 #include "wt_bsp_csi_port.h"
 
-#if WT_BSP_CSI_ENABLE_IS_ENABLED
+#if WT_BSP_CSI_ENABLED
 
 #include <string.h>
 #include <fcntl.h>
@@ -53,7 +53,7 @@ static const char *TAG = "wt_bsp_csi";
 esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 {
     esp_err_t ret = ESP_OK;
-    
+
     if (csi == NULL || info == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -85,7 +85,7 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 
     /* Give the sensor some time to power up, especially if LDOs were just enabled */
     vTaskDelay(pdMS_TO_TICKS(50));
-    
+
     ret = esp_video_init(&cam_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_video_init failed: %s", esp_err_to_name(ret));
@@ -212,7 +212,7 @@ esp_err_t wt_bsp_csi_stop(wt_bsp_csi_t csi)
 
     csi->is_streaming = false;
     // Task will delete itself and call streamoff
-    
+
     // Wait for task to finish (optional, could use semaphores for better sync)
     vTaskDelay(pdMS_TO_TICKS(100));
 
@@ -265,9 +265,9 @@ static void wt_bsp_csi_stream_task(void *arg)
 
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     ioctl(fd, VIDIOC_STREAMOFF, &type);
-    
+
     csi->video_stream_task_handle = NULL;
     vTaskDelete(NULL);
 }
 
-#endif // WT_BSP_CSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_CSI_ENABLED

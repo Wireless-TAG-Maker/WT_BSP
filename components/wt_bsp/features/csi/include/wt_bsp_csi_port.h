@@ -16,7 +16,7 @@
 
 #include "wt_bsp_csi.h"
 
-#if WT_BSP_CSI_ENABLE_IS_ENABLED
+#if WT_BSP_CSI_ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +82,6 @@ esp_err_t wt_bsp_csi_deinit(wt_bsp_csi_t csi);
 }
 #endif
 
-#endif // WT_BSP_CSI_ENABLE_IS_ENABLED
+#endif // WT_BSP_CSI_ENABLED
 
 #endif // __WT_BSP_CSI_PORT_H__

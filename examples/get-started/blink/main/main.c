@@ -1,7 +1,6 @@
 #include <stdio.h>
-//#include "freertos/FreeRTOS.h"
-//#include "freertos/task.h"
-//#include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 #include "wt_bsp.h"
 #include "esp_random.h"
@@ -37,7 +36,7 @@ void app_main(void)
         r = esp_random() % 255;
         g = esp_random() % 255;
         b = esp_random() % 255;
-    
+
         example_set_led_color(r, g, b);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }

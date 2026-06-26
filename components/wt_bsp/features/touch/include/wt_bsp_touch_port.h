@@ -16,7 +16,7 @@
 
 #include "wt_bsp_touch.h"
 
-#if WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#if WT_BSP_TOUCH_ENABLED
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,6 +74,6 @@ esp_err_t wt_bsp_touch_deinit(wt_bsp_touch_t touch);
 }
 #endif
 
-#endif // WT_BSP_TOUCH_ENABLE_IS_ENABLED
+#endif // WT_BSP_TOUCH_ENABLED
 
 #endif // __WT_BSP_TOUCH_PORT_H__
