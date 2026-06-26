@@ -11,7 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_touch.h"
+#include "wt_bsp_touch_port.h"
 
 #if WT_BSP_TOUCH_ENABLE_IS_ENABLED
 

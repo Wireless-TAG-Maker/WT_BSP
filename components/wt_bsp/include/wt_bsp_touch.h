@@ -16,6 +16,11 @@
 
 #include "wt_bsp_config_internal.h"
 
+/**
+ * @brief 触摸对象句柄。
+ */
+typedef struct wt_bsp_touch_obj_t *wt_bsp_touch_t;
+
 #if WT_BSP_TOUCH_ENABLE_IS_ENABLED
 
 #include <stdint.h>
@@ -32,52 +37,7 @@ extern "C" {
 
 /* ==================== [Typedefs] ========================================== */
 
-/**
- * @brief 触摸对象句柄。
- */
-typedef struct wt_bsp_touch_obj_t *wt_bsp_touch_t;
-
-/**
- * @brief 触摸硬件配置。
- */
-typedef struct {
-    void *i2c_bus_handle;   /*!< 外部提供的 I2C 总线句柄 (i2c_master_bus_handle_t)。如果非 NULL，则不内部初始化 I2C。 */
-    int i2c_port;           /*!< I2C 端口号。 */
-    int scl_pin;            /*!< I2C SCL 引脚。 */
-    int sda_pin;            /*!< I2C SDA 引脚。 */
-    int rst_pin;            /*!< 复位引脚，未使用设为 -1。 */
-    int int_pin;            /*!< 中断引脚，未使用设为 -1。 */
-    uint16_t width;         /*!< 触摸屏宽度。 */
-    uint16_t height;        /*!< 触摸屏高度。 */
-} wt_bsp_touch_info_t;
-
-/**
- * @brief 触摸对象。
- */
-typedef struct wt_bsp_touch_obj_t {
-    wt_bsp_touch_info_t info;
-    esp_lcd_touch_handle_t handle;
-    bool is_initialized;
-} wt_bsp_touch_obj_t;
-
 /* ==================== [Global Prototypes] ================================= */
-
-/**
- * @brief 初始化触摸对象。
- * 
- * @param[in,out] touch 待初始化的触摸对象。
- * @param[in] info 硬件配置。
- * @return esp_err_t 
- */
-esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *info);
-
-/**
- * @brief 反初始化触摸对象。
- * 
- * @param[in,out] touch 待反初始化的触摸对象。
- * @return esp_err_t 
- */
-esp_err_t wt_bsp_touch_deinit(wt_bsp_touch_t touch);
 
 /**
  * @brief 读取触摸数据。

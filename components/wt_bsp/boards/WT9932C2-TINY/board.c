@@ -13,9 +13,6 @@
 
 #include "board.h"
 
-#include "wt_bsp_board.h"
-#include "wt_bsp_button.h"
-#include "wt_bsp_rgb.h"
 #include "esp_log.h"
 
 /* ==================== [Defines] =========================================== */

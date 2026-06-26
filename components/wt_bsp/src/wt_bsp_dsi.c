@@ -11,7 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_internal.h"
+#include "wt_bsp_dsi_port.h"
 
 #if WT_BSP_DSI_ENABLE_IS_ENABLED
 

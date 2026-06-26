@@ -13,11 +13,6 @@
 
 #include "board.h"
 
-#include "wt_bsp_board.h"
-#include "wt_bsp_button.h"
-#include "wt_bsp_rgb.h"
-#include "wt_bsp_sdmmc.h"
-#include "wt_bsp_dsi.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
@@ -478,20 +473,20 @@ static wt_bsp_rgb_t board_get_rgb(void)
 
 static wt_bsp_sdmmc_t board_get_sdmmc(void)
 {
-    return &s_bsp_sdmmc;
+    return (s_bsp_sdmmc.is_mounted && s_bsp_sdmmc.card != NULL) ? &s_bsp_sdmmc : NULL;
 }
 
 static wt_bsp_dsi_t board_get_dsi(void)
 {
-    return &s_bsp_dsi;
+    return s_bsp_dsi.is_initialized ? &s_bsp_dsi : NULL;
 }
 
 static wt_bsp_csi_t board_get_csi(void)
 {
-    return &s_bsp_csi;
+    return s_bsp_csi.is_initialized ? &s_bsp_csi : NULL;
 }
 
 static wt_bsp_touch_t board_get_touch(void)
 {
-    return &s_bsp_touch;
+    return s_bsp_touch.is_initialized ? &s_bsp_touch : NULL;
 }

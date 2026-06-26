@@ -11,7 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_button.h"
+#include "wt_bsp_button_port.h"
 
 #if WT_BSP_BUTTON_ENABLE_IS_ENABLED
 

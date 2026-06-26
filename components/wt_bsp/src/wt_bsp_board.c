@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "wt_bsp_board.h"
+#include "wt_bsp_board_port.h"
 #include "esp_log.h"
 
 /* ==================== [Defines] =========================================== */

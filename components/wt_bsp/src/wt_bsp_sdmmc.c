@@ -11,7 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_sdmmc.h"
+#include "wt_bsp_sdmmc_port.h"
 
 #if WT_BSP_SDCARD_ENABLE_IS_ENABLED
 

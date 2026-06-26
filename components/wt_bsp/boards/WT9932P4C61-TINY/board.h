@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 
-#include "wt_bsp.h"
+#include "wt_bsp_port.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -11,8 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_csi.h"
-#include "wt_bsp_internal.h"
+#include "wt_bsp_csi_port.h"
 
 #if WT_BSP_CSI_ENABLE_IS_ENABLED
 
@@ -99,6 +98,19 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
     csi->is_initialized = true;
     ESP_LOGI(TAG, "CSI initialized successfully");
 
+    return ESP_OK;
+}
+
+esp_err_t wt_bsp_csi_set_pixel_format(wt_bsp_csi_t csi, uint32_t pixel_format)
+{
+    if (csi == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (csi->is_streaming) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    csi->info.pixel_format = pixel_format;
     return ESP_OK;
 }
 

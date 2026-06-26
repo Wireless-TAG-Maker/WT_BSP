@@ -11,7 +11,7 @@
 
 /* ==================== [Includes] ========================================== */
 
-#include "wt_bsp_rgb.h"
+#include "wt_bsp_rgb_port.h"
 
 #if WT_BSP_RGB_ENABLE_IS_ENABLED
 
