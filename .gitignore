@@ -5,6 +5,7 @@ build/
 .codex/
 temp/
 bsp_self_test/
+BSP_STRUCTURE_REVIEW.md
 
 # Example project files
 examples/**/build/
