@@ -21,3 +21,15 @@ idf_component_register(SRCS
                                           ${WT_BSP_FEATURE_PRIV_REQUIRES}
 
                             )
+
+add_custom_target(set-board
+    COMMAND ${PYTHON} ${CMAKE_CURRENT_LIST_DIR}/tools/wt_bsp_set_board.py
+            --project-path ${PROJECT_DIR}
+            --build-dir ${CMAKE_BINARY_DIR}
+            --sdkconfig ${SDKCONFIG}
+            --generate-only
+            --fullclean-on-target-change
+    WORKING_DIRECTORY ${PROJECT_DIR}
+    VERBATIM
+    USES_TERMINAL
+)
