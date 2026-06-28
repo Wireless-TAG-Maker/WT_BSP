@@ -25,6 +25,7 @@ dependencies:
       - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
   espressif/esp_lcd_touch:
     version: "*"
+    require: public
     rules:
       - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_TOUCH} == True"
   espressif/esp_lcd_touch_st7123:

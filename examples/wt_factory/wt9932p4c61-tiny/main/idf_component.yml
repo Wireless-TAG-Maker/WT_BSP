@@ -1,0 +1,27 @@
+dependencies:
+  button:
+    version: "^4.1.6"
+  led_strip:
+    version: "^3.0.3"
+  esp_lcd_ek79007:
+    version: "1.*"
+  espressif/esp_lcd_ili9881c:
+    version: "1.*"
+  kevincoooool/esp_lcd_st7102:
+    version: "1.*"
+  espressif/esp_lcd_touch:
+    version: "*"
+  espressif/esp_lcd_touch_st7123:
+    version: "1.*"
+  esp_lvgl_port:
+    version: "^2"
+  lvgl/lvgl:
+    version: ">=9"
+  espressif/esp_video:
+    version: "0.8.*"
+  espressif/esp_cam_sensor:
+    version: "0.9.*"
+  espressif/esp_sccb_intf:
+    version: "*"
+  espressif/esp_ipa:
+    version: "0.2.*"
