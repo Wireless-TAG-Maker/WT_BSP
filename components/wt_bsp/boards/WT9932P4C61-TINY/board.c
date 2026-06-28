@@ -14,6 +14,8 @@
 #include "board.h"
 
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "driver/gpio.h"
 #if WT_BSP_DSI_ENABLED || WT_BSP_CSI_ENABLED || WT_BSP_TOUCH_ENABLED
 #include "driver/i2c_master.h"

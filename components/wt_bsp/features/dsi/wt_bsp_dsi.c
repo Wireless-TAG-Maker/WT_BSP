@@ -57,12 +57,13 @@ static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi);
+static esp_err_t wt_bsp_dsi_enable_dma2d(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_send_display_command(wt_bsp_dsi_t dsi, bool on);
 static esp_err_t wt_bsp_dsi_cleanup(wt_bsp_dsi_t dsi);
 static void wt_bsp_dsi_get_default_lvgl_config(wt_bsp_dsi_t dsi, wt_bsp_dsi_lvgl_config_t *config);
 static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e);
-static lcd_color_rgb_pixel_format_t wt_bsp_dsi_get_lcd_pixel_format(wt_bsp_dsi_color_format_t color_format);
+static lcd_color_format_t wt_bsp_dsi_get_lcd_color_format(wt_bsp_dsi_color_format_t color_format);
 static uint32_t wt_bsp_dsi_get_color_format_bits_per_pixel(wt_bsp_dsi_color_format_t color_format);
 
 /* ==================== [Static Variables] ================================== */
@@ -139,6 +140,11 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "LCD panel creation failed: %s", esp_err_to_name(ret));
         goto err;
+    }
+
+    ret = wt_bsp_dsi_enable_dma2d(dsi);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "LCD panel DMA2D enable failed: %s", esp_err_to_name(ret));
     }
 
     ret = esp_lcd_panel_reset(dsi->panel);
@@ -339,8 +345,24 @@ static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi)
 
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi)
 {
-    esp_lcd_dpi_panel_config_t dpi = EK79007_1024_600_PANEL_60HZ_CONFIG(wt_bsp_dsi_get_lcd_pixel_format(dsi->info.color_format));
-    dpi.num_fbs = dsi->info.dpi_frame_buffer_num;
+    esp_lcd_dpi_panel_config_t dpi = {
+        .virtual_channel = 0,
+        .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+        .dpi_clock_freq_mhz = 52,
+        .in_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .out_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .num_fbs = dsi->info.dpi_frame_buffer_num,
+        .video_timing = {
+            .h_size = 1024,
+            .v_size = 600,
+            .hsync_pulse_width = 10,
+            .hsync_back_porch = 160,
+            .hsync_front_porch = 160,
+            .vsync_pulse_width = 1,
+            .vsync_back_porch = 23,
+            .vsync_front_porch = 12,
+        },
+    };
     ek79007_vendor_config_t vendor = { .mipi_config = { .dsi_bus = dsi->mipi_dsi_bus, .dpi_config = &dpi, .lane_num = dsi->info.dsi_lane_num } };
     esp_lcd_panel_dev_config_t dev = { .reset_gpio_num = dsi->info.reset_gpio_num, .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB, .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format), .vendor_config = &vendor };
     return esp_lcd_new_panel_ek79007(dsi->io, &dev, &dsi->panel);
@@ -348,8 +370,24 @@ static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi)
 
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi)
 {
-    esp_lcd_dpi_panel_config_t dpi = ILI9881C_800_1280_PANEL_60HZ_DPI_CONFIG(wt_bsp_dsi_get_lcd_pixel_format(dsi->info.color_format));
-    dpi.num_fbs = dsi->info.dpi_frame_buffer_num;
+    esp_lcd_dpi_panel_config_t dpi = {
+        .virtual_channel = 0,
+        .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+        .dpi_clock_freq_mhz = 80,
+        .in_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .out_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .num_fbs = dsi->info.dpi_frame_buffer_num,
+        .video_timing = {
+            .h_size = 800,
+            .v_size = 1280,
+            .hsync_back_porch = 140,
+            .hsync_pulse_width = 40,
+            .hsync_front_porch = 40,
+            .vsync_back_porch = 16,
+            .vsync_pulse_width = 4,
+            .vsync_front_porch = 16,
+        },
+    };
     ili9881c_vendor_config_t vendor = { .mipi_config = { .dsi_bus = dsi->mipi_dsi_bus, .dpi_config = &dpi, .lane_num = dsi->info.dsi_lane_num } };
     esp_lcd_panel_dev_config_t dev = { .reset_gpio_num = dsi->info.reset_gpio_num, .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB, .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format), .vendor_config = &vendor };
     return esp_lcd_new_panel_ili9881c(dsi->io, &dev, &dsi->panel);
@@ -388,14 +426,23 @@ static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi)
 {
     esp_lcd_dpi_panel_config_t dpi = {
         .virtual_channel = 0, .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT, .dpi_clock_freq_mhz = 24,
-        .in_color_format = wt_bsp_dsi_get_lcd_pixel_format(dsi->info.color_format),
+        .in_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .out_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .num_fbs = dsi->info.dpi_frame_buffer_num,
         .video_timing = { .h_size = 480, .v_size = 640, .hsync_back_porch = 40, .hsync_pulse_width = 2, .hsync_front_porch = 40, .vsync_back_porch = 10, .vsync_pulse_width = 2, .vsync_front_porch = 145 },
-        .flags.use_dma2d = true,
     };
-    dpi.num_fbs = dsi->info.dpi_frame_buffer_num;
     st7102_vendor_config_t vendor = { .init_cmds = s_st7102_vendor_specific_init, .init_cmds_size = sizeof(s_st7102_vendor_specific_init) / sizeof(st7102_lcd_init_cmd_t), .mipi_config = { .dsi_bus = dsi->mipi_dsi_bus, .dpi_config = &dpi }, .flags.use_mipi_interface = 1 };
     esp_lcd_panel_dev_config_t dev = { .reset_gpio_num = dsi->info.reset_gpio_num, .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB, .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format), .vendor_config = &vendor };
     return esp_lcd_new_panel_st7102(dsi->io, &dev, &dsi->panel);
+}
+
+static esp_err_t wt_bsp_dsi_enable_dma2d(wt_bsp_dsi_t dsi)
+{
+    if (dsi == NULL || dsi->panel == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    return esp_lcd_dpi_panel_enable_dma2d(dsi->panel);
 }
 
 static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi)
@@ -441,9 +488,9 @@ static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e)
     area->x2 = ALIGN_UP(area->x2, 16) - 1;
 }
 
-static lcd_color_rgb_pixel_format_t wt_bsp_dsi_get_lcd_pixel_format(wt_bsp_dsi_color_format_t color_format)
+static lcd_color_format_t wt_bsp_dsi_get_lcd_color_format(wt_bsp_dsi_color_format_t color_format)
 {
-    return (color_format == WT_BSP_DSI_COLOR_FORMAT_RGB888) ? LCD_COLOR_PIXEL_FORMAT_RGB888 : LCD_COLOR_PIXEL_FORMAT_RGB565;
+    return (color_format == WT_BSP_DSI_COLOR_FORMAT_RGB888) ? LCD_COLOR_FMT_RGB888 : LCD_COLOR_FMT_RGB565;
 }
 
 static uint32_t wt_bsp_dsi_get_color_format_bits_per_pixel(wt_bsp_dsi_color_format_t color_format)

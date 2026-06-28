@@ -18,6 +18,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "driver/i2c_master.h"
+#include "esp_lcd_io_i2c.h"
 #include "esp_lcd_touch_st7123.h"
 #include "esp_lvgl_port.h"
 
@@ -67,7 +68,7 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
     esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_ST7123_CONFIG();
     //tp_io_config.scl_speed_hz = 400000;
 
-    ret = esp_lcd_new_panel_io_i2c_v2(i2c_handle, &tp_io_config, &tp_io_handle);
+    ret = esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "new panel IO failed: %s", esp_err_to_name(ret));
         return ret;
