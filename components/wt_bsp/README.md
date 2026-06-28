@@ -31,6 +31,9 @@ components/wt_bsp/
 │       ├── board_config.h   # 当前板卡硬件能力边界
 │       ├── CMakeLists.txt   # 当前板卡源文件接入
 │       └── Kconfig.projbuild
+├── tools/                   # set-board 和项目 CMake 辅助脚本
+│   ├── wt_bsp_project.cmake
+│   └── wt_bsp_set_board.py
 ├── CMakeLists.txt
 ├── Kconfig.projbuild
 └── wt_bsp_config_internal.h
@@ -75,12 +78,13 @@ void app_main(void)
 - `wt_bsp_get_*()` 可能返回 `NULL`，应用需要处理功能未启用或初始化失败的情况。
 - RGB 默认支持自动刷新，可通过 `wt_bsp_rgb_set_auto_refresh()` 改为手动刷新。
 - 按键事件通过 `wt_bsp_button_register_event_cb()` 注册，回调里只做轻量操作，复杂业务交给任务处理。
-- 应用侧通过 `IDF_TARGET` 或 `menuconfig` 选择目标芯片和板卡，不在业务代码里写板卡条件编译。
+- 应用侧通过 `idf.py set-board` 生成板卡选择和目标芯片配置，`menuconfig` 只用于裁剪外设能力，不在业务代码里写板卡条件编译。非交互场景可使用 `WT_BSP_BOARD=<BOARD> idf.py set-board`，也可以直接用 `WT_BSP_BOARD=<BOARD> idf.py build` 构建。
 
 ### 构建示例
 
 ```bash
-idf.py -C examples/get-started/blink -B build-p4 -DIDF_TARGET=esp32p4 build
+WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/get-started/blink set-board
+idf.py -C examples/get-started/blink build
 ```
 
 ## 底层移植者视角
@@ -99,7 +103,7 @@ components/wt_bsp/boards/<BOARD>/
 
 ```kconfig
 config WT_BSP_BOARD_<BOARD_ID>
-    bool "<BOARD>"
+    bool
     depends on IDF_TARGET_<TARGET>
     select WT_BSP_BOARD_HAS_BOARD
     select WT_BSP_BOARD_HAS_RGB
@@ -138,6 +142,14 @@ endif()
 - `board_init()` 和 `board_deinit()`。
 - `board_get_board()`、`board_get_button()`、`board_get_rgb()`。
 - `board_get_bsp_interface()` 返回静态 `wt_bsp_interface_t`。
+
+7. 在需要支持该板的示例目录下添加 `sdkconfig.<board_id>`，例如：
+
+```ini
+CONFIG_WT_BSP_BOARD_<BOARD_ID>=y
+```
+
+`idf.py set-board` 会读取这个文件生成 `sdkconfig.board` 和 `sdkconfig.board.Kconfig`。CMake 配置阶段会读取 `sdkconfig.board` 设置 `IDF_TARGET`；active `SDKCONFIG` 默认放在 build 目录下，不同 build 目录可以分别保存 menuconfig 裁剪结果。如果 active `SDKCONFIG` 已存在且目标芯片不同，旧文件会在同目录备份为 `sdkconfig.old` 后重置目标行。如果选择的新板卡目标芯片与当前 build 目录的 `CMakeCache.txt` 不一致，`set-board` 会自动执行 `idf.py fullclean`，避免下次构建出现 target mismatch。
 
 ### 移植约束
 

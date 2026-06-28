@@ -6,7 +6,7 @@
 
 这是 Wireless-Tag 的 ESP-IDF Board Support Package 仓库。核心组件位于 `components/wt_bsp`，用于给多块 Wireless-Tag TINY 系列 ESP32 开发板提供统一的 `wt_bsp_*` API。示例工程位于 `examples`。
 
-推荐 ESP-IDF 版本为 `v6.0.1`，组件声明兼容 `idf >=5.3`。
+推荐 ESP-IDF 版本至少为 `v6.0.1`，组件声明兼容 `idf >=5.3`。
 
 ## 目录职责
 
@@ -14,6 +14,7 @@
 - `components/wt_bsp/src/`：BSP 核心通用实现，例如 `wt_bsp.c`。
 - `components/wt_bsp/features/<FEATURE>/`：公共外设能力实现；每个功能自带 `CMakeLists.txt`、`include/wt_bsp_<feature>.h`、`include/wt_bsp_<feature>_port.h` 和实现文件。
 - `components/wt_bsp/boards/<BOARD>/`：单板适配，包括引脚、资源数量、板卡初始化、对象生命周期、Kconfig 和 CMake 接入。
+- `components/wt_bsp/tools/`：BSP 构建辅助工具，例如 `wt_bsp_set_board.py` 和 `wt_bsp_project.cmake`。
 - `components/wt_bsp/wt_bsp_config_internal.h`：把板卡能力和 menuconfig 裁剪选择合成为 BSP 内部有效功能宏。
 - `components/wt_bsp/idf_component.yml`：ESP-IDF 组件依赖声明。
 - `examples/get-started/blink/`：基础 RGB 示例。
@@ -33,15 +34,15 @@
 常用验证命令：
 
 ```bash
-idf.py -C examples/get-started/blink -B build-esp32c2 -DIDF_TARGET=esp32c2 build
-idf.py -C examples/get-started/blink -B build-esp32c3 -DIDF_TARGET=esp32c3 build
-idf.py -C examples/get-started/blink -B build-esp32c5 -DIDF_TARGET=esp32c5 build
-idf.py -C examples/get-started/blink -B build-esp32c61 -DIDF_TARGET=esp32c61 build
-idf.py -C examples/display/dsi -B build-esp32p4 -DIDF_TARGET=esp32p4 build
-idf.py -C examples/camera/csi -B build-esp32p4 -DIDF_TARGET=esp32p4 build
-idf.py -C examples/storage/sdmmc -B build-esp32p4 -DIDF_TARGET=esp32p4 build
-idf.py -C examples/wt_factory/wt9932p4-tiny -B build-esp32p4 -DIDF_TARGET=esp32p4 build
-idf.py -C examples/wt_factory/wt9932p4c61-tiny -B build-esp32p4 -DIDF_TARGET=esp32p4 build
+WT_BSP_BOARD=WT9932C2-TINY idf.py -C examples/get-started/blink -B build-wt9932c2-tiny build
+WT_BSP_BOARD=WT9932C3-TINY idf.py -C examples/get-started/blink -B build-wt9932c3-tiny build
+WT_BSP_BOARD=WT9932C5-TINY idf.py -C examples/get-started/blink -B build-wt9932c5-tiny build
+WT_BSP_BOARD=WT9932C61-TINY idf.py -C examples/get-started/blink -B build-wt9932c61-tiny build
+WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/display/dsi -B build-wt9932p4-tiny build
+WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/camera/csi -B build-wt9932p4-tiny build
+WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/storage/sdmmc -B build-wt9932p4-tiny build
+WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/wt_factory/wt9932p4-tiny -B build-wt9932p4-tiny build
+WT_BSP_BOARD=WT9932P4C61-TINY idf.py -C examples/wt_factory/wt9932p4c61-tiny -B build-wt9932p4c61-tiny build
 ```
 
 提交前至少运行：
@@ -75,7 +76,8 @@ git diff --check
 5. 在 `board_config.h` 中声明该板硬件具备的能力，命名使用 `WT_BSP_BOARD_HAS_<FEATURE>`，例如 RGB、button、SDMMC、DSI、CSI、touch。
 6. 在板级 `Kconfig.projbuild` 中为该板 `select WT_BSP_BOARD_HAS_<FEATURE>`，让 menuconfig 只能在板卡能力边界内裁剪。
 7. 在 `board.c` 中实现板卡信息、资源初始化/释放、`get_*` 函数和 `board_get_bsp_interface()`。
-8. 编译至少一个该板对应的示例，并确认 `menuconfig` 中该板只在正确目标芯片下可选。
+8. 在需要支持该板的示例目录下添加 `sdkconfig.<board_id>`，例如 `sdkconfig.wt9932p4_tiny`。
+9. 编译至少一个该板对应的示例，并确认 `idf.py set-board`、`WT_BSP_BOARD=<BOARD> idf.py set-board` 或 `WT_BSP_BOARD=<BOARD> idf.py build` 会生成正确的 `sdkconfig.board`、`sdkconfig.board.Kconfig` 和目标芯片配置；跨目标芯片切板时应自动触发 `fullclean`。
 
 ## 新增公共外设能力
 

@@ -4,13 +4,13 @@
 
 The **WT_BSP** is a comprehensive Board Support Package (BSP) designed for Wireless-Tag (启明云端) development boards based on Espressif's ESP32 series MCUs. It provides a unified, hardware-agnostic API for common peripherals, enabling developers to switch between different boards with minimal code changes.
 
-This BSP is optimized for **ESP-IDF v6.0.1** and targets a wide range of chips, from the cost-effective ESP32-C2 to the high-performance ESP32-P4.
+This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range of chips, from the cost-effective ESP32-C2 to the high-performance ESP32-P4.
 
 ## 🚀 Key Features
 
 -   **Unified Hardware API**: Access RGB LEDs, buttons, SD cards, displays, and cameras through a consistent set of `wt_bsp_*` functions.
 -   **Modular Architecture**: Each peripheral is implemented as a standalone module within the BSP, allowing for easy extension and maintenance.
--   **Multi-Board Support**: Native support for various "TINY" series boards with automatic hardware detection and configuration via Kconfig.
+-   **Multi-Board Support**: Native support for various "TINY" series boards selected with `idf.py set-board`.
 -   **Advanced ESP32-P4 Support**:
     -   **MIPI-DSI**: High-resolution display support with LVGL integration.
     -   **MIPI-CSI**: Camera support with hardware acceleration (PPA).
@@ -31,7 +31,7 @@ This BSP is optimized for **ESP-IDF v6.0.1** and targets a wide range of chips, 
 ## 🛠️ Getting Started
 
 ### Prerequisites
--   **ESP-IDF**: Version `v6.0.1` is recommended. (Compatible with `v5.3` and above).
+-   **ESP-IDF**: Version `v6.0.1` or later is recommended. (Compatible with `v5.3` and above).
 -   **Git**: To clone the repository and submodules.
 
 ### Installation
@@ -39,7 +39,7 @@ This BSP is optimized for **ESP-IDF v6.0.1** and targets a wide range of chips, 
 2.  In your project's `idf_component.yml`, ensure dependencies are met.
 
 ### Basic Usage
-1.  **Select your board**: Run `idf.py menuconfig` and navigate to `WT BSP` -> `Board selection`.
+1.  **Select your board**: Run `idf.py set-board` in an example directory and choose a supported board. The command generates board defaults used by the next configure/build, and automatically runs `idf.py fullclean` when switching to a board with a different target chip. For non-interactive use, run `WT_BSP_BOARD=WT9932P4-TINY idf.py set-board` or build directly with `WT_BSP_BOARD=WT9932P4-TINY idf.py build`.
 2.  **Initialize the BSP**:
     ```c
     #include "wt_bsp.h"
@@ -59,10 +59,11 @@ This BSP is optimized for **ESP-IDF v6.0.1** and targets a wide range of chips, 
 ## 📂 Project Structure
 
 -   `components/wt_bsp`: The core BSP component.
-    -   `boards`: Hardware-specific configurations (GPIOs, timings, etc.).
+    -   `boards`: Hardware-specific configurations, Kconfig, and board resource lifecycles.
+    -   `features`: Reusable peripheral implementations such as RGB, button, SDMMC, DSI, CSI, and touch.
     -   `include`: Public API headers.
     -   `src`: Implementation of the common BSP interface.
-    -   `third_party`: Bundled drivers like `led_strip` and `lwbtn`.
+    -   `tools`: `set-board` and project CMake helper scripts.
 -   `examples`: Usage demonstrations for various features.
 
 ## ⚙️ How it Works
@@ -70,7 +71,7 @@ This BSP is optimized for **ESP-IDF v6.0.1** and targets a wide range of chips, 
 The WT_BSP uses a **Board Interface Pattern** to decouple application logic from hardware specifics:
 1.  **Interface Definition**: `wt_bsp_interface_t` defines a table of function pointers for all board resources.
 2.  **Board Implementation**: Each board in `components/wt_bsp/boards/` implements these functions and registers them.
-3.  **Unified Access**: The application calls `wt_bsp_init()`, which automatically selects the correct board implementation based on Kconfig, and subsequently uses generic `wt_bsp_get_*()` functions.
+3.  **Unified Access**: The application calls `wt_bsp_init()`, which automatically selects the correct board implementation from the Kconfig values written by `set-board`, and subsequently uses generic `wt_bsp_get_*()` functions.
 
 ## 🤝 Contributing
 Contributions are welcome! Please follow the existing coding style and ensure all changes are tested against supported hardware.
