@@ -17,6 +17,7 @@
  * - 用户连接到 AP SSID (默认 "WT9932xxxx") 并在浏览器打开 http://192.168.4.1
  * - 配置完成后自动连接到指定的 Wi-Fi 网络
  * - Wi-Fi 凭据保存在 NVS 中，下次启动自动连接
+ * - 运行时长按板载按键可进入配置 AP 模式
  */
 
 // 必须首先包含适配器，在所有其他头文件之前
@@ -51,6 +52,42 @@ static const char *TAG = "esp_hosted_master_p4";
 
 /* 全局变量 */
 static wt_bsp_rgb_t s_rgb_led = NULL;
+static TaskHandle_t s_config_task_handle = NULL;
+static bool s_config_button_triggered = false;
+
+static void config_button_event_cb(wt_bsp_button_t button,
+                                   wt_bsp_button_event_t event,
+                                   void *user_data)
+{
+    (void)button;
+    (void)user_data;
+
+    if (event == WT_BSP_BUTTON_EVENT_RELEASE) {
+        s_config_button_triggered = false;
+        return;
+    }
+
+    if (event == WT_BSP_BUTTON_EVENT_KEEPALIVE &&
+            !s_config_button_triggered &&
+            s_config_task_handle != NULL) {
+        s_config_button_triggered = true;
+        xTaskNotifyGive(s_config_task_handle);
+    }
+}
+
+static void config_task(void *arg)
+{
+    WifiManager *wifi_manager = static_cast<WifiManager *>(arg);
+
+    while (true) {
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        if (!wifi_manager->IsConfigMode()) {
+            ESP_LOGI(TAG, "Button long press detected, entering configuration mode");
+            wifi_manager->StartConfigAp();
+        }
+    }
+}
 
 extern "C" void app_main(void)
 {
@@ -92,7 +129,7 @@ extern "C" void app_main(void)
     auto& wifi_manager = WifiManager::GetInstance();
 
     WifiManagerConfig config;
-    config.ssid_prefix = "WT9932";      // AP mode SSID 前缀
+    config.ssid_prefix = "WT9932P4C61";      // AP mode SSID 前缀
     config.language = "zh-CN";         // Web UI 语言
     config.station_scan_min_interval_seconds = 10;   // 扫描间隔（秒）
     config.station_scan_max_interval_seconds = 300;   // 最大扫描间隔
@@ -107,7 +144,33 @@ extern "C" void app_main(void)
         return;
     }
 
-    /* 6. 设置事件回调 */
+    /* 6. 创建配网任务并注册板载按键回调 */
+    wt_bsp_button_t config_button = wt_bsp_get_button();
+    if (config_button == NULL) {
+        ESP_LOGW(TAG, "Button not available; runtime configuration trigger disabled");
+    } else {
+        BaseType_t task_created = xTaskCreate(config_task,
+                                             "wifi_config",
+                                             4096,
+                                             &wifi_manager,
+                                             5,
+                                             &s_config_task_handle);
+        if (task_created != pdPASS) {
+            s_config_task_handle = NULL;
+            ESP_LOGE(TAG, "Failed to create Wi-Fi configuration task");
+        } else {
+            ret = wt_bsp_button_register_event_cb(config_button, config_button_event_cb, NULL);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to register button callback: %s", esp_err_to_name(ret));
+                vTaskDelete(s_config_task_handle);
+                s_config_task_handle = NULL;
+            } else {
+                ESP_LOGI(TAG, "Long press the onboard button to enter configuration mode");
+            }
+        }
+    }
+
+    /* 7. 设置事件回调 */
     wifi_manager.SetEventCallback([&](WifiEvent event, const std::string& data) {
         switch (event) {
             case WifiEvent::Scanning:
@@ -134,10 +197,6 @@ extern "C" void app_main(void)
                 if (s_rgb_led) {
                     wt_bsp_rgb_set_color(s_rgb_led, RGB_COLOR_SUCCESS);
                 }
-                // 连接成功后延时 2 秒重启
-                ESP_LOGI(TAG, "Connection successful, restarting in 2 seconds...");
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                esp_restart();
                 break;
 
             case WifiEvent::Disconnected:
@@ -169,7 +228,7 @@ extern "C" void app_main(void)
         }
     });
 
-    /* 7. 检查是否有保存的 Wi-Fi 凭据 */
+    /* 8. 检查是否有保存的 Wi-Fi 凭据 */
     auto& ssid_list = SsidManager::GetInstance().GetSsidList();
     if (ssid_list.empty()) {
         /* 没有保存的凭据，启动配置 AP 模式 */
@@ -182,7 +241,7 @@ extern "C" void app_main(void)
         wifi_manager.StartStation();
     }
 
-    /* 8. 主循环 - 保持运行 */
+    /* 9. 主循环 - 保持运行 */
     ESP_LOGI(TAG, "Entering main loop...");
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));  // 每 10 秒打印一次状态
