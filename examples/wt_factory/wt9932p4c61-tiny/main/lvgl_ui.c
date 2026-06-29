@@ -7,6 +7,7 @@
 #include "lvgl.h"
 #include "src/misc/cache/lv_cache.h"
 #include <stdio.h>
+#include <string.h>
 #include "esp_err.h"
 
 extern void example_set_led_color(uint8_t r, uint8_t g, uint8_t b);
@@ -76,9 +77,55 @@ static lv_obj_t *slider_g;
 static lv_obj_t *slider_b;
 static lv_obj_t *led_color_rect;
 static lv_obj_t *label_sd_info;
+static lv_obj_t *label_wifi_status;
+static lv_obj_t *label_wifi_ap;
+static lv_obj_t *label_system_time;
+static bool s_updating_led_ui;
+
+void update_led_color(uint8_t r, uint8_t g, uint8_t b)
+{
+    if (slider_r == NULL || slider_g == NULL || slider_b == NULL || led_color_rect == NULL) {
+        return;
+    }
+
+    s_updating_led_ui = true;
+    lv_slider_set_value(slider_r, r, LV_ANIM_OFF);
+    lv_slider_set_value(slider_g, g, LV_ANIM_OFF);
+    lv_slider_set_value(slider_b, b, LV_ANIM_OFF);
+    lv_obj_invalidate(slider_r);
+    lv_obj_invalidate(slider_g);
+    lv_obj_invalidate(slider_b);
+    lv_obj_set_style_bg_color(led_color_rect, lv_color_make(r, g, b), 0);
+    lv_obj_invalidate(led_color_rect);
+    s_updating_led_ui = false;
+}
+
+void update_wifi_status(bool connected, const char *ap_name, const char *time_text)
+{
+    if (label_wifi_status == NULL || label_wifi_ap == NULL || label_system_time == NULL) {
+        return;
+    }
+
+    lv_label_set_text(label_wifi_status, connected ? "Connected" : "Disconnected");
+    lv_obj_set_style_text_color(label_wifi_status,
+                                connected ? lv_palette_main(LV_PALETTE_GREEN) :
+                                            lv_palette_main(LV_PALETTE_RED),
+                                0);
+    lv_label_set_text_fmt(label_wifi_ap, "AP: %s", connected ? "-" : ap_name);
+    lv_obj_set_style_text_color(label_wifi_ap,
+                                !connected && ap_name != NULL && strcmp(ap_name, "-") != 0 ?
+                                    lv_palette_main(LV_PALETTE_GREEN) :
+                                    lv_color_hex(0xAAAAAA),
+                                0);
+    lv_label_set_text(label_system_time, time_text);
+}
 
 static void slider_event_cb(lv_event_t * e)
 {
+    if (s_updating_led_ui) {
+        return;
+    }
+
     uint8_t r = lv_slider_get_value(slider_r);
     uint8_t g = lv_slider_get_value(slider_g);
     uint8_t b = lv_slider_get_value(slider_b);
@@ -191,16 +238,26 @@ void lvgl_ui(lv_display_t *disp)
     lv_obj_set_style_bg_color(slider_b, lv_palette_main(LV_PALETTE_BLUE), LV_PART_INDICATOR);
     lv_obj_add_event_cb(slider_b, slider_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
-    /* --- 3. SD Card Section --- */
-    lv_obj_t *sd_cont = lv_obj_create(bottom_row);
-    lv_obj_set_size(sd_cont, LV_SIZE_CONTENT, 254);
+    /* --- 3. SD Card and Wi-Fi Section --- */
+    lv_obj_t *status_cont = lv_obj_create(bottom_row);
+    lv_obj_set_size(status_cont, 160, 254);
+    lv_obj_set_flex_flow(status_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(status_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_all(status_cont, 0, 0);
+    lv_obj_set_style_pad_row(status_cont, 2, 0);
+    lv_obj_set_style_bg_opa(status_cont, 0, 0);
+    lv_obj_set_style_border_width(status_cont, 0, 0);
+    lv_obj_remove_flag(status_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *sd_cont = lv_obj_create(status_cont);
+    lv_obj_set_size(sd_cont, 160, 126);
     lv_obj_set_flex_flow(sd_cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(sd_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_bg_color(sd_cont, lv_color_hex(0x1A1A1A), 0);
     lv_obj_set_style_radius(sd_cont, 0, 0);
     lv_obj_set_style_border_width(sd_cont, 0, 0);
-    lv_obj_set_style_pad_hor(sd_cont, 10, 0);
-    lv_obj_set_style_pad_row(sd_cont, 20, 0);
+    lv_obj_set_style_pad_all(sd_cont, 4, 0);
+    lv_obj_set_style_pad_row(sd_cont, 6, 0);
     lv_obj_remove_flag(sd_cont, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *btn_sd = lv_button_create(sd_cont);
@@ -214,4 +271,30 @@ void lvgl_ui(lv_display_t *disp)
     lv_label_set_long_mode(label_sd_info, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(label_sd_info, 120);
     lv_obj_set_style_text_align(label_sd_info, LV_TEXT_ALIGN_CENTER, 0);
+
+    lv_obj_t *wifi_cont = lv_obj_create(status_cont);
+    lv_obj_set_size(wifi_cont, 160, 126);
+    lv_obj_set_flex_flow(wifi_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(wifi_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_bg_color(wifi_cont, lv_color_hex(0x1A1A1A), 0);
+    lv_obj_set_style_radius(wifi_cont, 0, 0);
+    lv_obj_set_style_border_width(wifi_cont, 0, 0);
+    lv_obj_set_style_pad_all(wifi_cont, 4, 0);
+    lv_obj_set_style_pad_row(wifi_cont, 4, 0);
+    lv_obj_remove_flag(wifi_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+    label_wifi_status = lv_label_create(wifi_cont);
+    lv_label_set_text(label_wifi_status, "Disconnected");
+    lv_obj_set_style_text_color(label_wifi_status, lv_palette_main(LV_PALETTE_RED), 0);
+
+    label_wifi_ap = lv_label_create(wifi_cont);
+    lv_label_set_text(label_wifi_ap, "AP: -");
+    lv_obj_set_width(label_wifi_ap, 150);
+    lv_label_set_long_mode(label_wifi_ap, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(label_wifi_ap, LV_TEXT_ALIGN_CENTER, 0);
+
+    label_system_time = lv_label_create(wifi_cont);
+    lv_label_set_text(label_system_time, "1970-01-01 00:00:00");
+    lv_obj_set_style_text_color(label_system_time, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_style_text_align(label_system_time, LV_TEXT_ALIGN_CENTER, 0);
 }

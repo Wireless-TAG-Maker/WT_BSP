@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/lock.h>
 #include <sys/param.h>
@@ -20,16 +21,32 @@
 #include "esp_cache.h"
 #include "esp_private/esp_cache_private.h"
 #include "esp_heap_caps.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_netif_sntp.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
 #include "driver/ppa.h"
 #include "linux/videodev2.h"
+#include "wifi_manager_bridge.h"
 #include "wt_bsp.h"
 
 static const char *TAG = "factory_firmware";
+
+#define WIFI_TASK_CONFIG_BIT     BIT0
+#define WIFI_TASK_CONNECTED_BIT  BIT1
+#define WIFI_TASK_STATION_BIT    BIT2
+#define WIFI_TASK_CONNECTING_BIT BIT3
+#define WIFI_TASK_DISCONNECTED_BIT BIT4
+#define WIFI_TASK_CONFIG_MODE_BIT BIT5
+#define WIFI_TEXT_BUFFER_SIZE    64
 
 /* External UI functions from lvgl_demo_ui.c */
 extern void lvgl_ui(lv_display_t *disp);
 extern void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height);
 extern void set_camera_error(const char *msg);
+extern void update_led_color(uint8_t r, uint8_t g, uint8_t b);
+extern void update_wifi_status(bool connected, const char *ap_name, const char *time_text);
 extern bool is_fullscreen;
 
 /* Camera streaming state */
@@ -37,6 +54,20 @@ static ppa_client_handle_t s_ppa_srm_handle = NULL;
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
 static uint8_t s_current_buf_idx = 0;
 static bool s_csi_detected = false;
+static TaskHandle_t s_wifi_task_handle = NULL;
+static bool s_config_button_triggered = false;
+static bool s_ui_ready = false;
+static uint8_t s_led_red = 0;
+static uint8_t s_led_green = 0;
+static uint8_t s_led_blue = 0;
+
+static esp_err_t initialize_wifi(void);
+static void set_status_led_color(uint8_t r, uint8_t g, uint8_t b);
+static void wifi_task(void *arg);
+static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *user_data);
+static void config_button_event_cb(wt_bsp_button_t button,
+                                   wt_bsp_button_event_t event,
+                                   void *user_data);
 
 /**
  * @brief Callback for camera detection. Just sets flag on first frame.
@@ -113,10 +144,24 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
 
 void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 {
+    s_led_red = r;
+    s_led_green = g;
+    s_led_blue = b;
+
     wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
     if (rgb) {
         wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){r, g, b});
         wt_bsp_rgb_refresh(rgb);
+    }
+}
+
+static void set_status_led_color(uint8_t r, uint8_t g, uint8_t b)
+{
+    example_set_led_color(r, g, b);
+
+    if (s_ui_ready && wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(100))) {
+        update_led_color(r, g, b);
+        wt_bsp_dsi_lvgl_unlock();
     }
 }
 
@@ -139,6 +184,202 @@ uint64_t example_sdcard_get_capacity(void)
         }
     }
     return 0;
+}
+
+static esp_err_t initialize_wifi(void)
+{
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    ret = esp_netif_init();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        return ret;
+    }
+
+    ret = esp_event_loop_create_default();
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        return ret;
+    }
+
+    const wifi_manager_config_t config = {
+        .ssid_prefix = "WT9932P4C61",
+        .language = "zh-CN",
+        .station_scan_min_interval_seconds = 10,
+        .station_scan_max_interval_seconds = 300,
+        .station_failure_retry_count = 3,
+    };
+    if (!wifi_manager_initialize(&config)) {
+        return ESP_FAIL;
+    }
+
+    if (xTaskCreate(wifi_task, "factory_wifi", 4096, NULL, 5,
+                    &s_wifi_task_handle) != pdPASS) {
+        s_wifi_task_handle = NULL;
+        return ESP_ERR_NO_MEM;
+    }
+
+    wifi_manager_set_event_callback(wifi_event_cb, NULL);
+
+    wt_bsp_button_t button = wt_bsp_get_button();
+    if (button == NULL) {
+        ESP_LOGW(TAG, "Button not available; runtime configuration trigger disabled");
+    } else {
+        ret = wt_bsp_button_register_event_cb(button, config_button_event_cb, NULL);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to register button callback: %s", esp_err_to_name(ret));
+        }
+    }
+
+    if (wifi_manager_has_saved_credentials()) {
+        wifi_manager_start_station();
+    } else {
+        wifi_manager_start_config_ap();
+    }
+
+    return ESP_OK;
+}
+
+static void wifi_task(void *arg)
+{
+    bool sntp_initialized = false;
+    bool restart_after_connect = false;
+
+    (void)arg;
+    while (true) {
+        uint32_t notification = 0;
+        xTaskNotifyWait(0, UINT32_MAX, &notification, pdMS_TO_TICKS(1000));
+
+        if ((notification & WIFI_TASK_CONFIG_BIT) != 0 && !wifi_manager_is_config_mode()) {
+            ESP_LOGI(TAG, "Button long press detected, entering configuration mode");
+            wifi_manager_start_config_ap();
+        }
+
+        if ((notification & WIFI_TASK_CONNECTED_BIT) != 0 && !sntp_initialized) {
+            const esp_sntp_config_t sntp_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+            esp_err_t ret = esp_netif_sntp_init(&sntp_config);
+            if (ret == ESP_OK) {
+                sntp_initialized = true;
+            } else {
+                ESP_LOGW(TAG, "SNTP initialization failed: %s", esp_err_to_name(ret));
+            }
+        }
+
+        if ((notification & WIFI_TASK_STATION_BIT) != 0) {
+            restart_after_connect = true;
+            wifi_manager_start_station();
+        }
+
+        const uint32_t status_bits = WIFI_TASK_CONNECTED_BIT |
+                                     WIFI_TASK_STATION_BIT |
+                                     WIFI_TASK_CONNECTING_BIT |
+                                     WIFI_TASK_DISCONNECTED_BIT |
+                                     WIFI_TASK_CONFIG_MODE_BIT;
+        if ((notification & status_bits) != 0) {
+            if (wifi_manager_is_config_mode()) {
+                set_status_led_color(255, 0, 255);
+            } else if (wifi_manager_is_connected()) {
+                set_status_led_color(0, 255, 0);
+            } else if ((notification & WIFI_TASK_DISCONNECTED_BIT) != 0) {
+                set_status_led_color(255, 0, 0);
+            } else {
+                set_status_led_color(0, 0, 255);
+            }
+        }
+
+        if ((notification & WIFI_TASK_CONNECTED_BIT) != 0 && restart_after_connect) {
+            ESP_LOGI(TAG, "Provisioned Wi-Fi connected, restarting device");
+            if (s_ui_ready && wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(100))) {
+                lv_obj_t *black_overlay = lv_obj_create(lv_layer_top());
+                lv_obj_set_size(black_overlay, lv_pct(100), lv_pct(100));
+                lv_obj_set_pos(black_overlay, 0, 0);
+                lv_obj_set_style_bg_color(black_overlay, lv_color_hex(0x000000), 0);
+                lv_obj_set_style_bg_opa(black_overlay, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(black_overlay, 0, 0);
+                lv_obj_set_style_radius(black_overlay, 0, 0);
+                lv_obj_clear_flag(black_overlay, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_invalidate(black_overlay);
+                lv_refr_now(NULL);
+                wt_bsp_dsi_lvgl_unlock();
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            esp_restart();
+        }
+
+        if (s_ui_ready && wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(100))) {
+            const bool connected = wifi_manager_is_connected();
+            char ap_name[WIFI_TEXT_BUFFER_SIZE] = "-";
+            char time_text[WIFI_TEXT_BUFFER_SIZE] = "1970-01-01 00:00:00";
+
+            if (connected) {
+                time_t now = 0;
+                struct tm time_info = {0};
+
+                time(&now);
+                localtime_r(&now, &time_info);
+                strftime(time_text, sizeof(time_text), "%Y-%m-%d %H:%M:%S", &time_info);
+            } else if (wifi_manager_is_config_mode()) {
+                wifi_manager_get_ap_ssid(ap_name, sizeof(ap_name));
+            }
+
+            update_wifi_status(connected, ap_name, time_text);
+            update_led_color(s_led_red, s_led_green, s_led_blue);
+            wt_bsp_dsi_lvgl_unlock();
+        }
+    }
+}
+
+static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *user_data)
+{
+    uint32_t notification = 0;
+
+    (void)data;
+    (void)user_data;
+
+    switch (event) {
+    case WIFI_MANAGER_EVENT_SCANNING:
+    case WIFI_MANAGER_EVENT_CONNECTING:
+        notification = WIFI_TASK_CONNECTING_BIT;
+        break;
+    case WIFI_MANAGER_EVENT_CONNECTED:
+        notification = WIFI_TASK_CONNECTED_BIT;
+        break;
+    case WIFI_MANAGER_EVENT_DISCONNECTED:
+        notification = WIFI_TASK_DISCONNECTED_BIT;
+        break;
+    case WIFI_MANAGER_EVENT_CONFIG_MODE_ENTER:
+        notification = WIFI_TASK_CONFIG_MODE_BIT;
+        break;
+    case WIFI_MANAGER_EVENT_CONFIG_MODE_EXIT:
+        notification = WIFI_TASK_STATION_BIT;
+        break;
+    }
+
+    if (notification != 0 && s_wifi_task_handle != NULL) {
+        xTaskNotify(s_wifi_task_handle, notification, eSetBits);
+    }
+}
+
+static void config_button_event_cb(wt_bsp_button_t button,
+                                   wt_bsp_button_event_t event,
+                                   void *user_data)
+{
+    (void)button;
+    (void)user_data;
+
+    if (event == WT_BSP_BUTTON_EVENT_RELEASE) {
+        s_config_button_triggered = false;
+    } else if (event == WT_BSP_BUTTON_EVENT_KEEPALIVE &&
+               !s_config_button_triggered &&
+               s_wifi_task_handle != NULL) {
+        s_config_button_triggered = true;
+        xTaskNotify(s_wifi_task_handle, WIFI_TASK_CONFIG_BIT, eSetBits);
+    }
 }
 
 void app_main(void)
@@ -179,31 +420,27 @@ void app_main(void)
         if (!dsi_ok && !csi_initialized && !sdmmc_ok) {
             /* Screen, camera, and SD card all not connected: RED */
             ESP_LOGW(TAG, "No peripherals detected - LED RED");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 0, 0);
         } else if (!csi_initialized && !sdmmc_ok) {
             /* Camera and SD card not connected (based on init): ORANGE */
             ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 165, 0);
         } else if (!dsi_ok) {
             /* Screen not connected (with any other state): PINK */
             ESP_LOGW(TAG, "Screen not detected - LED PINK");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 105, 180);
         } else if (!csi_initialized) {
             /* Only camera not connected (based on init): BLUE */
             ESP_LOGW(TAG, "Camera not detected (init failed) - LED BLUE");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(0, 0, 255);
         } else if (!sdmmc_ok) {
             /* Only SD card not connected: YELLOW */
             ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 255, 0);
         } else {
-            /* All hardware initialized: no LED indication */
-            ESP_LOGI(TAG, "All peripherals initialized - LED OFF");
+            /* All hardware initialized: GREEN */
+            ESP_LOGI(TAG, "All peripherals initialized - LED GREEN");
+            example_set_led_color(0, 255, 0);
         }
     }
 
@@ -245,6 +482,8 @@ void app_main(void)
     /* 3. Setup UI */
     if (wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
         lvgl_ui(disp);
+        update_led_color(s_led_red, s_led_green, s_led_blue);
+        s_ui_ready = true;
         wt_bsp_dsi_lvgl_unlock();
     }
 
@@ -279,6 +518,12 @@ void app_main(void)
                 wt_bsp_dsi_lvgl_unlock();
             }
         }
+    }
+
+    /* 6. Initialize Wi-Fi after CSI has claimed its hardware resources. */
+    ret = initialize_wifi();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi initialization failed: %s", esp_err_to_name(ret));
     }
 
     ESP_LOGI(TAG, "Factory firmware example running");
