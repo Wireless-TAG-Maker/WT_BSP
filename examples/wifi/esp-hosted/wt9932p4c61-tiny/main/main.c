@@ -15,7 +15,6 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
-#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
@@ -30,15 +29,12 @@
 static const char *TAG = "esp_hosted_master_p4";
 static wt_bsp_rgb_t s_rgb_led = NULL;
 static TaskHandle_t s_config_task_handle = NULL;
-static TaskHandle_t s_restart_task_handle = NULL;
 static bool s_config_button_triggered = false;
-static bool s_restart_after_connect = false;
 
 static void config_button_event_cb(wt_bsp_button_t button,
                                    wt_bsp_button_event_t event,
                                    void *user_data);
 static void config_task(void *arg);
-static void restart_task(void *arg);
 static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *user_data);
 
 void app_main(void)
@@ -84,12 +80,6 @@ void app_main(void)
     }
 
     wifi_manager_set_event_callback(wifi_event_cb, NULL);
-
-    if (xTaskCreate(restart_task, "wifi_restart", 2048, NULL, 5,
-                    &s_restart_task_handle) != pdPASS) {
-        s_restart_task_handle = NULL;
-        ESP_LOGW(TAG, "Failed to create Wi-Fi restart task");
-    }
 
     wt_bsp_button_t config_button = wt_bsp_get_button();
     if (config_button == NULL) {
@@ -167,18 +157,6 @@ static void config_task(void *arg)
     }
 }
 
-static void restart_task(void *arg)
-{
-    (void)arg;
-
-    while (true) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        ESP_LOGI(TAG, "Restarting device after Wi-Fi provisioning");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        esp_restart();
-    }
-}
-
 static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *user_data)
 {
     char text[WIFI_TEXT_BUFFER_SIZE] = {0};
@@ -204,13 +182,6 @@ static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *us
         if (s_rgb_led != NULL) {
             wt_bsp_rgb_set_color(s_rgb_led, RGB_COLOR_SUCCESS);
         }
-        if (s_restart_after_connect && s_restart_task_handle != NULL) {
-            s_restart_after_connect = false;
-            xTaskNotifyGive(s_restart_task_handle);
-        } else if (s_restart_after_connect) {
-            ESP_LOGW(TAG, "Provisioning completed, but restart task is unavailable");
-            s_restart_after_connect = false;
-        }
         break;
     case WIFI_MANAGER_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "Disconnected from AP, reason: %s", data);
@@ -221,14 +192,12 @@ static void wifi_event_cb(wifi_manager_event_t event, const char *data, void *us
     case WIFI_MANAGER_EVENT_CONFIG_MODE_ENTER:
         wifi_manager_get_ap_ssid(text, sizeof(text));
         ESP_LOGI(TAG, "Configuration mode started | AP: %s | URL: http://192.168.4.1", text);
-        s_restart_after_connect = true;
         if (s_rgb_led != NULL) {
             wt_bsp_rgb_set_color(s_rgb_led, RGB_COLOR_CONFIG);
         }
         break;
     case WIFI_MANAGER_EVENT_CONFIG_MODE_EXIT:
         ESP_LOGI(TAG, "Configuration mode exited, restarting station");
-        s_restart_after_connect = true;
         if (s_rgb_led != NULL) {
             wt_bsp_rgb_set_color(s_rgb_led, RGB_COLOR_CONNECT);
         }
