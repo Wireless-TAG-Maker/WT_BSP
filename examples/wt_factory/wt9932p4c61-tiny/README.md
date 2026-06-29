@@ -38,15 +38,57 @@ Currently supported development boards:
 * **WT9932P4-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
 * **WT9932P4C61-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
 
-### Configure the Project
+### Build and Flash the ESP32-C61 Slave Firmware
 
-Before building, you need to set the target chip to `esp32p4`:
+First, build and flash the ESP-Hosted slave firmware for the ESP32-C61:
 
 ```bash
-idf.py set-target esp32p4
+cd ./examples/wt_factory/wt9932p4c61-tiny
+
+# Set the target chip
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
+
+# Build the firmware
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
+
+# Flash the ESP32-C61 (replace COM1 with the actual serial port)
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p COM1
+
+# Optional: monitor the ESP32-C61 output
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p COM1
 ```
 
-This example already includes a default `sdkconfig.defaults`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
+**About the `build_slave` directory:**
+
+- `build_slave` is the independent build directory for the slave firmware, separate from the main project's `build` directory.
+- The directory is generated in the project root and can be added to `.gitignore`.
+- Delete the `build_slave` directory when a clean build is required.
+
+**Entering download mode:**
+
+Make sure the ESP32-C61 is in download mode before flashing:
+
+1. Connect the ESP32-C61 RX and TX pins to a USB-to-UART adapter.
+2. Hold ESP32-C61 BOOT (GPIO9) low.
+3. Pull ESP32-C61 EN (RESET) low, then release it to reset the chip.
+4. Release ESP32-C61 BOOT (GPIO9).
+
+### Configure the Project
+
+Before building, you need to set the target board:
+
+```bash
+idf.py set-board
+```
+
+choice `WT9932P4C61-TINY (esp32p4)`:
+
+```bash
+Supported boards in this example:
+0: WT9932P4C61-TINY (esp32p4)
+```
+
+This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
 
 ### Build and Flash
 

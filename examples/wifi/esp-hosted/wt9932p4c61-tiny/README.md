@@ -99,8 +99,8 @@ idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor
 ```bash
 cd ./examples/wifi/esp-hosted/wt9932p4c61-tiny
 
-# 设置目标芯片
-idf.py set-target esp32p4
+# 设置目标开发板
+idf.py set-board
 
 # 编译
 idf.py build

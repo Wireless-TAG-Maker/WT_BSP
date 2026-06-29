@@ -38,13 +38,20 @@ Currently supported development boards:
 
 ### Configure the Project
 
-Before building, you need to set the target chip to `esp32p4`:
+Before building, you need to set the target board:
 
 ```bash
-idf.py set-target esp32p4
+idf.py set-board
 ```
 
-This example already includes a default `sdkconfig.defaults`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
+choice `WT9932P4-TINY (esp32p4)`:
+```bash
+Supported boards in this example:
+0: WT9932P4-TINY (esp32p4)
+```
+
+
+This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
 
 ### Build and Flash
 

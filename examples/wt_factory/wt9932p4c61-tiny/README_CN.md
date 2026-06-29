@@ -38,15 +38,56 @@
 * **WT9932P4-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
 * **WT9932P4C61-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
 
-### 配置工程
+### 编译并烧录 ESP32-C61 Slave 固件
 
-在编译之前，您需要设置目标芯片为 `esp32p4`：
+首先需要为 ESP32-C61 编译并烧录 ESP-Hosted slave 固件：
 
 ```bash
-idf.py set-target esp32p4
+cd ./examples/wt_factory/wt9932p4c61-tiny
+
+# 设置目标芯片
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
+
+# 编译固件
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
+
+# 烧录到 ESP32-C61（替换 COM1 为实际串口）
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p COM1
+
+# （可选）监控 ESP32-C61 输出
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p COM1
 ```
 
-本示例已包含默认的 `sdkconfig.defaults`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
+**关于 `build_slave` 目录：**
+
+- `build_slave` 是 slave 固件的独立构建目录，用于与主项目的 `build` 目录分开。
+- 该目录会在项目根目录下生成，可以添加到 `.gitignore` 中。
+- 如需清理，可直接删除 `build_slave` 目录。
+
+**烧录模式：**
+
+烧录时确保 ESP32-C61 处于下载模式：
+
+1. 将 ESP32-C61 的 RX、TX 连接到串口模块。
+2. ESP32-C61 的 BOOT（GPIO9）接地并保持。
+3. ESP32-C61 的 EN（RESET）引脚接地，然后松开以完成复位。
+4. 松开 ESP32-C61 的 BOOT（GPIO9）。
+
+### 配置工程
+
+在编译之前，您需要设置目标开发板：
+
+```bash
+idf.py set-board
+```
+
+选择 `WT9932P4C61-TINY (esp32p4)`：
+```bash
+Supported boards in this example:
+0: WT9932P4C61-TINY (esp32p4)
+```
+
+本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
 
 ### 编译与烧录
 

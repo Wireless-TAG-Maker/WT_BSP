@@ -38,13 +38,19 @@
 
 ### 配置工程
 
-在编译之前，您需要设置目标芯片为 `esp32p4`：
+在编译之前，您需要设置目标开发板：
 
 ```bash
-idf.py set-target esp32p4
+idf.py set-board
 ```
 
-本示例已包含默认的 `sdkconfig.defaults`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
+选择`WT9932P4-TINY (esp32p4)`：
+```bash
+Supported boards in this example:
+0: WT9932P4-TINY (esp32p4)
+```
+
+本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
 
 ### 编译与烧录
 
