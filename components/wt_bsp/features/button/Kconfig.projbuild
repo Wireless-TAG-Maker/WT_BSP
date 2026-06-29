@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_BUTTON
+    bool
+
+config WT_BSP_ENABLE_BUTTON
+    bool "Enable button BSP"
+    depends on WT_BSP_BOARD_HAS_BUTTON
+    default y

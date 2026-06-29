@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_SDMMC
+    bool
+
+config WT_BSP_ENABLE_SDMMC
+    bool "Enable SDMMC storage BSP"
+    depends on WT_BSP_BOARD_HAS_SDMMC
+    default y

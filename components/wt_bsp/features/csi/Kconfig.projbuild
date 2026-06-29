@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_CSI
+    bool
+
+config WT_BSP_ENABLE_CSI
+    bool "Enable CSI camera BSP"
+    depends on WT_BSP_BOARD_HAS_CSI
+    default y

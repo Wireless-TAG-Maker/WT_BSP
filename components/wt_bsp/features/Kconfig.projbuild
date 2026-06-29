@@ -1,0 +1,11 @@
+menu "Feature selection"
+
+    rsource "board/Kconfig.projbuild"
+    rsource "button/Kconfig.projbuild"
+    rsource "csi/Kconfig.projbuild"
+    rsource "dsi/Kconfig.projbuild"
+    rsource "rgb/Kconfig.projbuild"
+    rsource "sdmmc/Kconfig.projbuild"
+    rsource "touch/Kconfig.projbuild"
+
+endmenu

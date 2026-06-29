@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_BOARD
+    bool
+
+config WT_BSP_ENABLE_BOARD
+    bool
+    depends on WT_BSP_BOARD_HAS_BOARD
+    default y

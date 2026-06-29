@@ -1,0 +1,7 @@
+list(APPEND WT_BSP_FEATURE_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/include")
+
+if("csi" IN_LIST WT_BSP_BOARD_FEATURES AND CONFIG_WT_BSP_ENABLE_CSI)
+    list(APPEND WT_BSP_FEATURE_SRCS "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_csi.c")
+    list(APPEND WT_BSP_FEATURE_REQUIRES esp_driver_i2c esp_video esp_cam_sensor)
+    list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_sccb_intf esp_ipa)
+endif()
