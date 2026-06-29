@@ -9,6 +9,7 @@ This example is a comprehensive factory firmware that integrates various periphe
 * **Touch Control**: Supports the touch functionality associated with the DSI screen.
 * **SD Card Test**: Supports mounting and capacity checking of SD cards using the SDMMC interface.
 * **RGB LED Control**: Supports control of the onboard WS2812 RGB LED.
+* **Wi-Fi Provisioning**: Displays the connection state and system time, and supports entering provisioning mode with the onboard button.
 
 ## Hardware Status Indication (RGB LED)
 
@@ -16,7 +17,7 @@ Upon startup, the system automatically detects the connection status of peripher
 
 | LED Color | Hardware Status | Description |
 |-----------|-----------------|-------------|
-| ⚫ Off | All Normal | Screen, camera, and SD card are correctly connected and successfully initialized |
+| 🟢 Green | All Normal / Wi-Fi Connected | Peripherals initialized successfully or Wi-Fi connected |
 | 🔵 Blue | Camera Disconnected | |
 | 🟡 Yellow | SD Card Disconnected | |
 | 🟠 Pink | Screen Disconnected | |
@@ -24,6 +25,7 @@ Upon startup, the system automatically detects the connection status of peripher
 
 **RGB Color Reference Values:**
 - Blue: R=0, G=0, B=255
+- Green: R=0, G=255, B=0
 - Yellow: R=255, G=255, B=0
 - Orange: R=255, G=165, B=0
 - Red: R=255, G=0, B=0
@@ -56,4 +58,7 @@ idf.py build flash monitor
 
 ## Core Features Explanation
 
-* **Camera Preview**: The top area displays the real-time camera feed. Tapping the feed toggles between full-screen preview and normal preview modes. In full
+* **Camera Preview**: The top area displays the real-time camera feed. Tapping the feed toggles between full-screen preview and normal preview modes.
+* **LED Control**: The bottom-left sliders adjust the color of the onboard RGB LED.
+* **SD Card Status**: The upper half of the bottom-right area tests SD card mounting and displays capacity information.
+* **Wi-Fi Status**: The lower half of the bottom-right area shows the connection state, configuration AP name when disconnected, and system time. Long-press the onboard button for about one second to enter provisioning mode at `http://192.168.4.1`.
