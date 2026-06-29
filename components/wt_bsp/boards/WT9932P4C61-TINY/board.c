@@ -17,6 +17,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#if WT_BSP_SDMMC_ENABLED
+#include "driver/spi_master.h"
+#endif
 #if WT_BSP_DSI_ENABLED || WT_BSP_CSI_ENABLED || WT_BSP_TOUCH_ENABLED
 #include "driver/i2c_master.h"
 #endif
@@ -49,6 +52,12 @@
 #define BOARD_SDMMC_D1_GPIO 40
 #define BOARD_SDMMC_D2_GPIO 41
 #define BOARD_SDMMC_D3_GPIO 42
+#if defined(CONFIG_ESP_HOSTED_SDIO_HOST_INTERFACE) && CONFIG_ESP_HOSTED_SDIO_HOST_INTERFACE
+#define BOARD_SDMMC_USE_SDSPI 1
+#else
+#define BOARD_SDMMC_USE_SDSPI 0
+#endif
+#define BOARD_SDMMC_SPI_HOST SPI2_HOST
 
 #define BOARD_SDMMC_USE_ON_CHIP_LDO 1
 #define BOARD_SDMMC_LDO_CHAN_ID 4
@@ -292,6 +301,8 @@ static esp_err_t board_init(void)
         .d1_gpio = BOARD_SDMMC_D1_GPIO,
         .d2_gpio = BOARD_SDMMC_D2_GPIO,
         .d3_gpio = BOARD_SDMMC_D3_GPIO,
+        .use_sdspi = BOARD_SDMMC_USE_SDSPI,
+        .spi_host = BOARD_SDMMC_SPI_HOST,
         .use_on_chip_ldo = 0,  // WT9932P4C61-TINY does not use VO4
         .ldo_chan_id = -1,
         .ldo_voltage_mv = BOARD_SDMMC_LDO_VOLTAGE_MV,

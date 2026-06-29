@@ -116,7 +116,8 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
     esp_lcd_dsi_bus_config_t bus_config = {
         .bus_id = 0,
         .num_data_lanes = dsi->info.dsi_lane_num,
-        .phy_clk_src = MIPI_DSI_PHY_CLK_SRC_DEFAULT,
+        /* Let ESP-IDF select the default for the configured ESP32-P4 revision. */
+        .phy_clk_src = 0,
         .lane_bit_rate_mbps = dsi->info.lane_bit_rate_mbps,
     };
     ret = esp_lcd_new_dsi_bus(&bus_config, &dsi->mipi_dsi_bus);

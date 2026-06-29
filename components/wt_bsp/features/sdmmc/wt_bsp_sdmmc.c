@@ -16,6 +16,8 @@
 #if WT_BSP_SDMMC_ENABLED
 
 #include <string.h>
+#include "driver/sdspi_host.h"
+#include "driver/spi_master.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
@@ -44,6 +46,7 @@ esp_err_t wt_bsp_sdmmc_init(wt_bsp_sdmmc_t sdmmc, const wt_bsp_sdmmc_info_t *inf
     sdmmc->info = *info;
     sdmmc->is_initialized = false;
     sdmmc->is_mounted = false;
+    sdmmc->spi_bus_initialized = false;
     sdmmc->card = NULL;
     sdmmc->pwr_ctrl_handle = NULL;
 
@@ -114,6 +117,50 @@ esp_err_t wt_bsp_sdmmc_mount(wt_bsp_sdmmc_t sdmmc)
         .max_files = 5,
         .allocation_unit_size = 16 * 1024
     };
+
+    if (sdmmc->info.use_sdspi) {
+        ESP_LOGI(TAG, "Using SDSPI peripheral");
+
+        sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+        host.slot = sdmmc->info.spi_host;
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+        host.pwr_ctrl_handle = sdmmc->pwr_ctrl_handle;
+#endif
+
+        spi_bus_config_t bus_config = {
+            .mosi_io_num = sdmmc->info.cmd_gpio,
+            .miso_io_num = sdmmc->info.d0_gpio,
+            .sclk_io_num = sdmmc->info.clk_gpio,
+            .quadwp_io_num = -1,
+            .quadhd_io_num = -1,
+            .max_transfer_sz = 16 * 1024,
+        };
+        ret = spi_bus_initialize(host.slot, &bus_config, SDSPI_DEFAULT_DMA);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to initialize SDSPI bus: %s", esp_err_to_name(ret));
+            return ret;
+        }
+        sdmmc->spi_bus_initialized = true;
+
+        sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+        slot_config.gpio_cs = sdmmc->info.d3_gpio;
+        slot_config.host_id = host.slot;
+
+        ESP_LOGI(TAG, "Mounting filesystem");
+        ret = esp_vfs_fat_sdspi_mount(sdmmc->info.mount_point, &host, &slot_config,
+                                      &mount_config, &sdmmc->card);
+        if (ret != ESP_OK) {
+            spi_bus_free(host.slot);
+            sdmmc->spi_bus_initialized = false;
+            ESP_LOGE(TAG, "Failed to initialize the card (%s)", esp_err_to_name(ret));
+            return ret;
+        }
+
+        sdmmc->is_mounted = true;
+        ESP_LOGI(TAG, "Filesystem mounted");
+        sdmmc_card_print_info(stdout, sdmmc->card);
+        return ESP_OK;
+    }
 
     ESP_LOGI(TAG, "Using SDMMC peripheral");
 
@@ -186,9 +233,18 @@ esp_err_t wt_bsp_sdmmc_unmount(wt_bsp_sdmmc_t sdmmc)
 
     sdmmc->is_mounted = false;
     sdmmc->card = NULL;
+
+    if (sdmmc->spi_bus_initialized) {
+        ret = spi_bus_free(sdmmc->info.spi_host);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to free SDSPI bus (%s)", esp_err_to_name(ret));
+        }
+        sdmmc->spi_bus_initialized = false;
+    }
+
     ESP_LOGI(TAG, "Card unmounted");
 
-    return ESP_OK;
+    return ret;
 }
 
 sdmmc_card_t *wt_bsp_sdmmc_get_card(wt_bsp_sdmmc_t sdmmc)

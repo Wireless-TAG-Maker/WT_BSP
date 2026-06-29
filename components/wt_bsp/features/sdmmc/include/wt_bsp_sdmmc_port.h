@@ -45,6 +45,8 @@ typedef struct {
     int d1_gpio;                 /*!< 数据 1 信号 GPIO 编号。 */
     int d2_gpio;                 /*!< 数据 2 信号 GPIO 编号。 */
     int d3_gpio;                 /*!< 数据 3 信号 GPIO 编号。 */
+    bool use_sdspi;              /*!< 是否通过 SPI 外设访问 SD 卡。 */
+    int spi_host;                /*!< SDSPI 使用的 SPI host。 */
     bool use_on_chip_ldo;        /*!< 是否启用片上 LDO 为 SD 卡供电（仅 ESP32-P4 需要）。 */
     int ldo_chan_id;             /*!< 片上 LDO 通道 ID（如 VO4 则设为 4）。 */
     int ldo_voltage_mv;          /*!< LDO 输出电压（单位 mV，IDF v5.5.4 暂不支持）。 */
@@ -58,6 +60,7 @@ typedef struct wt_bsp_sdmmc_obj_t {
     sdmmc_card_t *card;                    /*!< SDMMC 卡句柄。 */
     bool is_initialized;                   /*!< 是否已初始化 SDMMC 对象。 */
     bool is_mounted;                       /*!< 是否已挂载文件系统。 */
+    bool spi_bus_initialized;              /*!< SDSPI 总线是否已初始化。 */
     sd_pwr_ctrl_handle_t pwr_ctrl_handle;  /*!< SD 电源控制句柄（用于 ESP32-P4 片上 LDO）。 */
 } wt_bsp_sdmmc_obj_t;
 
