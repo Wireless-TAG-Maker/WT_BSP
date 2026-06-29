@@ -10,20 +10,24 @@ static const char *TAG = "sdmmc_example";
 void app_main(void)
 {
     ESP_LOGI(TAG, "Initializing BSP");
-    /* 
-     * 在本 BSP 框架中，wt_bsp_init() 会自动初始化并挂载 SDMMC 文件系统。
-     * 用户无需手动调用挂载接口，初始化成功后即可直接使用 POSIX 文件操作。
-     */
     ESP_ERROR_CHECK(wt_bsp_init());
 
+    wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
+    if (sdmmc == NULL) {
+        ESP_LOGE(TAG, "SDMMC is not available");
+        return;
+    }
+
+    ESP_ERROR_CHECK(wt_bsp_sdmmc_mount(sdmmc));
+
     // 获取 BSP 内部设置的挂载点
-    const char *mount_point = wt_bsp_get_sdmmc_mount_point();
+    const char *mount_point = wt_bsp_sdmmc_get_mount_point(sdmmc);
     if (strlen(mount_point) == 0) {
         ESP_LOGE(TAG, "Failed to get SDMMC mount point");
         return;
     }
 
-    ESP_LOGI(TAG, "SD card is automatically mounted at: %s", mount_point);
+    ESP_LOGI(TAG, "SD card mounted at: %s", mount_point);
 
     // 使用标准 C 库和 POSIX 接口操作文件
     char file_hello[128];
@@ -74,7 +78,7 @@ void app_main(void)
     }
     fclose(f);
 
-    /* 
+    /*
      * 注意：本 BSP 在 wt_bsp_deinit() 时会自动卸载 SDMMC。
      * 在典型的嵌入式应用中，app_main 通常不会返回。
      */

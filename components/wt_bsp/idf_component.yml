@@ -4,53 +4,57 @@ dependencies:
   button:
     version: "^4.1.6"
     require: public
+    rules:
+      - if: "$CONFIG{WT_BSP_ENABLE_BUTTON} == True"
   led_strip:
     version: "^3.0.3"
     require: public
+    rules:
+      - if: "$CONFIG{WT_BSP_ENABLE_RGB} == True"
   esp_lcd_ek79007:
     version: "1.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
   espressif/esp_lcd_ili9881c:
     version: "1.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
   kevincoooool/esp_lcd_st7102:
     version: "1.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
   espressif/esp_lcd_touch:
     version: "*"
+    require: public
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_TOUCH} == True"
   espressif/esp_lcd_touch_st7123:
     version: "1.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_TOUCH} == True"
   esp_lvgl_port:
-
     version: "^2"
     require: public
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && ($CONFIG{WT_BSP_ENABLE_DSI} == True || $CONFIG{WT_BSP_ENABLE_TOUCH} == True)"
   lvgl/lvgl:
     version: ">=9"
     require: public
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && ($CONFIG{WT_BSP_ENABLE_DSI} == True || $CONFIG{WT_BSP_ENABLE_TOUCH} == True)"
   espressif/esp_video:
     version: "0.8.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"
   espressif/esp_cam_sensor:
     version: "0.9.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"
   espressif/esp_sccb_intf:
     version: "*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"
   espressif/esp_ipa:
     version: "0.2.*"
     rules:
-      - if: "target == esp32p4"
+      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"

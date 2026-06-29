@@ -122,16 +122,11 @@ void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 
 esp_err_t example_sdcard_mount(void)
 {
-    /* Check if SD card is actually mounted */
     wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
     if (sdmmc == NULL) {
         return ESP_ERR_NOT_FOUND;
     }
-    /* Check is_mounted flag and card handle */
-    if (!sdmmc->is_mounted || sdmmc->card == NULL) {
-        return ESP_FAIL;
-    }
-    return ESP_OK;
+    return wt_bsp_sdmmc_mount(sdmmc);
 }
 
 uint64_t example_sdcard_get_capacity(void)
@@ -161,9 +156,17 @@ void app_main(void)
     wt_bsp_sdmmc_t sdmmc = wt_bsp_get_sdmmc();
 
     /* Hardware status detection */
-    bool dsi_ok = (dsi != NULL && dsi->is_initialized);
-    bool sdmmc_ok = (sdmmc != NULL && sdmmc->is_mounted);
-    bool csi_initialized = (csi != NULL && csi->is_initialized);
+    bool dsi_ok = (dsi != NULL);
+    bool sdmmc_ok = false;
+    if (sdmmc != NULL) {
+        ret = wt_bsp_sdmmc_mount(sdmmc);
+        if (ret == ESP_OK) {
+            sdmmc_ok = true;
+        } else {
+            ESP_LOGW(TAG, "SDMMC mount failed: %s", esp_err_to_name(ret));
+        }
+    }
+    bool csi_initialized = (csi != NULL);
 
     /* CSI status will be determined later when we actually try to start it */
     /* For LED indication, we assume CSI is OK if it initialized, will update if start fails */
@@ -266,8 +269,7 @@ void app_main(void)
         }
 
         /* Configure camera to output RGB565 for the factory UI */
-        wt_bsp_csi_info_t *csi_info = &csi->info;
-        csi_info->pixel_format = V4L2_PIX_FMT_RGB565;
+        wt_bsp_csi_set_pixel_format(csi, V4L2_PIX_FMT_RGB565);
 
         ret = wt_bsp_csi_start(csi, camera_frame_cb, NULL);
         if (ret != ESP_OK) {

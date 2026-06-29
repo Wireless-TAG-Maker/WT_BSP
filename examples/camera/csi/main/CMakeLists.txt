@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.c"
                         INCLUDE_DIRS "."
-                        REQUIRES wt_bsp esp_driver_ppa)
+                        REQUIRES wt_bsp esp_driver_ppa esp_mm)

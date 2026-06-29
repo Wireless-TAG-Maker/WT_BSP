@@ -1,0 +1,7 @@
+config WT_BSP_BOARD_HAS_RGB
+    bool
+
+config WT_BSP_ENABLE_RGB
+    bool "Enable RGB LED BSP"
+    depends on WT_BSP_BOARD_HAS_RGB
+    default y

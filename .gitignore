@@ -5,11 +5,18 @@ build/
 .codex/
 temp/
 bsp_self_test/
+BSP_STRUCTURE_REVIEW.md
+
+# Python cache files
+__pycache__/
+*.py[cod]
 
 # Example project files
 examples/**/build/
 examples/**/build_*_*/
 examples/**/sdkconfig
+examples/**/sdkconfig.board
+examples/**/sdkconfig.board.Kconfig
 examples/**/sdkconfig.old
 
 # VIM files
@@ -26,6 +33,7 @@ cmake-build-*/
 
 # ESP-IDF default build directory name
 build
+build-*
 
 # lock files for examples and components
 dependencies.lock

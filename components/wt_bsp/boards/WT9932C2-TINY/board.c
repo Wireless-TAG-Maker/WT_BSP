@@ -13,9 +13,6 @@
 
 #include "board.h"
 
-#include "wt_bsp_board.h"
-#include "wt_bsp_button.h"
-#include "wt_bsp_rgb.h"
 #include "esp_log.h"
 
 /* ==================== [Defines] =========================================== */
@@ -55,11 +52,19 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_board = board_get_board,
     .get_button = board_get_button,
     .get_rgb = board_get_rgb,
+    .get_sdmmc = NULL,
+    .get_dsi = NULL,
+    .get_csi = NULL,
+    .get_touch = NULL,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
+#if WT_BSP_BUTTON_ENABLED
 static wt_bsp_button_obj_t s_bsp_button = {0};
+#endif
+#if WT_BSP_RGB_ENABLED
 static wt_bsp_rgb_obj_t s_bsp_rgb = {0};
+#endif
 
 /* ==================== [Macros] ============================================ */
 
@@ -93,6 +98,7 @@ static esp_err_t board_init(void)
         return ret;
     }
 
+#if WT_BSP_BUTTON_ENABLED
     ret = wt_bsp_button_init(&s_bsp_button, &(wt_bsp_button_info_t) {
         .gpio_num = BOARD_BUTTON_GPIO_NUM,
         .active_level = BOARD_BUTTON_ACTIVE_LEVEL,
@@ -101,7 +107,9 @@ static esp_err_t board_init(void)
         ESP_LOGE(TAG, "Failed to initialize button: %s", esp_err_to_name(ret));
         return ret;
     }
+#endif
 
+#if WT_BSP_RGB_ENABLED
     ret = wt_bsp_rgb_init(&s_bsp_rgb, &(wt_bsp_rgb_info_t) {
         .gpio_num = BOARD_RGB_GPIO_NUM,
         .model = BOARD_RGB_MODEL,
@@ -109,10 +117,13 @@ static esp_err_t board_init(void)
         .invert_out = BOARD_RGB_INVERT_OUT,
     });
     if (ret != ESP_OK) {
+#if WT_BSP_BUTTON_ENABLED
         wt_bsp_button_deinit(&s_bsp_button);
+#endif
         ESP_LOGE(TAG, "Failed to initialize RGB: %s", esp_err_to_name(ret));
         return ret;
     }
+#endif
 
     s_board_is_init = true;
 
@@ -127,15 +138,19 @@ static esp_err_t board_deinit(void)
         return ESP_OK;
     }
 
+#if WT_BSP_RGB_ENABLED
     ret = wt_bsp_rgb_deinit(&s_bsp_rgb);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to deinitialize RGB: %s", esp_err_to_name(ret));
     }
+#endif
 
+#if WT_BSP_BUTTON_ENABLED
     ret = wt_bsp_button_deinit(&s_bsp_button);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to deinitialize button: %s", esp_err_to_name(ret));
     }
+#endif
 
     s_board_is_init = false;
 
@@ -149,10 +164,18 @@ static wt_bsp_board_t board_get_board(void)
 
 static wt_bsp_button_t board_get_button(void)
 {
+#if WT_BSP_BUTTON_ENABLED
     return &s_bsp_button;
+#else
+    return NULL;
+#endif
 }
 
 static wt_bsp_rgb_t board_get_rgb(void)
 {
+#if WT_BSP_RGB_ENABLED
     return &s_bsp_rgb;
+#else
+    return NULL;
+#endif
 }

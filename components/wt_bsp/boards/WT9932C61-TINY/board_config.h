@@ -16,16 +16,14 @@
 
 /* ==================== [Defines] =========================================== */
 
-/** @brief 是否启用该板卡的 RGB LED 支持。 */
-#define WT_BSP_RGB_ENABLE 1
+/** @brief 该板卡是否具备 RGB LED 能力。 */
+#define WT_BSP_BOARD_HAS_RGB 1
 /** @brief 该板卡暴露的 RGB LED 数量。 */
 #define WT_BSP_RGB_NUM 1
-/** @brief 是否启用该板卡的按键支持。 */
-#define WT_BSP_BUTTON_ENABLE 1
-/** @brief 是否启用该板卡的 LCD 支持。 */
-#define WT_BSP_LCD_ENABLE 1
-/** @brief 是否启用该板卡的 SD 卡支持。 */
-#define WT_BSP_SDCARD_ENABLE 0
+/** @brief 该板卡是否具备按键能力。 */
+#define WT_BSP_BOARD_HAS_BUTTON 1
+/** @brief 该板卡是否具备 SD 卡能力。 */
+#define WT_BSP_BOARD_HAS_SDMMC 0
 
 /* ==================== [Typedefs] ========================================== */
 

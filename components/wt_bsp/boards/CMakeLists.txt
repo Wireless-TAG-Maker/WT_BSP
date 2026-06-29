@@ -3,6 +3,7 @@ list(SORT board_dirs)
 
 set(WT_BSP_BOARD_SRCS)
 set(WT_BSP_BOARD_INCLUDE_DIRS)
+set(WT_BSP_BOARD_FEATURES)
 
 foreach(board_dir IN LISTS board_dirs)
     if(IS_DIRECTORY "${board_dir}" AND EXISTS "${board_dir}/CMakeLists.txt")
