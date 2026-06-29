@@ -116,8 +116,26 @@ def _is_generated_config_line(line):
     )
 
 
+def _is_board_hardware_config_line(line):
+    stripped = line.strip()
+    return (
+        stripped.startswith("CONFIG_ESP32P4_SELECTS_REV_LESS_V3")
+        or stripped.startswith("# CONFIG_ESP32P4_SELECTS_REV_LESS_V3")
+        or stripped.startswith("CONFIG_ESP32P4_REV_MIN_")
+        or stripped.startswith("# CONFIG_ESP32P4_REV_MIN_")
+    )
+
+
 def _filtered_defaults_lines(lines):
     return [line.rstrip("\n") for line in lines if not _is_generated_config_line(line)]
+
+
+def _filtered_active_sdkconfig_lines(lines):
+    return [
+        line.rstrip("\n")
+        for line in lines
+        if not _is_generated_config_line(line) and not _is_board_hardware_config_line(line)
+    ]
 
 
 def _target_from_text(text):
@@ -245,7 +263,7 @@ def sync_project_sdkconfig_target(project_path, target, sdkconfig_path=None, cre
         sdkconfig.with_name("sdkconfig.old").write_text(text, encoding="utf-8")
         lines = []
     else:
-        lines = _filtered_defaults_lines(text.splitlines())
+        lines = _filtered_active_sdkconfig_lines(text.splitlines())
 
     while lines and not lines[-1].strip():
         lines.pop()
