@@ -23,12 +23,24 @@ Upon startup, the system automatically detects the connection status of peripher
 | 🟠 Pink | Screen Disconnected | |
 | 🔴 Red | All Disconnected | Screen, camera, and SD card are all disconnected |
 
+After Wi-Fi initialization starts, the RGB LED switches to indicating the current Wi-Fi state:
+
+| LED Color | Wi-Fi State |
+|-----------|------------|
+| 🔵 Blue | Scanning, connecting, or reconnecting |
+| 🟢 Green | Connected to a Wi-Fi access point |
+| 🔴 Red | Disconnected or connection failed |
+| 🟣 Purple | Provisioning mode is active |
+
+The Wi-Fi state indication overrides the startup peripheral indication.
+
 **RGB Color Reference Values:**
 - Blue: R=0, G=0, B=255
 - Green: R=0, G=255, B=0
 - Yellow: R=255, G=255, B=0
 - Orange: R=255, G=165, B=0
 - Red: R=255, G=0, B=0
+- Purple: R=255, G=0, B=255
 
 ## How to Use the Example
 
