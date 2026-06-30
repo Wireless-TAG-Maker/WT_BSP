@@ -6,6 +6,7 @@
 
 #include "lvgl.h"
 #include "src/misc/cache/lv_cache.h"
+#include <stdatomic.h>
 #include <stdio.h>
 #include "esp_err.h"
 
@@ -16,12 +17,18 @@ extern uint64_t example_sdcard_get_capacity(void);
 static lv_obj_t *cam_display;
 static lv_obj_t *cam_msg;
 static lv_obj_t *bottom_row;
-bool is_fullscreen = false;
+static atomic_bool s_camera_fullscreen;
+
+bool camera_is_fullscreen(void)
+{
+    return atomic_load(&s_camera_fullscreen);
+}
 
 static void cam_click_event_cb(lv_event_t * e)
 {
-    is_fullscreen = !is_fullscreen;
-    if (is_fullscreen) {
+    bool fullscreen = !camera_is_fullscreen();
+    atomic_store(&s_camera_fullscreen, fullscreen);
+    if (fullscreen) {
         lv_obj_add_flag(bottom_row, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_size(cam_display, 480, 640);
     } else {
