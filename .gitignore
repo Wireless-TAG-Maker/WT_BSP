@@ -5,6 +5,7 @@ build/
 .codex/
 temp/
 bsp_self_test/
+build_slave
 BSP_STRUCTURE_REVIEW.md
 
 # Python cache files

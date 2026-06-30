@@ -18,10 +18,10 @@ dependencies:
   lvgl/lvgl:
     version: ">=9"
   espressif/esp_video:
-    version: "0.8.*"
+    version: "^2.0.1"
   espressif/esp_cam_sensor:
-    version: "0.9.*"
+    version: "2.0.*"
   espressif/esp_sccb_intf:
     version: "*"
   espressif/esp_ipa:
-    version: "0.2.*"
+    version: "1.3.*"

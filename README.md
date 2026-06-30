@@ -15,7 +15,6 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
     -   **MIPI-DSI**: High-resolution display support with LVGL integration.
     -   **MIPI-CSI**: Camera support with hardware acceleration (PPA).
 -   **Rich Examples**: From simple "Blink" to complex "Factory Test" firmware integrating UI and camera streaming.
--   **Third-Party Integration**: Includes optimized versions of `led_strip` and `lwbtn` for seamless operation.
 
 ## 📋 Supported Boards
 
