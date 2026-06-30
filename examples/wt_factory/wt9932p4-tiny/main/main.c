@@ -38,12 +38,16 @@ static const char *TAG = "factory_firmware";
 extern void lvgl_ui(lv_display_t *disp);
 extern void update_camera_frame(uint8_t *buf, uint32_t width, uint32_t height);
 extern void set_camera_error(const char *msg);
+extern void update_led_color(uint8_t r, uint8_t g, uint8_t b);
 extern bool camera_is_fullscreen(void);
 
 /* Camera streaming state */
 static ppa_client_handle_t s_ppa_srm_handle = NULL;
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
 static uint8_t s_current_buf_idx = 0;
+static uint8_t s_led_red = 0;
+static uint8_t s_led_green = 0;
+static uint8_t s_led_blue = 0;
 
 /**
  * @brief Camera frame callback. Processes frame using PPA and updates UI.
@@ -117,6 +121,10 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
 
 void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 {
+    s_led_red = r;
+    s_led_green = g;
+    s_led_blue = b;
+
     wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
     if (rgb) {
         wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){r, g, b});
@@ -178,36 +186,31 @@ void app_main(void)
     ESP_LOGI(TAG, "Hardware status: DSI=%d, CSI_init=%d, SDMMC=%d", dsi_ok, csi_initialized, sdmmc_ok);
 
     /* Set LED color based on initial hardware status (CSI will be verified later) */
-    wt_bsp_rgb_t rgb = wt_bsp_get_rgb();
-    if (rgb) {
+    if (wt_bsp_get_rgb() != NULL) {
         if (!dsi_ok && !csi_initialized && !sdmmc_ok) {
             /* Screen, camera, and SD card all not connected: RED */
             ESP_LOGW(TAG, "No peripherals detected - LED RED");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 0, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 0, 0);
         } else if (!csi_initialized && !sdmmc_ok) {
             /* Camera and SD card not connected (based on init): ORANGE */
             ESP_LOGW(TAG, "Camera and SD card not detected - LED ORANGE");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 165, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 165, 0);
         } else if (!dsi_ok) {
             /* Screen not connected (with any other state): PINK */
             ESP_LOGW(TAG, "Screen not detected - LED PINK");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 105, 180});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 105, 180);
         } else if (!csi_initialized) {
             /* Only camera not connected (based on init): BLUE */
             ESP_LOGW(TAG, "Camera not detected (init failed) - LED BLUE");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){0, 0, 255});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(0, 0, 255);
         } else if (!sdmmc_ok) {
             /* Only SD card not connected: YELLOW */
             ESP_LOGW(TAG, "SD card not detected - LED YELLOW");
-            wt_bsp_rgb_set_pixel(rgb, 0, (wt_bsp_rgb_color_t){255, 255, 0});
-            wt_bsp_rgb_refresh(rgb);
+            example_set_led_color(255, 255, 0);
         } else {
             /* All hardware initialized: no LED indication */
             ESP_LOGI(TAG, "All peripherals initialized - LED OFF");
+            example_set_led_color(0, 0, 0);
         }
     }
 
@@ -249,6 +252,7 @@ void app_main(void)
     /* 3. Setup UI */
     if (wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
         lvgl_ui(disp);
+        update_led_color(s_led_red, s_led_green, s_led_blue);
         wt_bsp_dsi_lvgl_unlock();
     }
 

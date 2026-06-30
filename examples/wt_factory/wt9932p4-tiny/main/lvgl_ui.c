@@ -83,9 +83,32 @@ static lv_obj_t *slider_g;
 static lv_obj_t *slider_b;
 static lv_obj_t *led_color_rect;
 static lv_obj_t *label_sd_info;
+static bool s_updating_led_ui;
+
+void update_led_color(uint8_t r, uint8_t g, uint8_t b)
+{
+    if (slider_r == NULL || slider_g == NULL || slider_b == NULL || led_color_rect == NULL) {
+        return;
+    }
+
+    s_updating_led_ui = true;
+    lv_slider_set_value(slider_r, r, LV_ANIM_OFF);
+    lv_slider_set_value(slider_g, g, LV_ANIM_OFF);
+    lv_slider_set_value(slider_b, b, LV_ANIM_OFF);
+    lv_obj_invalidate(slider_r);
+    lv_obj_invalidate(slider_g);
+    lv_obj_invalidate(slider_b);
+    lv_obj_set_style_bg_color(led_color_rect, lv_color_make(r, g, b), 0);
+    lv_obj_invalidate(led_color_rect);
+    s_updating_led_ui = false;
+}
 
 static void slider_event_cb(lv_event_t * e)
 {
+    if (s_updating_led_ui) {
+        return;
+    }
+
     uint8_t r = lv_slider_get_value(slider_r);
     uint8_t g = lv_slider_get_value(slider_g);
     uint8_t b = lv_slider_get_value(slider_b);
