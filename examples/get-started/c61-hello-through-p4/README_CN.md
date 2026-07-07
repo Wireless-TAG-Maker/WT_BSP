@@ -15,13 +15,13 @@ Hello Wireless-tag
 
 ## 硬件
 
-使用 **WT9932P4C61-TINY**，并将板上的 **FUSB（全速 USB）** 和
-**HUSB（高速 USB）** 都接入电脑。
+使用 **WT9932P4C61-TINY**。两个 USB 口在不同步骤使用：
 
-这两个 USB 口的用途不同：
-
-- FUSB：枚举为 ESP32-P4 built-in USB-JTAG/Serial，用于执行 `idf.py p4_flash`，把 P4 烧录成 C61 烧录桥。
-- HUSB：P4 bridge 固件运行后枚举为 TinyUSB CDC bridge，用于烧录和监视 ESP32-C61。
+- FUSB（全速 USB）：枚举为 ESP32-P4 built-in USB-JTAG/Serial。执行
+  `idf.py p4_flash` 时只接这个口，用于把 P4 烧录成 C61 烧录桥。
+- HUSB（高速 USB）：P4 bridge 固件运行后枚举为 TinyUSB CDC bridge。烧录
+  ESP32-C61 前，请拔掉 FUSB 并接入 HUSB；后续直接使用 HUSB 给开发板供电，
+  并给 ESP32-C61 单独编写、烧录和调试代码。
 
 ## 1. 将 ESP32-P4 烧录为 C61 烧录桥
 
@@ -31,6 +31,7 @@ cd examples/get-started/c61-hello-through-p4
 # 设置当前工程为 ESP32-C61
 idf.py set-target esp32c61
 
+# 执行这条命令前请接入 FUSB
 # 通过 FUSB 给 ESP32-P4 烧录 C61 烧录桥固件
 idf.py p4_flash
 ```
@@ -45,8 +46,8 @@ idf.py p4_flash
 覆盖当前 ESP32-P4 固件是这个流程的预期行为：P4 会临时变成板载 C61 的
 USB-UART 烧录桥。
 
-烧录完成后，重新插拔开发板，或等待 USB 重新枚举。随后 HUSB 会枚举出
-TinyUSB CDC 串口。
+烧录完成后，拔掉 FUSB 并接入 HUSB。从这一步开始，后续直接使用 HUSB 给
+开发板供电，并给 ESP32-C61 单独编写、烧录和调试代码。
 
 ## 2. 编译并烧录 ESP32-C61
 

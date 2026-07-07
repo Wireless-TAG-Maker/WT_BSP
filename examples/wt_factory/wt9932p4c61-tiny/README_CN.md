@@ -52,7 +52,7 @@ Wi-Fi 状态指示会覆盖设备启动阶段的外设状态指示。
 
 ### 将 ESP32-P4 烧录为 C61 烧录桥
 
-将 WT9932P4C61-TINY 板上的 **FUSB（全速 USB）** 和 **HUSB（高速 USB）** 都接入电脑。`idf.py p4_flash` 通过 FUSB 枚举出的 ESP32-P4 built-in USB-JTAG/Serial 端口给 P4 烧录 bridge 固件；bridge 运行后，再通过 HUSB 枚举出的 TinyUSB CDC 串口给 ESP32-C61 烧录固件。
+这一步请先将 WT9932P4C61-TINY 板上的 **FUSB（全速 USB）** 接入电脑。`idf.py p4_flash` 通过 FUSB 枚举出的 ESP32-P4 built-in USB-JTAG/Serial 端口给 P4 烧录 bridge 固件；烧录 ESP32-C61 固件前，请拔掉 FUSB 并接入 **HUSB（高速 USB）**。
 
 WT9932P4C61-TINY 板载 ESP32-P4 可以临时作为 ESP32-C61 的 USB-UART 烧录桥使用。执行以下命令时有两个交互：
 
@@ -68,11 +68,12 @@ cd ./examples/wt_factory/wt9932p4c61-tiny
 # 如当前工程尚未配置过开发板，先选择 WT9932P4C61-TINY
 idf.py set-board
 
+# 执行这条命令前请接入 FUSB
 # 将 ESP32-P4 烧录为 C61 烧录桥，选择 FUSB 枚举出的 P4 USB-JTAG/Serial 端口
 idf.py p4_flash
 ```
 
-烧录完成后，重新插拔或等待设备重新枚举。主机会出现一个 HUSB TinyUSB CDC 串口，后续使用该串口烧录 ESP32-C61。
+烧录完成后，拔掉 FUSB 并接入 HUSB。后续直接使用 HUSB 给开发板供电并烧录 ESP32-C61 slave 固件。
 
 ### 编译并烧录 ESP32-C61 Slave 固件
 

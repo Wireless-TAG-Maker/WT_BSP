@@ -28,7 +28,7 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | Same as P4-TINY, adds ESP32-C61 for low-power/wireless tasks |
 
-For WT9932P4C61-TINY, connect both FUSB (Full-Speed USB) and HUSB (High-Speed USB). Run `idf.py p4_flash` in any WT_BSP example to flash the ESP32-P4 bridge firmware through FUSB, then flash ESP32-C61 firmware through the HUSB TinyUSB CDC port.
+For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_flash` in any WT_BSP example to flash the ESP32-P4 bridge firmware. Before flashing ESP32-C61 firmware, unplug FUSB and connect HUSB (High-Speed USB); use HUSB to power the board and develop ESP32-C61 applications.
 
 ## 🛠️ Getting Started
 

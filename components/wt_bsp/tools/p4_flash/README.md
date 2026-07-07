@@ -8,12 +8,15 @@ This directory stores the prebuilt ESP32-P4 USB-UART bridge firmware used by
 The firmware turns the ESP32-P4 on WT9932P4C61-TINY into a TinyUSB CDC to UART
 bridge connected to the onboard ESP32-C61.
 
-Connect both USB ports on the board:
+Use the two USB ports in different steps:
 
 - FUSB (Full-Speed USB): enumerates as ESP32-P4 built-in USB-JTAG/Serial and is
-  used by `idf.py p4_flash` to flash this bridge firmware into P4.
+  used by `idf.py p4_flash` to flash this bridge firmware into P4. Connect FUSB
+  for this step.
 - HUSB (High-Speed USB): enumerates as TinyUSB CDC after the bridge firmware is
-  running and is used to flash and monitor the C61.
+  running and is used to flash and monitor the C61. Before flashing ESP32-C61,
+  unplug FUSB and connect HUSB. Use HUSB to power the board and develop
+  standalone ESP32-C61 applications.
 
 ## Firmware
 
@@ -37,6 +40,7 @@ Connect both USB ports on the board:
 Run the target from any ESP-IDF project that includes `components/wt_bsp`:
 
 ```bash
+# Connect FUSB before this command
 idf.py p4_flash
 ```
 
@@ -49,8 +53,9 @@ The command has two interactive prompts:
    firmware and asks for confirmation. The default answer is `N`; enter `Y` to
    continue.
 
-After the bridge firmware is running, replug the board or wait for USB
-re-enumeration. The HUSB port will enumerate as a TinyUSB CDC serial port.
+After the bridge firmware is running, unplug FUSB and connect HUSB. From this
+point on, use HUSB to power the board and write, flash, and debug standalone
+ESP32-C61 code.
 
 ## 2. Flash ESP32-C61 Firmware
 

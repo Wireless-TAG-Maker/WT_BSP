@@ -52,11 +52,10 @@ Currently supported development boards:
 
 ### Flash ESP32-P4 as the C61 Flash Bridge
 
-Connect both USB ports on WT9932P4C61-TINY to the computer: **FUSB
-(Full-Speed USB)** and **HUSB (High-Speed USB)**. `idf.py p4_flash` uses the
-ESP32-P4 built-in USB-JTAG/Serial port from FUSB to flash the P4 bridge
-firmware. After the bridge is running, use the TinyUSB CDC port from HUSB to
-flash ESP32-C61 firmware.
+Connect **FUSB (Full-Speed USB)** on WT9932P4C61-TINY to the computer for this
+step. `idf.py p4_flash` uses the ESP32-P4 built-in USB-JTAG/Serial port from
+FUSB to flash the P4 bridge firmware. Before flashing ESP32-C61 firmware,
+unplug FUSB and connect **HUSB (High-Speed USB)**.
 
 The onboard ESP32-P4 on WT9932P4C61-TINY can temporarily act as a USB-UART
 flash bridge for the onboard ESP32-C61. The command below has two interactive
@@ -78,12 +77,13 @@ cd ./examples/wt_factory/wt9932p4c61-tiny
 # Select WT9932P4C61-TINY first if this project has not been configured yet
 idf.py set-board
 
+# Connect FUSB before this command
 # Flash the ESP32-P4 bridge firmware; choose the P4 USB-JTAG/Serial port from FUSB
 idf.py p4_flash
 ```
 
-After flashing, reconnect the board or wait for USB re-enumeration. The host
-will see a HUSB TinyUSB CDC serial port. Use that port for ESP32-C61 flashing.
+After flashing, unplug FUSB and connect HUSB. Use HUSB to power the board and
+flash the ESP32-C61 slave firmware.
 
 ### Build and Flash the ESP32-C61 Slave Firmware
 

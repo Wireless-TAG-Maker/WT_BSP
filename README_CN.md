@@ -28,7 +28,7 @@
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键 |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | 外设与 P4-TINY 一致，额外搭载 ESP32-C61 用于无线/低功耗任务 |
 
-对于 WT9932P4C61-TINY，请将 FUSB（全速 USB）和 HUSB（高速 USB）都接入电脑；在任意 WT_BSP 示例中运行 `idf.py p4_flash`，通过 FUSB 将 ESP32-P4 临时烧录成 USB-UART 桥，然后通过 HUSB TinyUSB CDC 串口烧录 ESP32-C61 固件。
+对于 WT9932P4C61-TINY，请先接入 FUSB（全速 USB），在任意 WT_BSP 示例中运行 `idf.py p4_flash`，通过 FUSB 将 ESP32-P4 临时烧录成 USB-UART 桥；烧录 ESP32-C61 固件前，请拔掉 FUSB 并接入 HUSB（高速 USB），后续直接使用 HUSB 给开发板供电并给 ESP32-C61 单独编写、烧录和调试代码。
 
 ## 🛠️ 快速上手
 

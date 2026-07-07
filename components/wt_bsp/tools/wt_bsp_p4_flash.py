@@ -17,6 +17,7 @@ SHA256SUMS_REL_PATH = Path("p4_flash") / "firmware" / "SHA256SUMS"
 FLASH_OFFSET = "0x0"
 COLOR_RED = "\033[31m"
 COLOR_GREEN = "\033[32m"
+COLOR_YELLOW = "\033[33m"
 COLOR_RESET = "\033[0m"
 
 
@@ -108,6 +109,12 @@ def choose_port():
         print("Using ESPPORT from environment: {}".format(env_port))
         return env_port
 
+    print("{}Connect the WT9932P4C61-TINY FUSB port for ESP32-P4 flashing.{}".format(
+        COLOR_YELLOW, COLOR_RESET
+    ))
+    print("{}Do not use the HUSB TinyUSB CDC port in this step.{}".format(COLOR_YELLOW, COLOR_RESET))
+    print("")
+
     ports = list_ports()
     print_ports(ports)
     if not ports:
@@ -188,7 +195,9 @@ def main():
 
     print("")
     print("ESP32-P4 bridge firmware flashed successfully.")
-    print("Reconnect the board if needed, then use the HUSB TinyUSB CDC port to flash ESP32-C61.")
+    print("{}Unplug FUSB, then connect HUSB. Use HUSB to power the board and flash/debug ESP32-C61.{}".format(
+        COLOR_YELLOW, COLOR_RESET
+    ))
     return 0
 
 

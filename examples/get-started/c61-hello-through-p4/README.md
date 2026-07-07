@@ -15,15 +15,13 @@ Hello Wireless-tag
 
 ## Hardware
 
-Use **WT9932P4C61-TINY** with both board USB ports connected to the computer:
-**FUSB (Full-Speed USB)** and **HUSB (High-Speed USB)**.
+Use **WT9932P4C61-TINY**. The two USB ports are used in different steps:
 
-The two USB ports have different jobs:
-
-- FUSB enumerates as ESP32-P4 built-in USB-JTAG/Serial. `idf.py p4_flash`
-  uses this port to flash the P4 bridge firmware.
-- HUSB enumerates as the TinyUSB CDC bridge after the P4 bridge firmware is
-  running. Use this port to flash and monitor ESP32-C61.
+- FUSB (Full-Speed USB) enumerates as ESP32-P4 built-in USB-JTAG/Serial. Use
+  only this port when running `idf.py p4_flash`.
+- HUSB (High-Speed USB) enumerates as the TinyUSB CDC bridge after the P4 bridge
+  firmware is running. Before flashing ESP32-C61, unplug FUSB and connect HUSB.
+  Use HUSB to power the board and flash/debug ESP32-C61.
 
 ## 1. Flash ESP32-P4 as the C61 Bridge
 
@@ -33,6 +31,7 @@ cd examples/get-started/c61-hello-through-p4
 # Set this project to ESP32-C61
 idf.py set-target esp32c61
 
+# Connect FUSB before this command
 # Flash the C61 bridge firmware to ESP32-P4 through FUSB
 idf.py p4_flash
 ```
@@ -49,8 +48,8 @@ this step, the tool has two interactive prompts:
 Overwriting the current ESP32-P4 firmware is expected in this flow: the P4
 temporarily becomes a USB-UART bridge for the onboard C61.
 
-After flashing completes, replug the board or wait for USB re-enumeration. The
-HUSB port will enumerate as a TinyUSB CDC serial port.
+After flashing completes, unplug FUSB and connect HUSB. From this point on, use
+HUSB to power the board and write, flash, and debug standalone ESP32-C61 code.
 
 ## 2. Build and Flash ESP32-C61
 
