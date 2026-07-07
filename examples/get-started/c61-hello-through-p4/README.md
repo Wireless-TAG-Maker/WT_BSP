@@ -41,9 +41,29 @@ this step, the tool has two interactive prompts:
 
 1. It prints `Available serial ports:` and asks you to select the FUSB serial
    port for ESP32-P4.
+
+```bash
+Firmware SHA256 verified: e16f5afa26a27ec9c513cefb68082737bf24fbff809b2ae4b557a4ad867dd179
+Connect the WT9932P4C61-TINY FUSB port for ESP32-P4 flashing.
+Do not use the HUSB TinyUSB CDC port in this step.
+
+Available serial ports:
+  [0] /dev/ttyACM0 | USB JTAG/serial debug unit | USB VID:PID=303A:1001 SER=E8:F6:0A:E7:6B:32 LOCATION=1-1:1.0
+Select the ESP32-P4 port number: 0
+```
+
 2. It prints a warning that the command will overwrite the current ESP32-P4
    firmware and asks for confirmation. The default answer is `N`; enter `Y` to
    continue.
+
+```bash
+WARNING: This command will overwrite the current ESP32-P4 firmware. [Y/N(N)]
+Target board: WT9932P4C61-TINY
+P4 port: /dev/ttyACM0
+New firmware: ESP32-P4 USB-UART bridge for flashing/debugging onboard ESP32-C61
+
+Continue? [Y/N(N)]: Y
+```
 
 Overwriting the current ESP32-P4 firmware is expected in this flow: the P4
 temporarily becomes a USB-UART bridge for the onboard C61.
