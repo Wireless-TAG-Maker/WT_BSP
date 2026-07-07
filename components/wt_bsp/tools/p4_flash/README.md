@@ -32,7 +32,7 @@ Connect both USB ports on the board:
 | GPIO54 | UART0 RX | C61 TX to P4 RX |
 | GPIO53 | UART0 TX | P4 TX to C61 RX |
 
-## Usage
+## 1. Flash ESP32-P4 as the C61 Bridge
 
 Run the target from any ESP-IDF project that includes `components/wt_bsp`:
 
@@ -40,12 +40,21 @@ Run the target from any ESP-IDF project that includes `components/wt_bsp`:
 idf.py p4_flash
 ```
 
-The tool scans serial ports, asks you to choose the ESP32-P4 built-in
-USB-JTAG/Serial port from FUSB, warns that the current P4 application will be
-overwritten, then flashes the merged image.
+`idf.py p4_flash` uses the ESP32-P4 built-in USB-JTAG/Serial port from FUSB.
+The command has two interactive prompts:
 
-After the bridge firmware is running, use the HUSB TinyUSB CDC serial port to
-flash ESP32-C61 firmware:
+1. It prints `Available serial ports:` and asks you to select the FUSB serial
+   port for ESP32-P4.
+2. It prints a warning that the command will overwrite the current ESP32-P4
+   firmware and asks for confirmation. The default answer is `N`; enter `Y` to
+   continue.
+
+After the bridge firmware is running, replug the board or wait for USB
+re-enumeration. The HUSB port will enumerate as a TinyUSB CDC serial port.
+
+## 2. Flash ESP32-C61 Firmware
+
+Use the HUSB TinyUSB CDC serial port to flash ESP32-C61 firmware:
 
 ```bash
 idf.py -p <HUSB_CDC_PORT> flash monitor

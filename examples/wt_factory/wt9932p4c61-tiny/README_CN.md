@@ -54,7 +54,11 @@ Wi-Fi 状态指示会覆盖设备启动阶段的外设状态指示。
 
 将 WT9932P4C61-TINY 板上的 **FUSB（全速 USB）** 和 **HUSB（高速 USB）** 都接入电脑。`idf.py p4_flash` 通过 FUSB 枚举出的 ESP32-P4 built-in USB-JTAG/Serial 端口给 P4 烧录 bridge 固件；bridge 运行后，再通过 HUSB 枚举出的 TinyUSB CDC 串口给 ESP32-C61 烧录固件。
 
-WT9932P4C61-TINY 板载 ESP32-P4 可以临时作为 ESP32-C61 的 USB-UART 烧录桥使用。执行以下命令后，工具会扫描串口、让您选择 ESP32-P4 的 built-in USB-JTAG/Serial 端口，并在烧录前提示确认。
+WT9932P4C61-TINY 板载 ESP32-P4 可以临时作为 ESP32-C61 的 USB-UART 烧录桥使用。执行以下命令时有两个交互：
+
+1. 工具会打印 `Available serial ports:`，需要选择 ESP32-P4 的 FUSB 串口。
+2. 工具会提示该命令将覆盖当前 ESP32-P4 固件，并要求确认。默认值为 `N`；
+   只有输入 `Y` 才会继续烧录。
 
 > 注意：`idf.py p4_flash` 会覆盖 ESP32-P4 当前固件。完成 ESP32-C61 烧录后，如需运行本工厂测试固件，需要在后续步骤重新烧录 ESP32-P4 主控固件。
 

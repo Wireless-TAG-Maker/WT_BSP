@@ -59,9 +59,14 @@ firmware. After the bridge is running, use the TinyUSB CDC port from HUSB to
 flash ESP32-C61 firmware.
 
 The onboard ESP32-P4 on WT9932P4C61-TINY can temporarily act as a USB-UART
-flash bridge for the onboard ESP32-C61. The command below scans serial ports,
-asks you to select the ESP32-P4 built-in USB-JTAG/Serial port, and asks for
-confirmation before flashing.
+flash bridge for the onboard ESP32-C61. The command below has two interactive
+prompts:
+
+1. It prints `Available serial ports:` and asks you to select the FUSB serial
+   port for ESP32-P4.
+2. It prints a warning that the command will overwrite the current ESP32-P4
+   firmware and asks for confirmation. The default answer is `N`; enter `Y` to
+   continue.
 
 > Note: `idf.py p4_flash` overwrites the current ESP32-P4 firmware. After the
 > ESP32-C61 slave firmware is flashed, flash the ESP32-P4 factory firmware again

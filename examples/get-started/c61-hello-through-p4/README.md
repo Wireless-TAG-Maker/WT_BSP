@@ -25,7 +25,7 @@ The two USB ports have different jobs:
 - HUSB enumerates as the TinyUSB CDC bridge after the P4 bridge firmware is
   running. Use this port to flash and monitor ESP32-C61.
 
-## Build and Flash
+## 1. Flash ESP32-P4 as the C61 Bridge
 
 ```bash
 cd examples/get-started/c61-hello-through-p4
@@ -35,14 +35,33 @@ idf.py set-target esp32c61
 
 # Flash the C61 bridge firmware to ESP32-P4 through FUSB
 idf.py p4_flash
+```
 
+`idf.py p4_flash` uses the FUSB ESP32-P4 built-in USB-JTAG/Serial port. During
+this step, the tool has two interactive prompts:
+
+1. It prints `Available serial ports:` and asks you to select the FUSB serial
+   port for ESP32-P4.
+2. It prints a warning that the command will overwrite the current ESP32-P4
+   firmware and asks for confirmation. The default answer is `N`; enter `Y` to
+   continue.
+
+Overwriting the current ESP32-P4 firmware is expected in this flow: the P4
+temporarily becomes a USB-UART bridge for the onboard C61.
+
+After flashing completes, replug the board or wait for USB re-enumeration. The
+HUSB port will enumerate as a TinyUSB CDC serial port.
+
+## 2. Build and Flash ESP32-C61
+
+Use the HUSB TinyUSB CDC serial port from the previous step:
+
+```bash
 # Build, flash, and monitor ESP32-C61. idf.py flash builds automatically when needed
 idf.py -p <HUSB_CDC_PORT> flash monitor
 ```
 
-`idf.py p4_flash` overwrites the current ESP32-P4 firmware. This is expected:
-the P4 temporarily becomes a USB-UART bridge for the onboard C61. This step uses
-FUSB. Replace `<HUSB_CDC_PORT>` with the TinyUSB CDC serial port from HUSB.
+Replace `<HUSB_CDC_PORT>` with the TinyUSB CDC serial port from HUSB.
 
 Expected output:
 
