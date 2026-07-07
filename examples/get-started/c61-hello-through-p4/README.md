@@ -43,13 +43,14 @@ this step, the tool has two interactive prompts:
    port for ESP32-P4.
 
 ```bash
+examples/get-started/c61-hello-through-p4$ idf.py p4_flash
+Executing action: p4_flash
+Running ninja in directory /home/biubiu/work/WT_BSP/examples/get-started/c61-hello-through-p4/build
+Executing "ninja p4_flash"...
+[0/1] cd /home/biubiu/work/WT_BSP/examples/get-started/c61-hello-through-p4 && /home/biubiu/.espressif/tools/python/v6.0.1/venv/bin/python /home/biubiu/work/WT_BSP/components/wt_bsp/tools/wt_bsp_p4_flash.py
 Firmware SHA256 verified: e16f5afa26a27ec9c513cefb68082737bf24fbff809b2ae4b557a4ad867dd179
-Connect the WT9932P4C61-TINY FUSB port for ESP32-P4 flashing.
-Do not use the HUSB TinyUSB CDC port in this step.
-
 Available serial ports:
   [0] /dev/ttyACM0 | USB JTAG/serial debug unit | USB VID:PID=303A:1001 SER=E8:F6:0A:E7:6B:32 LOCATION=1-1:1.0
-Select the ESP32-P4 port number: 0
 ```
 
 2. It prints a warning that the command will overwrite the current ESP32-P4
@@ -57,12 +58,11 @@ Select the ESP32-P4 port number: 0
    continue.
 
 ```bash
+Select the ESP32-P4 port number:
 WARNING: This command will overwrite the current ESP32-P4 firmware. [Y/N(N)]
 Target board: WT9932P4C61-TINY
 P4 port: /dev/ttyACM0
 New firmware: ESP32-P4 USB-UART bridge for flashing/debugging onboard ESP32-C61
-
-Continue? [Y/N(N)]: Y
 ```
 
 Overwriting the current ESP32-P4 firmware is expected in this flow: the P4
