@@ -73,35 +73,13 @@ After modifying the code, run `idf.py build` again to compile.
 
 ## Example Output
 
-After building and flashing the firmware, the RGB LED on the hardware stays on and randomly changes color once per second. The corresponding logs are also printed in the console. Pressing the BOOT button on the hardware changes the LED state: each BOOT button press toggles the LED state. Example runtime logs:
+After building and flashing the firmware, the RGB LED on the hardware stays on and randomly changes color once per second. The corresponding logs are also printed in the console. Example runtime logs:
 
 ```shell
 I (1402) main_task: Calling app_main()
 I (1402) blink: Initializing Wireless-Tag BSP
-I (1412) button: IoT Button Version: 4.2.0
-I (1412) blink: Long press the onboard button to enter configuration mode
-I (1422) blink: Button pressed detected, LED ON
 I (2422) blink: Hello Wireless-Tag BSP
-I (2422) blink: Button pressed detected, LED ON
 I (3422) blink: Hello Wireless-Tag BSP
-I (3422) blink: Button pressed detected, LED ON
 I (4422) blink: Hello Wireless-Tag BSP
-I (4422) blink: Button pressed detected, LED OFF
 I (5422) blink: Hello Wireless-Tag BSP
-I (5422) blink: Button pressed detected, LED OFF
-I (6422) blink: Hello Wireless-Tag BSP
-I (6422) blink: Button pressed detected, LED ON
-I (7422) blink: Hello Wireless-Tag BSP
-I (7422) blink: Button pressed detected, LED ON
-I (8422) blink: Hello Wireless-Tag BSP
-I (8422) blink: Button pressed detected, LED ON
-I (9422) blink: Hello Wireless-Tag BSP
-I (9422) blink: Button pressed detected, LED OFF
-I (10422) blink: Hello Wireless-Tag BSP
-I (10422) blink: Button pressed detected, LED OFF
-I (11422) blink: Hello Wireless-Tag BSP
-I (11422) blink: Button pressed detected, LED ON
-I (12422) blink: Hello Wireless-Tag BSP
-I (12422) blink: Button pressed detected, LED ON
-I (13422) blink: Hello Wireless-Tag BSP
 ```

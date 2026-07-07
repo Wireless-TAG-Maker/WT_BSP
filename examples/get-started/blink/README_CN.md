@@ -78,37 +78,13 @@ Executing "ninja all"...
 
 ## 示例效果
 
-编译烧录固件后，硬件上的RGB LED灯会一直亮起，并且每秒都会随机改变一次颜色，同时打开控制台会看到有对应的LOG输出。按下硬件上的BOOT按键会改变LED的状态：每次按下BOOT按键都会对LED的状态进行反转。下面是运行LOG：
+编译烧录固件后，硬件上的RGB LED灯会一直亮起，并且每秒都会随机改变一次颜色，同时打开控制台会看到有对应的LOG输出。下面是运行LOG：
 
 ```shell
 I (1402) main_task: Calling app_main()
 I (1402) blink: Initializing Wireless-Tag BSP
-I (1412) button: IoT Button Version: 4.2.0
-I (1412) blink: Long press the onboard button to enter configuration mode
-I (1422) blink: Button pressed detected, LED ON
 I (2422) blink: Hello Wireless-Tag BSP
-I (2422) blink: Button pressed detected, LED ON
 I (3422) blink: Hello Wireless-Tag BSP
-I (3422) blink: Button pressed detected, LED ON
 I (4422) blink: Hello Wireless-Tag BSP
-I (4422) blink: Button pressed detected, LED OFF
 I (5422) blink: Hello Wireless-Tag BSP
-I (5422) blink: Button pressed detected, LED OFF
-I (6422) blink: Hello Wireless-Tag BSP
-I (6422) blink: Button pressed detected, LED ON
-I (7422) blink: Hello Wireless-Tag BSP
-I (7422) blink: Button pressed detected, LED ON
-I (8422) blink: Hello Wireless-Tag BSP
-I (8422) blink: Button pressed detected, LED ON
-I (9422) blink: Hello Wireless-Tag BSP
-I (9422) blink: Button pressed detected, LED OFF
-I (10422) blink: Hello Wireless-Tag BSP
-I (10422) blink: Button pressed detected, LED OFF
-I (11422) blink: Hello Wireless-Tag BSP
-I (11422) blink: Button pressed detected, LED ON
-I (12422) blink: Hello Wireless-Tag BSP
-I (12422) blink: Button pressed detected, LED ON
-I (13422) blink: Hello Wireless-Tag BSP
 ```
-
-
