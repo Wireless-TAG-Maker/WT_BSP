@@ -30,7 +30,7 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
 ## 🛠️ Getting Started
 
 ### Prerequisites
--   **ESP-IDF**: Version `v6.0.1` or later is recommended. (Compatible with `v5.3` and above).
+-   **ESP-IDF**: Version `v6.0.1` or later is recommended. (Compatible with `v5.3` and above).([Get esp-idf](https://developer.espressif.com/tags/esp-idf/))
 -   **Git**: To clone the repository and submodules.
 
 ### Installation
@@ -38,7 +38,8 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
 2.  In your project's `idf_component.yml`, ensure dependencies are met.
 
 ### Basic Usage
-1.  **Select your board**: Run `idf.py set-board` in an example directory and choose a supported board. The command generates board defaults used by the next configure/build, and automatically runs `idf.py fullclean` when switching to a board with a different target chip. For non-interactive use, run `WT_BSP_BOARD=WT9932P4-TINY idf.py set-board` or build directly with `WT_BSP_BOARD=WT9932P4-TINY idf.py build`.
+1.  **Select your board**: Run `idf.py set-board` in an example directory and choose a supported board. The command generates board defaults used by the next configure/build, and automatically runs `idf.py fullclean` when switching to a board with a different target chip. After selecting the development board, run `idf.py build` to compile.
+
 2.  **Initialize the BSP**:
     ```c
     #include "wt_bsp.h"
