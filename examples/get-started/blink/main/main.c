@@ -32,13 +32,12 @@ void app_main(void)
     }
 
     while (1) {
+
         r = esp_random() % 255;
         g = esp_random() % 255;
         b = esp_random() % 255;
 
         example_set_led_color(r, g, b);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-        ESP_LOGI(TAG, "Hello Wireless-Tag BSP");
     }
 }
