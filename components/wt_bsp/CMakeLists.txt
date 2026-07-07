@@ -74,3 +74,10 @@ add_custom_target(set-board
     VERBATIM
     USES_TERMINAL
 )
+
+add_custom_target(p4_flash
+    COMMAND ${PYTHON} ${CMAKE_CURRENT_LIST_DIR}/tools/wt_bsp_p4_flash.py
+    WORKING_DIRECTORY ${PROJECT_DIR}
+    VERBATIM
+    USES_TERMINAL
+)

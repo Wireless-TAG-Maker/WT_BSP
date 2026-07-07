@@ -14,6 +14,7 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
 -   **Advanced ESP32-P4 Support**:
     -   **MIPI-DSI**: High-resolution display support with LVGL integration.
     -   **MIPI-CSI**: Camera support with hardware acceleration (PPA).
+    -   **P4C61 Bridge Tool**: `idf.py p4_flash` flashes the WT9932P4C61-TINY ESP32-P4 into a USB-UART bridge for quickly flashing and playing with the onboard ESP32-C61.
 -   **Rich Examples**: From simple "Blink" to complex "Factory Test" firmware integrating UI and camera streaming.
 
 ## 📋 Supported Boards
@@ -26,6 +27,8 @@ This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range o
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, Button |
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | Same as P4-TINY, adds ESP32-C61 for low-power/wireless tasks |
+
+For WT9932P4C61-TINY, connect both FUSB (Full-Speed USB) and HUSB (High-Speed USB). Run `idf.py p4_flash` in any WT_BSP example to flash the ESP32-P4 bridge firmware through FUSB, then flash ESP32-C61 firmware through the HUSB TinyUSB CDC port.
 
 ## 🛠️ Getting Started
 

@@ -14,6 +14,7 @@
 -   **先进的 ESP32-P4 支持**：
     -   **MIPI-DSI**：支持高分辨率显示屏并集成 LVGL。
     -   **MIPI-CSI**：支持摄像头及硬件加速 (PPA) 图像处理。
+    -   **P4C61 烧录桥工具**：`idf.py p4_flash` 可将 WT9932P4C61-TINY 的 ESP32-P4 烧录为 USB-UART 桥，方便快速烧录和体验板载 ESP32-C61。
 -   **丰富的示例**：从简单的 "Blink" 到集成了 UI 和摄像头流媒体的复杂 "出厂测试" 固件。
 
 ## 📋 支持的开发板
@@ -26,6 +27,8 @@
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, 按键 |
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键 |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | 外设与 P4-TINY 一致，额外搭载 ESP32-C61 用于无线/低功耗任务 |
+
+对于 WT9932P4C61-TINY，请将 FUSB（全速 USB）和 HUSB（高速 USB）都接入电脑；在任意 WT_BSP 示例中运行 `idf.py p4_flash`，通过 FUSB 将 ESP32-P4 临时烧录成 USB-UART 桥，然后通过 HUSB TinyUSB CDC 串口烧录 ESP32-C61 固件。
 
 ## 🛠️ 快速上手
 
