@@ -63,15 +63,17 @@ void app_main(void)
             r = 0;
             g = 0;
             b = 0;
+            ESP_LOGI(TAG, "Button pressed detected, LED OFF");
         } else {
             r = esp_random() % 255;
             g = esp_random() % 255;
             b = esp_random() % 255;
+            ESP_LOGI(TAG, "Button pressed detected, LED ON");
         }
 
         example_set_led_color(r, g, b);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-        ESP_LOGI(TAG, "Initializing Wireless-Tag BSP");
+        ESP_LOGI(TAG, "Hello Wireless-Tag BSP");
     }
 }
