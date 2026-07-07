@@ -42,25 +42,22 @@ idf.py p4_flash
 1. 工具会打印 `Available serial ports:`，需要选择 ESP32-P4 的 FUSB 串口。
 
 ```bash
-examples/get-started/c61-hello-through-p4$ idf.py p4_flash
-Executing action: p4_flash
-Running ninja in directory /home/biubiu/work/WT_BSP/examples/get-started/c61-hello-through-p4/build
-Executing "ninja p4_flash"...
-[0/1] cd /home/biubiu/work/WT_BSP/examples/get-started/c61-hello-through-p4 && /home/biubiu/.espressif/tools/python/v6.0.1/venv/bin/python /home/biubiu/work/WT_BSP/components/wt_bsp/tools/wt_bsp_p4_flash.py
-Firmware SHA256 verified: e16f5afa26a27ec9c513cefb68082737bf24fbff809b2ae4b557a4ad867dd179
 Available serial ports:
   [0] /dev/ttyACM0 | USB JTAG/serial debug unit | USB VID:PID=303A:1001 SER=E8:F6:0A:E7:6B:32 LOCATION=1-1:1.0
+
+Please enter the serial port number to use, then press Enter:
 ```
 
 2. 工具会提示该命令将覆盖当前 ESP32-P4 固件，并要求确认。默认值为 `N`；
    只有输入 `Y` 才会继续烧录。
 
 ```bash
-Select the ESP32-P4 port number:
-WARNING: This command will overwrite the current ESP32-P4 firmware. [Y/N(N)]
+WARNING: This command will overwrite the current ESP32-P4 firmware.
 Target board: WT9932P4C61-TINY
-P4 port: /dev/ttyACM0
+P4 port: /dev/cu.usbmodem21201
 New firmware: ESP32-P4 USB-UART bridge for flashing/debugging onboard ESP32-C61
+
+Type 'y' to continue, or press Enter to cancel. [y/N]:
 ```
 
 覆盖当前 ESP32-P4 固件是这个流程的预期行为：P4 会临时变成板载 C61 的

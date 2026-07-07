@@ -59,7 +59,8 @@ Available serial ports:
 
 ```bash
 Select the ESP32-P4 port number:
-WARNING: This command will overwrite the current ESP32-P4 firmware. [Y/N(N)]
+WARNING: This operation will overwrite the current firmware on the ESP32-P4.
+Type 'y' to continue, or press Enter to cancel. [y/N]:
 Target board: WT9932P4C61-TINY
 P4 port: /dev/ttyACM0
 New firmware: ESP32-P4 USB-UART bridge for flashing/debugging onboard ESP32-C61

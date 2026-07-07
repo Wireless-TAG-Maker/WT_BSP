@@ -101,6 +101,7 @@ def print_ports(ports):
         print("{}  [{}] {} | {} | {}{}".format(
             COLOR_GREEN, index, port.device, description, hwid, COLOR_RESET
         ))
+    print("{}\n\rPlease enter the serial port number to use, then press Enter:{}".format(COLOR_GREEN, COLOR_RESET))
 
 
 def choose_port():
@@ -139,7 +140,7 @@ def choose_port():
 
 def confirm_overwrite(port):
     print("")
-    print("{}WARNING: This command will overwrite the current ESP32-P4 firmware. [Y/N(N)]{}".format(
+    print("{}WARNING: This command will overwrite the current ESP32-P4 firmware.{}".format(
         COLOR_RED, COLOR_RESET
     ))
     print("{}Target board: WT9932P4C61-TINY{}".format(COLOR_RED, COLOR_RESET))
@@ -148,6 +149,9 @@ def confirm_overwrite(port):
         COLOR_RED, COLOR_RESET
     ))
     print("")
+    print("{}Type 'y' to continue, or press Enter to cancel. [y/N]:{}".format(
+        COLOR_RED, COLOR_RESET
+    ))
     answer = input("Continue? [Y/N(N)]: ").strip().lower()
     if answer != "y":
         raise P4FlashError("Aborted by user")
