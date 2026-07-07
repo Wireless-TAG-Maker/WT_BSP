@@ -101,7 +101,8 @@ def print_ports(ports):
         print("{}  [{}] {} | {} | {}{}".format(
             COLOR_GREEN, index, port.device, description, hwid, COLOR_RESET
         ))
-    print("{}\n\rPlease enter the serial port number to use, then press Enter:{}".format(COLOR_GREEN, COLOR_RESET))
+    print("")
+    print("{}Please enter the serial port number to use, then press Enter:{}".format(COLOR_GREEN, COLOR_RESET))
 
 
 def choose_port():
