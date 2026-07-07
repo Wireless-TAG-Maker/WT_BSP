@@ -7,8 +7,6 @@
 
 static const char *TAG = "blink";
 
-/* Functions required by lvgl_demo_ui.c implemented using BSP */
-
 void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
 {
     wt_bsp_rgb_t rgb = wt_bsp_get_rgb();

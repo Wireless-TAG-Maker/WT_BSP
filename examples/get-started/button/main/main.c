@@ -9,8 +9,6 @@ static const char *TAG = "button";
 
 static wt_bsp_button_event_t s_config_button_event = -1;
 
-/* Functions required by lvgl_demo_ui.c implemented using BSP */
-
 static void config_button_event_cb(wt_bsp_button_t button,
                                    wt_bsp_button_event_t event,
                                    void *user_data)
