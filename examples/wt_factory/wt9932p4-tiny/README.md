@@ -48,6 +48,10 @@ choice `WT9932P4-TINY (esp32p4)`:
 ```bash
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
+0
 ```
 
 

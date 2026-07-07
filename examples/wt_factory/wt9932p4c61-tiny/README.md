@@ -128,6 +128,10 @@ choice `WT9932P4C61-TINY (esp32p4)`:
 ```bash
 Supported boards in this example:
 0: WT9932P4C61-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
+0
 ```
 
 This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.

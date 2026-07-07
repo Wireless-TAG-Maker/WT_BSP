@@ -48,6 +48,10 @@ idf.py set-board
 ```bash
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
+0
 ```
 
 本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
