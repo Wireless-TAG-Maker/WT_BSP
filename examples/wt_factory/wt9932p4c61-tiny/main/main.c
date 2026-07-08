@@ -59,7 +59,9 @@ extern bool camera_is_fullscreen(void);
 
 /* Camera streaming state */
 static ppa_client_handle_t s_ppa_srm_handle = NULL;
+static lv_display_t *s_lvgl_disp = NULL;
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
+static size_t s_ui_cam_buffer_size = 0;
 static uint8_t s_current_buf_idx = 0;
 static TaskHandle_t s_wifi_task_handle = NULL;
 static bool s_config_button_triggered = false;
@@ -67,6 +69,7 @@ static bool s_ui_ready = false;
 static uint8_t s_led_red = 0;
 static uint8_t s_led_green = 0;
 static uint8_t s_led_blue = 0;
+static bool s_camera_buffer_error_logged = false;
 
 static esp_err_t initialize_wifi(void);
 static void set_status_led_color(uint8_t r, uint8_t g, uint8_t b);
@@ -76,12 +79,39 @@ static void config_button_event_cb(wt_bsp_button_t button,
                                    wt_bsp_button_event_t event,
                                    void *user_data);
 
+static bool alloc_camera_buffers(size_t buffer_size, uint8_t *buffers[2])
+{
+    size_t data_cache_line_size = 0;
+    esp_err_t ret = esp_cache_get_alignment(MALLOC_CAP_SPIRAM, &data_cache_line_size);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get cache alignment: %s", esp_err_to_name(ret));
+        return false;
+    }
+
+    buffers[0] = heap_caps_aligned_alloc(data_cache_line_size, buffer_size, MALLOC_CAP_SPIRAM);
+    buffers[1] = heap_caps_aligned_alloc(data_cache_line_size, buffer_size, MALLOC_CAP_SPIRAM);
+    if (buffers[0] == NULL || buffers[1] == NULL) {
+        free(buffers[0]);
+        free(buffers[1]);
+        buffers[0] = NULL;
+        buffers[1] = NULL;
+        if (!s_camera_buffer_error_logged) {
+            ESP_LOGE(TAG, "Failed to allocate camera UI buffers: %u bytes each", (unsigned int)buffer_size);
+            s_camera_buffer_error_logged = true;
+        }
+        return false;
+    }
+
+    s_camera_buffer_error_logged = false;
+    return true;
+}
+
 /**
  * @brief Camera frame callback. Processes frame using PPA and updates UI.
  */
 static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_t len, void *user_data)
 {
-    if (s_ppa_srm_handle == NULL || s_ui_cam_buffer[0] == NULL || s_ui_cam_buffer[1] == NULL) {
+    if (s_ppa_srm_handle == NULL) {
         return;
     }
 
@@ -90,7 +120,6 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
         .in.pic_w = width,
         .in.pic_h = height,
         .in.srm_cm = PPA_SRM_COLOR_MODE_RGB565,
-        .out.buffer = s_ui_cam_buffer[s_current_buf_idx],
         .out.srm_cm = PPA_SRM_COLOR_MODE_RGB888,
         .scale_x = 1.0f,
         .scale_y = 1.0f,
@@ -100,6 +129,7 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
     };
 
     uint32_t out_w, out_h;
+    size_t out_size;
 
     if (camera_is_fullscreen()) {
         /* Fullscreen: 640x480 block from input -> Rotate 90 -> 480x640 output */
@@ -110,7 +140,6 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
 
         srm_config.out.pic_w = 480;
         srm_config.out.pic_h = 640;
-        srm_config.out.buffer_size = CAMERA_UI_BUFFER_SIZE;
         srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_90;
         out_w = 480;
         out_h = 640;
@@ -123,24 +152,58 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
 
         srm_config.out.pic_w = 480;
         srm_config.out.pic_h = 384;
-        srm_config.out.buffer_size =
-            CAMERA_DISPLAY_WIDTH * CAMERA_NORMAL_HEIGHT * CAMERA_RGB888_BYTES_PER_PIXEL;
         srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
         out_w = 480;
         out_h = 384;
     }
 
+    out_size = out_w * out_h * CAMERA_RGB888_BYTES_PER_PIXEL;
+    srm_config.out.buffer_size = out_size;
+
+    uint8_t *new_buffers[2] = {NULL, NULL};
+    uint8_t output_buf_idx = s_current_buf_idx;
+    bool replacing_buffers = false;
+
+    if (s_ui_cam_buffer[0] != NULL && s_ui_cam_buffer[1] != NULL && s_ui_cam_buffer_size >= out_size) {
+        srm_config.out.buffer = s_ui_cam_buffer[output_buf_idx];
+    } else {
+        if (!alloc_camera_buffers(out_size, new_buffers)) {
+            return;
+        }
+        srm_config.out.buffer = new_buffers[0];
+        output_buf_idx = 0;
+        replacing_buffers = true;
+    }
+
     if (ppa_do_scale_rotate_mirror(s_ppa_srm_handle, &srm_config) == ESP_OK) {
         /* Invalidate CPU cache (RGB888 is 3 bytes/pixel) */
-        esp_cache_msync((void *)s_ui_cam_buffer[s_current_buf_idx],
-                        out_w * out_h * CAMERA_RGB888_BYTES_PER_PIXEL,
+        esp_cache_msync((void *)srm_config.out.buffer,
+                        out_size,
                         ESP_CACHE_MSYNC_FLAG_DIR_M2C);
 
         if (wt_bsp_dsi_lvgl_lock(pdMS_TO_TICKS(10))) {
-            update_camera_frame(s_ui_cam_buffer[s_current_buf_idx], out_w, out_h);
+            update_camera_frame(srm_config.out.buffer, out_w, out_h);
+            lv_refr_now(s_lvgl_disp);
             wt_bsp_dsi_lvgl_unlock();
-            s_current_buf_idx = !s_current_buf_idx;
+            if (replacing_buffers) {
+                uint8_t *old_buffer_0 = s_ui_cam_buffer[0];
+                uint8_t *old_buffer_1 = s_ui_cam_buffer[1];
+                s_ui_cam_buffer[0] = new_buffers[0];
+                s_ui_cam_buffer[1] = new_buffers[1];
+                s_ui_cam_buffer_size = out_size;
+                s_current_buf_idx = 1;
+                free(old_buffer_0);
+                free(old_buffer_1);
+            } else {
+                s_current_buf_idx = !output_buf_idx;
+            }
+        } else if (replacing_buffers) {
+            free(new_buffers[0]);
+            free(new_buffers[1]);
         }
+    } else if (replacing_buffers) {
+        free(new_buffers[0]);
+        free(new_buffers[1]);
     }
 }
 
@@ -467,7 +530,7 @@ void app_main(void)
         /* Allocate buffer for 1/10th of the screen */
         .buffer_size = 480 * 640,
         .flags = {
-            .avoid_tearing = false,
+            .avoid_tearing = true,
         }
     };
     lvgl_cfg.lvgl_port_cfg.task_stack = 16384;
@@ -477,6 +540,7 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to start LVGL display");
         return;
     }
+    s_lvgl_disp = disp;
 
     /* 2. Setup Touch */
     if (touch) {
@@ -505,24 +569,11 @@ void app_main(void)
         ret = ppa_register_client(&ppa_srm_config, &ppa_srm_handle);
         if (ret == ESP_OK) {
             s_ppa_srm_handle = ppa_srm_handle;
-            size_t data_cache_line_size = 0;
-            ret = esp_cache_get_alignment(MALLOC_CAP_SPIRAM, &data_cache_line_size);
-            /* Buffers sized for 480x640 RGB888 fullscreen support */
-            if (ret == ESP_OK) {
-                s_ui_cam_buffer[0] = heap_caps_aligned_alloc(data_cache_line_size,
-                                                            CAMERA_UI_BUFFER_SIZE,
-                                                            MALLOC_CAP_SPIRAM);
-                s_ui_cam_buffer[1] = heap_caps_aligned_alloc(data_cache_line_size,
-                                                            CAMERA_UI_BUFFER_SIZE,
-                                                            MALLOC_CAP_SPIRAM);
-            }
         }
 
-        if (ret == ESP_OK && s_ui_cam_buffer[0] != NULL && s_ui_cam_buffer[1] != NULL) {
+        if (ret == ESP_OK) {
             /* Configure camera to output RGB565 for the factory UI */
             ret = wt_bsp_csi_set_pixel_format(csi, V4L2_PIX_FMT_RGB565);
-        } else if (ret == ESP_OK) {
-            ret = ESP_ERR_NO_MEM;
         }
         if (ret == ESP_OK) {
             ret = wt_bsp_csi_start(csi, camera_frame_cb, NULL);

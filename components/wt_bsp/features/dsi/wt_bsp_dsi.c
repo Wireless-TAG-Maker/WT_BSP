@@ -252,10 +252,14 @@ lv_display_t *wt_bsp_dsi_lvgl_start(wt_bsp_dsi_t dsi, const wt_bsp_dsi_lvgl_conf
         .hres = dsi->info.width,
         .vres = dsi->info.height,
         .rotation = { .mirror_x = false, .mirror_y = false, .swap_xy = false },
+#if LVGL_VERSION_MAJOR >= 9
+        .color_format = LV_COLOR_FORMAT_RGB888,
+#endif
         .flags = {
-            .buff_dma = true,
+            .buff_dma = false,
             .buff_spiram = true,
             .sw_rotate = false,
+            .full_refresh = resolved.flags.avoid_tearing,
         },
     };
     const lvgl_port_display_dsi_cfg_t dsi_cfg = {
@@ -266,8 +270,6 @@ lv_display_t *wt_bsp_dsi_lvgl_start(wt_bsp_dsi_t dsi, const wt_bsp_dsi_lvgl_conf
     if (dsi->lvgl_display) {
         lv_display_add_event_cb(dsi->lvgl_display, wt_bsp_dsi_lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA, NULL);
     }
-
-    lv_display_set_color_format(dsi->lvgl_display, LV_COLOR_FORMAT_RGB888);
 
     return dsi->lvgl_display;
 }
