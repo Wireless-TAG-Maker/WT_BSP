@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 
+ANSI_GREEN = "\033[32m"
+ANSI_RESET = "\033[0m"
+
+
 class BspBoardError(Exception):
     pass
 
@@ -312,6 +316,15 @@ def _available_boards_or_error(project_path):
     return available
 
 
+def _read_input(prompt, input_fn):
+    if input_fn is input:
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+        return input_fn()
+
+    return input_fn(prompt)
+
+
 def select_board(project_path, board_name=None, input_fn=input, output_fn=print):
     available = _available_boards_or_error(project_path)
 
@@ -319,12 +332,15 @@ def select_board(project_path, board_name=None, input_fn=input, output_fn=print)
         return with_project_defaults(project_path, find_board(available, board_name))
 
     boards = list(available.values())
-    output_fn("Supported boards in this example:")
+    output_fn("{}Supported boards in this example:".format(ANSI_GREEN))
     for index, board in enumerate(boards):
         output_fn("{}: {} ({})".format(index, board.name, board.target))
+    output_fn("")
+    output_fn("Please select the target board by entering the corresponding number.{}".format(ANSI_RESET))
 
     while True:
-        value = input_fn("Select board by number or name: ").strip()
+        output_fn("{}Enter board number: {}".format(ANSI_GREEN, ANSI_RESET))
+        value = _read_input("", input_fn).strip()
         if value.lower() in ("x", "q", "quit", "exit"):
             raise BspBoardError("Board selection cancelled")
 
@@ -336,7 +352,7 @@ def select_board(project_path, board_name=None, input_fn=input, output_fn=print)
         try:
             return with_project_defaults(project_path, find_board(available, value))
         except BspBoardError:
-            output_fn("Invalid board selection: {}".format(value))
+            output_fn("Invalid board selection {}".format(value))
 
 
 def _run_set_target(project_path, target, build_dir=None, run_command=None):

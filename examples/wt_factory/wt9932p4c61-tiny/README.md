@@ -50,6 +50,41 @@ Currently supported development boards:
 * **WT9932P4-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
 * **WT9932P4C61-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
 
+### Flash ESP32-P4 as the C61 Flash Bridge
+
+Connect **FUSB (Full-Speed USB)** on WT9932P4C61-TINY to the computer for this
+step. `idf.py p4_flash` uses the ESP32-P4 built-in USB-JTAG/Serial port from
+FUSB to flash the P4 bridge firmware. Before flashing ESP32-C61 firmware,
+unplug FUSB and connect **HUSB (High-Speed USB)**.
+
+The onboard ESP32-P4 on WT9932P4C61-TINY can temporarily act as a USB-UART
+flash bridge for the onboard ESP32-C61. The command below has two interactive
+prompts:
+
+1. It prints `Available serial ports:` and asks you to select the FUSB serial
+   port for ESP32-P4.
+2. It prints a warning that the command will overwrite the current ESP32-P4
+   firmware and asks for confirmation. The default answer is `N`; enter `Y` to
+   continue.
+
+> Note: `idf.py p4_flash` overwrites the current ESP32-P4 firmware. After the
+> ESP32-C61 slave firmware is flashed, flash the ESP32-P4 factory firmware again
+> in the later step.
+
+```bash
+cd ./examples/wt_factory/wt9932p4c61-tiny
+
+# Select WT9932P4C61-TINY first if this project has not been configured yet
+idf.py set-board
+
+# Connect FUSB before this command
+# Flash the ESP32-P4 bridge firmware; choose the P4 USB-JTAG/Serial port from FUSB
+idf.py p4_flash
+```
+
+After flashing, unplug FUSB and connect HUSB. Use HUSB to power the board and
+flash the ESP32-C61 slave firmware.
+
 ### Build and Flash the ESP32-C61 Slave Firmware
 
 First, build and flash the ESP-Hosted slave firmware for the ESP32-C61:
@@ -63,11 +98,11 @@ idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-tar
 # Build the firmware
 idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
 
-# Flash the ESP32-C61 (replace COM1 with the actual serial port)
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p COM1
+# Flash the ESP32-C61 (replace <HUSB_CDC_PORT> with the HUSB TinyUSB CDC port)
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
 
 # Optional: monitor the ESP32-C61 output
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p COM1
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p <HUSB_CDC_PORT>
 ```
 
 **About the `build_slave` directory:**
@@ -76,14 +111,9 @@ idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor
 - The directory is generated in the project root and can be added to `.gitignore`.
 - Delete the `build_slave` directory when a clean build is required.
 
-**Entering download mode:**
-
-Make sure the ESP32-C61 is in download mode before flashing:
-
-1. Connect the ESP32-C61 RX and TX pins to a USB-to-UART adapter.
-2. Hold ESP32-C61 BOOT (GPIO9) low.
-3. Pull ESP32-C61 EN (RESET) low, then release it to reset the chip.
-4. Release ESP32-C61 BOOT (GPIO9).
+The ESP32-P4 bridge firmware controls the ESP32-C61 EN and IO9 pins through the
+onboard wiring, so normally no external USB-to-UART adapter or manual download
+mode sequence is required.
 
 ### Configure the Project
 
@@ -98,6 +128,10 @@ choice `WT9932P4C61-TINY (esp32p4)`:
 ```bash
 Supported boards in this example:
 0: WT9932P4C61-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
+0
 ```
 
 This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.

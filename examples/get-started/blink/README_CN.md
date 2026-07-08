@@ -19,6 +19,8 @@ Supported boards in this example:
 4: WT9932P4-TINY (esp32p4)
 5: WT9932P4C61-TINY (esp32p4)
 
+Please select the target board by entering the corresponding number.
+Enter board number:
 ```
 
 根据你的硬件套件型号，输入对应的数字，然后按下回车（Enter）按键：
@@ -34,8 +36,11 @@ Supported boards in this example:
 3: WT9932C61-TINY (esp32c61)
 4: WT9932P4-TINY (esp32p4)
 5: WT9932P4C61-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
 4
-Select board by number or name: Generated sdkconfig.board
+Generated sdkconfig.board
 Generated sdkconfig.board.Kconfig
 Updated build/sdkconfig
 Selected WT9932P4-TINY (esp32p4)
@@ -56,11 +61,14 @@ Supported boards in this example:
 3: WT9932C61-TINY (esp32c61)
 4: WT9932P4-TINY (esp32p4)
 5: WT9932P4C61-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
 5
-Select board by number or name: Generated sdkconfig.board
+Generated sdkconfig.board
 Generated sdkconfig.board.Kconfig
 Updated build/sdkconfig
-Selected WT9932P4-TINY (esp32p4)
+Selected WT9932P4C61-TINY (esp32p4)
 ~/WT_BSP/examples/get-started/blink$ idf.py   build
 Executing action: all (aliases: build)
 Running ninja in directory ~/WT_BSP/examples/get-started/blink/build

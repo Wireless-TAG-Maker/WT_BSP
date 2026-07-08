@@ -50,6 +50,31 @@ Wi-Fi 状态指示会覆盖设备启动阶段的外设状态指示。
 * **WT9932P4-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
 * **WT9932P4C61-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
 
+### 将 ESP32-P4 烧录为 C61 烧录桥
+
+这一步请先将 WT9932P4C61-TINY 板上的 **FUSB（全速 USB）** 接入电脑。`idf.py p4_flash` 通过 FUSB 枚举出的 ESP32-P4 built-in USB-JTAG/Serial 端口给 P4 烧录 bridge 固件；烧录 ESP32-C61 固件前，请拔掉 FUSB 并接入 **HUSB（高速 USB）**。
+
+WT9932P4C61-TINY 板载 ESP32-P4 可以临时作为 ESP32-C61 的 USB-UART 烧录桥使用。执行以下命令时有两个交互：
+
+1. 工具会打印 `Available serial ports:`，需要选择 ESP32-P4 的 FUSB 串口。
+2. 工具会提示该命令将覆盖当前 ESP32-P4 固件，并要求确认。默认值为 `N`；
+   只有输入 `Y` 才会继续烧录。
+
+> 注意：`idf.py p4_flash` 会覆盖 ESP32-P4 当前固件。完成 ESP32-C61 烧录后，如需运行本工厂测试固件，需要在后续步骤重新烧录 ESP32-P4 主控固件。
+
+```bash
+cd ./examples/wt_factory/wt9932p4c61-tiny
+
+# 如当前工程尚未配置过开发板，先选择 WT9932P4C61-TINY
+idf.py set-board
+
+# 执行这条命令前请接入 FUSB
+# 将 ESP32-P4 烧录为 C61 烧录桥，选择 FUSB 枚举出的 P4 USB-JTAG/Serial 端口
+idf.py p4_flash
+```
+
+烧录完成后，拔掉 FUSB 并接入 HUSB。后续直接使用 HUSB 给开发板供电并烧录 ESP32-C61 slave 固件。
+
 ### 编译并烧录 ESP32-C61 Slave 固件
 
 首先需要为 ESP32-C61 编译并烧录 ESP-Hosted slave 固件：
@@ -63,11 +88,11 @@ idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-tar
 # 编译固件
 idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
 
-# 烧录到 ESP32-C61（替换 COM1 为实际串口）
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p COM1
+# 烧录到 ESP32-C61（替换 <HUSB_CDC_PORT> 为 P4 bridge 枚举出的 HUSB TinyUSB CDC 串口）
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
 
 # （可选）监控 ESP32-C61 输出
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p COM1
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p <HUSB_CDC_PORT>
 ```
 
 **关于 `build_slave` 目录：**
@@ -76,14 +101,7 @@ idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor
 - 该目录会在项目根目录下生成，可以添加到 `.gitignore` 中。
 - 如需清理，可直接删除 `build_slave` 目录。
 
-**烧录模式：**
-
-烧录时确保 ESP32-C61 处于下载模式：
-
-1. 将 ESP32-C61 的 RX、TX 连接到串口模块。
-2. ESP32-C61 的 BOOT（GPIO9）接地并保持。
-3. ESP32-C61 的 EN（RESET）引脚接地，然后松开以完成复位。
-4. 松开 ESP32-C61 的 BOOT（GPIO9）。
+ESP32-P4 bridge 固件会通过板载连接控制 ESP32-C61 的 EN 和 IO9，正常情况下不需要外接 USB-to-UART，也不需要手动进入下载模式。
 
 ### 配置工程
 
@@ -97,6 +115,10 @@ idf.py set-board
 ```bash
 Supported boards in this example:
 0: WT9932P4C61-TINY (esp32p4)
+
+Please select the target board by entering the corresponding number.
+Enter board number: 
+0
 ```
 
 本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
