@@ -3,68 +3,67 @@
 
 # Comprehensive Factory Test Example (Factory Firmware)
 
-This example is a comprehensive factory firmware that integrates various peripheral features provided by the Wireless-Tag BSP, including:
-* **MIPI DSI LCD Display**: Uses LVGL 9.4.0 to render the graphical user interface.
-* **MIPI CSI Camera Capture**: Captures the real-time camera feed and displays it on the screen via PPA hardware acceleration.
-* **Touch Control**: Supports the touch functionality associated with the DSI screen.
-* **SD Card Test**: Supports mounting and capacity checking of SD cards using the SDMMC interface.
-* **RGB LED Control**: Supports control of the onboard WS2812 RGB LED.
+This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI display, MIPI CSI camera, touch, SD card, and RGB LED control.
 
-## Hardware Status Indication (RGB LED)
+## Getting Started
 
-Upon startup, the system automatically detects the connection status of peripherals and uses the onboard RGB LED to display different colors indicating the hardware status:
+1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:
 
-| LED Color | Hardware Status | Description |
-|-----------|-----------------|-------------|
-| ⚫ Off | All Normal | Screen, camera, and SD card are correctly connected and successfully initialized |
-| 🔵 Blue | Camera Disconnected | |
-| 🟡 Yellow | SD Card Disconnected | |
-| 🟠 Pink | Screen Disconnected | |
-| 🔴 Red | All Disconnected | Screen, camera, and SD card are all disconnected |
-
-**RGB Color Reference Values:**
-- Blue: R=0, G=0, B=255
-- Yellow: R=255, G=255, B=0
-- Orange: R=255, G=165, B=0
-- Red: R=255, G=0, B=0
-
-## How to Use the Example
-
-### Hardware Requirements
-
-Currently supported development boards:
-* **WT9932P4-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
-* **WT9932P4C61-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
-
-### Configure the Project
-
-Before building, you need to set the target board:
-
-```bash
-idf.py set-board
-```
-
-choice `WT9932P4-TINY (esp32p4)`:
-```bash
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4-tiny$ idf.py set-board
+...
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
-Enter board number: 
-0
+Enter board number:
 ```
 
+Enter the number that matches your hardware kit model, then press Enter. A successful selection prints output similar to this:
 
-This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
-
-### Build and Flash
-
-Build the project and flash it to the development board:
-
-```bash
-idf.py build flash monitor
+```shell
+Enter board number: 0
+Generated sdkconfig.board
+Generated sdkconfig.board.Kconfig
+Updated build/sdkconfig
+Selected WT9932P4-TINY (esp32p4)
 ```
 
-## Core Features Explanation
+Then run `idf.py build` to compile:
 
-* **Camera Preview**: The top area displays the real-time camera feed. Tapping the feed toggles between full-screen preview and normal preview modes. In full
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4-tiny$ idf.py build
+Executing action: all (aliases: build)
+Running ninja in directory ~/WT_BSP/examples/wt_factory/wt9932p4-tiny/build
+Executing "ninja all"...
+...
+```
+
+After modifying the code, run `idf.py build` again to compile.
+
+> During development, you can switch to another hardware kit whenever needed. When switching to a different target chip, `idf.py fullclean` is automatically executed.
+
+## Hardware Status Indication (RGB LED)
+
+At startup, the system detects peripheral status and uses the onboard RGB LED to indicate hardware state:
+
+| LED Color | Hardware Status | Description |
+|-----------|-----------------|-------------|
+| Off | All normal | Screen, camera, and SD card are connected and initialized |
+| Blue | Camera disconnected | |
+| Yellow | SD card disconnected | |
+| Pink | Screen disconnected | |
+| Red | All disconnected | Screen, camera, and SD card are disconnected |
+
+## Core Features
+
+* **Camera Preview**: Displays the live camera feed. Tapping the preview toggles full-screen and normal preview modes.
+* **LED Control**: Adjusts the onboard RGB LED color.
+* **SD Card Status**: Tests SD card mounting and displays capacity information.
+* **Touch Control**: Uses the touch panel paired with the DSI screen.
+
+## Project Structure
+
+* `main/main.c`: Main entry, BSP initialization, hardware detection, LVGL startup, and peripheral logic.
+* `main/lvgl_ui.c`: UI implementation.
+* `managed_components/`: ESP-IDF managed component dependencies.

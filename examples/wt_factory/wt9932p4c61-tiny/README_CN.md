@@ -3,143 +3,94 @@
 
 # 综合工厂测试示例 (Factory Firmware)
 
-本示例是一个综合性的工厂固件，集成了 Wireless-Tag BSP 提供的多种外设功能，包括：
-* **MIPI DSI 液晶屏显示**：使用 LVGL 9.4.0 展示图形界面。
-* **MIPI CSI 摄像头采集**：实时采集摄像头画面并通过 PPA 硬件加速显示在屏幕上。
-* **触摸控制**：支持 DSI 屏配套的触摸功能。
-* **SD 卡测试**：支持 SDMMC 接口的 SD 卡挂载及容量查看。
-* **RGB LED 控制**：支持板载 WS2812 RGB LED 控制。
-* **Wi-Fi 配网**：显示网络连接状态和系统时间，并支持通过板载按键进入配网模式。
+本工厂固件集成了 Wireless-Tag BSP 提供的 MIPI DSI 显示、MIPI CSI 摄像头、触摸、SD 卡、RGB LED 控制，以及通过板载 ESP32-C61 实现的 Wi-Fi 配网能力。
 
-## 硬件状态指示 (RGB LED)
+## 🛠️ 快速上手
 
-系统启动时会自动检测外设连接状态，并通过板载 RGB LED 显示不同的颜色来指示硬件状态：
+1.  **选择开发板**：在示例目录中运行 `idf.py set-board` 并选择支持的开发板，命令会生成下一次配置/构建使用的板级默认配置：
 
-| LED 颜色 | 硬件状态 | 说明 |
-|----------|----------|------|
-| 🟢 绿色 | 全部正常 / Wi-Fi 已连接 | 外设初始化全部正常或 Wi-Fi 连接成功 |
-| 🔵 蓝色 | 摄像头未连接 |  |
-| 🟡 黄色 | SD 卡未连接 |  |
-| 🟠 粉色 | 屏幕未连接 |
-| 🔴 红色 | 全部未连接 | 屏幕、摄像头、SD 卡均未连接 |
-
-Wi-Fi 初始化开始后，RGB LED 将切换为指示当前 Wi-Fi 状态：
-
-| LED 颜色 | Wi-Fi 状态 |
-|----------|-------------|
-| 🔵 蓝色 | 正在扫描、连接或重连热点 |
-| 🟢 绿色 | 已连接 Wi-Fi 热点 |
-| 🔴 红色 | Wi-Fi 已断开或连接失败 |
-| 🟣 紫色 | 已进入配网模式 |
-
-Wi-Fi 状态指示会覆盖设备启动阶段的外设状态指示。
-
-**RGB 颜色参考值：**
-- 蓝色: R=0, G=0, B=255
-- 绿色: R=0, G=255, B=0
-- 黄色: R=255, G=255, B=0
-- 橙色: R=255, G=165, B=0
-- 红色: R=255, G=0, B=0
-- 紫色: R=255, G=0, B=255
-
-## 如何使用示例
-
-### 硬件要求
-
-目前支持的开发板：
-* **WT9932P4-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
-* **WT9932P4C61-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
-
-### 将 ESP32-P4 烧录为 C61 烧录桥
-
-这一步请先将 WT9932P4C61-TINY 板上的 **FUSB（全速 USB）** 接入电脑。`idf.py p4_flash` 通过 FUSB 枚举出的 ESP32-P4 built-in USB-JTAG/Serial 端口给 P4 烧录 bridge 固件；烧录 ESP32-C61 固件前，请拔掉 FUSB 并接入 **HUSB（高速 USB）**。
-
-WT9932P4C61-TINY 板载 ESP32-P4 可以临时作为 ESP32-C61 的 USB-UART 烧录桥使用。执行以下命令时有两个交互：
-
-1. 工具会打印 `Available serial ports:`，需要选择 ESP32-P4 的 FUSB 串口。
-2. 工具会提示该命令将覆盖当前 ESP32-P4 固件，并要求确认。默认值为 `N`；
-   只有输入 `Y` 才会继续烧录。
-
-> 注意：`idf.py p4_flash` 会覆盖 ESP32-P4 当前固件。完成 ESP32-C61 烧录后，如需运行本工厂测试固件，需要在后续步骤重新烧录 ESP32-P4 主控固件。
-
-```bash
-cd ./examples/wt_factory/wt9932p4c61-tiny
-
-# 如当前工程尚未配置过开发板，先选择 WT9932P4C61-TINY
-idf.py set-board
-
-# 执行这条命令前请接入 FUSB
-# 将 ESP32-P4 烧录为 C61 烧录桥，选择 FUSB 枚举出的 P4 USB-JTAG/Serial 端口
-idf.py p4_flash
-```
-
-烧录完成后，拔掉 FUSB 并接入 HUSB。后续直接使用 HUSB 给开发板供电并烧录 ESP32-C61 slave 固件。
-
-### 编译并烧录 ESP32-C61 Slave 固件
-
-首先需要为 ESP32-C61 编译并烧录 ESP-Hosted slave 固件：
-
-```bash
-cd ./examples/wt_factory/wt9932p4c61-tiny
-
-# 设置目标芯片
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
-
-# 编译固件
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
-
-# 烧录到 ESP32-C61（替换 <HUSB_CDC_PORT> 为 P4 bridge 枚举出的 HUSB TinyUSB CDC 串口）
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
-
-# （可选）监控 ESP32-C61 输出
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p <HUSB_CDC_PORT>
-```
-
-**关于 `build_slave` 目录：**
-
-- `build_slave` 是 slave 固件的独立构建目录，用于与主项目的 `build` 目录分开。
-- 该目录会在项目根目录下生成，可以添加到 `.gitignore` 中。
-- 如需清理，可直接删除 `build_slave` 目录。
-
-ESP32-P4 bridge 固件会通过板载连接控制 ESP32-C61 的 EN 和 IO9，正常情况下不需要外接 USB-to-UART，也不需要手动进入下载模式。
-
-### 配置工程
-
-在编译之前，您需要设置目标开发板：
-
-```bash
-idf.py set-board
-```
-
-选择 `WT9932P4C61-TINY (esp32p4)`：
-```bash
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny$ idf.py set-board
+...
 Supported boards in this example:
 0: WT9932P4C61-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
-Enter board number: 
-0
+Enter board number:
 ```
 
-本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
+根据你的硬件套件型号输入对应数字，然后按下回车（Enter）按键。选择成功后会看到类似输出：
 
-### 编译与烧录
+```shell
+Enter board number: 0
+Generated sdkconfig.board
+Generated sdkconfig.board.Kconfig
+Updated build/sdkconfig
+Selected WT9932P4C61-TINY (esp32p4)
+```
 
-编译工程并烧录到开发板：
+然后执行 `idf.py build` 进行编译：
+
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny$ idf.py build
+Executing action: all (aliases: build)
+Running ninja in directory ~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny/build
+Executing "ninja all"...
+...
+```
+
+之后修改了代码，再次执行 `idf.py build` 进行编译。
+
+> 开发过程中可以随时根据需要切换到不同的硬件套件；切换到不同目标芯片时会自动执行 `idf.py fullclean`。
+
+## ESP32-C61 Slave 固件
+
+WT9932P4C61-TINY 使用板载 ESP32-C61 提供无线连接能力。运行 ESP32-P4 固件前，如有需要请先烧录 ESP32-C61 slave 固件。
+
+1. 接入 FUSB，并将 ESP32-P4 烧录为 C61 烧录桥：
 
 ```bash
-idf.py build flash monitor
+cd ./examples/wt_factory/wt9932p4c61-tiny
+idf.py p4_flash
 ```
 
-## 核心功能说明
+2. 拔掉 FUSB，接入 HUSB，然后编译并烧录 ESP32-C61 slave 固件：
 
-* **摄像头预览**：顶部区域显示实时摄像头画面。点击画面可以切换全屏预览和普通预览模式。全屏模式下会使用 PPA 硬件进行 90 度旋转。
-* **LED 控制**：底部左侧滑块可调节板载 RGB LED 的颜色。
-* **SD 卡状态**：底部右侧上半区域可测试 SD 卡挂载，并显示其容量信息。
-* **Wi-Fi 状态**：底部右侧下半区域显示连接状态、未连接时的配置 AP 名称和系统时间。长按板载按键约 1 秒可进入配网模式，连接配置 AP 后访问 `http://192.168.4.1` 完成配置。
+```bash
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
+```
+
+3. 重新接入 FUSB，并烧录 ESP32-P4 工厂固件：
+
+```bash
+idf.py flash monitor
+```
+
+## 硬件状态指示 (RGB LED)
+
+系统启动时会检测外设连接状态，并通过板载 RGB LED 指示硬件状态。Wi-Fi 初始化开始后，Wi-Fi 状态指示会覆盖启动阶段的外设状态指示。
+
+| LED 颜色 | 状态 |
+|----------|------|
+| 蓝色 | 摄像头未连接，或 Wi-Fi 正在扫描/连接/重连 |
+| 绿色 | 全部正常，或 Wi-Fi 已连接 |
+| 黄色 | SD 卡未连接 |
+| 粉色 | 屏幕未连接 |
+| 红色 | 全部未连接，或 Wi-Fi 断开/连接失败 |
+| 紫色 | 已进入配网模式 |
+
+## 核心功能
+
+* **摄像头预览**：显示实时摄像头画面。
+* **LED 控制**：调节板载 RGB LED 颜色。
+* **SD 卡状态**：测试 SD 卡挂载并显示容量信息。
+* **Wi-Fi 状态**：显示连接状态、未连接时的配置 AP 名称和系统时间。长按板载按键约 1 秒可进入配网模式，连接配置 AP 后访问 `http://192.168.4.1` 完成配置。
 
 ## 工程结构
 
 * `main/main.c`：主入口，负责 BSP 初始化、硬件状态检测、LVGL 启动及外设逻辑。
-* `main/lvgl_demo_ui.c`：UI 界面实现。
-* `managed_components/`：依赖的 ESP-IDF 组件。
+* `main/lvgl_ui.c`：UI 界面实现。
+* `main/wifi_manager_bridge.cpp`：Wi-Fi 连接和配网桥接逻辑。
+* `managed_components/`：ESP-IDF managed component 依赖。
