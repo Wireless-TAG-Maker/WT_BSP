@@ -3,75 +3,67 @@
 
 # 综合工厂测试示例 (Factory Firmware)
 
-本示例是一个综合性的工厂固件，集成了 Wireless-Tag BSP 提供的多种外设功能，包括：
-* **MIPI DSI 液晶屏显示**：使用 LVGL 9.4.0 展示图形界面。
-* **MIPI CSI 摄像头采集**：实时采集摄像头画面并通过 PPA 硬件加速显示在屏幕上。
-* **触摸控制**：支持 DSI 屏配套的触摸功能。
-* **SD 卡测试**：支持 SDMMC 接口的 SD 卡挂载及容量查看。
-* **RGB LED 控制**：支持板载 WS2812 RGB LED 控制。
+本工厂固件集成了 Wireless-Tag BSP 提供的 MIPI DSI 显示、MIPI CSI 摄像头、触摸、SD 卡和 RGB LED 控制等外设能力。
 
-## 硬件状态指示 (RGB LED)
+## 🛠️ 快速上手
 
-系统启动时会自动检测外设连接状态，并通过板载 RGB LED 显示不同的颜色来指示硬件状态：
+1.  **选择开发板**：在示例目录中运行 `idf.py set-board` 并选择支持的开发板，命令会生成下一次配置/构建使用的板级默认配置：
 
-| LED 颜色 | 硬件状态 | 说明 |
-|----------|----------|------|
-| ⚫ 熄灭 | 全部正常 | 屏幕、摄像头、SD 卡均已正确连接并初始化成功 |
-| 🔵 蓝色 | 摄像头未连接 |  |
-| 🟡 黄色 | SD 卡未连接 |  |
-| 🟠 粉色 | 屏幕未连接 |
-| 🔴 红色 | 全部未连接 | 屏幕、摄像头、SD 卡均未连接 |
-
-**RGB 颜色参考值：**
-- 蓝色: R=0, G=0, B=255
-- 黄色: R=255, G=255, B=0
-- 橙色: R=255, G=165, B=0
-- 红色: R=255, G=0, B=0
-
-## 如何使用示例
-
-### 硬件要求
-
-目前支持的开发板：
-* **WT9932P4-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
-* **WT9932P4C61-TINY** (配套 480x640 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头)
-
-### 配置工程
-
-在编译之前，您需要设置目标开发板：
-
-```bash
-idf.py set-board
-```
-
-选择`WT9932P4-TINY (esp32p4)`：
-```bash
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4-tiny$ idf.py set-board
+...
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
-Enter board number: 
-0
+Enter board number:
 ```
 
-本示例已包含默认的 `sdkconfig.defaults`、`sdkconfig.wt9932p4_tiny`，会自动配置好 PSRAM、DSI、CSI 等相关参数。
+根据你的硬件套件型号输入对应数字，然后按下回车（Enter）按键。选择成功后会看到类似输出：
 
-### 编译与烧录
-
-编译工程并烧录到开发板：
-
-```bash
-idf.py build flash monitor
+```shell
+Enter board number: 0
+Generated sdkconfig.board
+Generated sdkconfig.board.Kconfig
+Updated build/sdkconfig
+Selected WT9932P4-TINY (esp32p4)
 ```
 
-## 核心功能说明
+然后执行 `idf.py build` 进行编译：
 
-* **摄像头预览**：顶部区域显示实时摄像头画面。点击画面可以切换全屏预览和普通预览模式。全屏模式下会使用 PPA 硬件进行 90 度旋转。
-* **LED 控制**：底部左侧滑块可调节板载 RGB LED 的颜色。
-* **SD 卡状态**：底部右侧按钮可测试 SD 卡挂载，并显示其容量信息。
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4-tiny$ idf.py build
+Executing action: all (aliases: build)
+Running ninja in directory ~/WT_BSP/examples/wt_factory/wt9932p4-tiny/build
+Executing "ninja all"...
+...
+```
+
+之后修改了代码，再次执行 `idf.py build` 进行编译。
+
+> 开发过程中可以随时根据需要切换到不同的硬件套件；切换到不同目标芯片时会自动执行 `idf.py fullclean`。
+
+## 硬件状态指示 (RGB LED)
+
+系统启动时会检测外设连接状态，并通过板载 RGB LED 显示不同颜色来指示硬件状态：
+
+| LED 颜色 | 硬件状态 | 说明 |
+|----------|----------|------|
+| 熄灭 | 全部正常 | 屏幕、摄像头、SD 卡均已连接并初始化 |
+| 蓝色 | 摄像头未连接 | |
+| 黄色 | SD 卡未连接 | |
+| 粉色 | 屏幕未连接 | |
+| 红色 | 全部未连接 | 屏幕、摄像头、SD 卡均未连接 |
+
+## 核心功能
+
+* **摄像头预览**：显示实时摄像头画面，点击画面可切换全屏预览和普通预览模式。
+* **LED 控制**：调节板载 RGB LED 颜色。
+* **SD 卡状态**：测试 SD 卡挂载并显示容量信息。
+* **触摸控制**：使用 DSI 屏配套触摸功能。
 
 ## 工程结构
 
 * `main/main.c`：主入口，负责 BSP 初始化、硬件状态检测、LVGL 启动及外设逻辑。
-* `main/lvgl_demo_ui.c`：UI 界面实现。
-* `managed_components/`：依赖的 ESP-IDF 组件。
+* `main/lvgl_ui.c`：UI 界面实现。
+* `managed_components/`：ESP-IDF managed component 依赖。

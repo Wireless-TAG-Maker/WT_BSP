@@ -3,150 +3,94 @@
 
 # Comprehensive Factory Test Example (Factory Firmware)
 
-This example is a comprehensive factory firmware that integrates various peripheral features provided by the Wireless-Tag BSP, including:
-* **MIPI DSI LCD Display**: Uses LVGL 9.4.0 to render the graphical user interface.
-* **MIPI CSI Camera Capture**: Captures the real-time camera feed and displays it on the screen via PPA hardware acceleration.
-* **Touch Control**: Supports the touch functionality associated with the DSI screen.
-* **SD Card Test**: Supports mounting and capacity checking of SD cards using the SDMMC interface.
-* **RGB LED Control**: Supports control of the onboard WS2812 RGB LED.
-* **Wi-Fi Provisioning**: Displays the connection state and system time, and supports entering provisioning mode with the onboard button.
+This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI display, MIPI CSI camera, touch, SD card, RGB LED control, and Wi-Fi provisioning through the onboard ESP32-C61.
 
-## Hardware Status Indication (RGB LED)
+## Getting Started
 
-Upon startup, the system automatically detects the connection status of peripherals and uses the onboard RGB LED to display different colors indicating the hardware status:
+1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:
 
-| LED Color | Hardware Status | Description |
-|-----------|-----------------|-------------|
-| 🟢 Green | All Normal / Wi-Fi Connected | Peripherals initialized successfully or Wi-Fi connected |
-| 🔵 Blue | Camera Disconnected | |
-| 🟡 Yellow | SD Card Disconnected | |
-| 🟠 Pink | Screen Disconnected | |
-| 🔴 Red | All Disconnected | Screen, camera, and SD card are all disconnected |
-
-After Wi-Fi initialization starts, the RGB LED switches to indicating the current Wi-Fi state:
-
-| LED Color | Wi-Fi State |
-|-----------|------------|
-| 🔵 Blue | Scanning, connecting, or reconnecting |
-| 🟢 Green | Connected to a Wi-Fi access point |
-| 🔴 Red | Disconnected or connection failed |
-| 🟣 Purple | Provisioning mode is active |
-
-The Wi-Fi state indication overrides the startup peripheral indication.
-
-**RGB Color Reference Values:**
-- Blue: R=0, G=0, B=255
-- Green: R=0, G=255, B=0
-- Yellow: R=255, G=255, B=0
-- Orange: R=255, G=165, B=0
-- Red: R=255, G=0, B=0
-- Purple: R=255, G=0, B=255
-
-## How to Use the Example
-
-### Hardware Requirements
-
-Currently supported development boards:
-* **WT9932P4-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
-* **WT9932P4C61-TINY** (Equipped with a 480x640 MIPI DSI screen and an SC2336 MIPI CSI camera)
-
-### Flash ESP32-P4 as the C61 Flash Bridge
-
-Connect **FUSB (Full-Speed USB)** on WT9932P4C61-TINY to the computer for this
-step. `idf.py p4_flash` uses the ESP32-P4 built-in USB-JTAG/Serial port from
-FUSB to flash the P4 bridge firmware. Before flashing ESP32-C61 firmware,
-unplug FUSB and connect **HUSB (High-Speed USB)**.
-
-The onboard ESP32-P4 on WT9932P4C61-TINY can temporarily act as a USB-UART
-flash bridge for the onboard ESP32-C61. The command below has two interactive
-prompts:
-
-1. It prints `Available serial ports:` and asks you to select the FUSB serial
-   port for ESP32-P4.
-2. It prints a warning that the command will overwrite the current ESP32-P4
-   firmware and asks for confirmation. The default answer is `N`; enter `Y` to
-   continue.
-
-> Note: `idf.py p4_flash` overwrites the current ESP32-P4 firmware. After the
-> ESP32-C61 slave firmware is flashed, flash the ESP32-P4 factory firmware again
-> in the later step.
-
-```bash
-cd ./examples/wt_factory/wt9932p4c61-tiny
-
-# Select WT9932P4C61-TINY first if this project has not been configured yet
-idf.py set-board
-
-# Connect FUSB before this command
-# Flash the ESP32-P4 bridge firmware; choose the P4 USB-JTAG/Serial port from FUSB
-idf.py p4_flash
-```
-
-After flashing, unplug FUSB and connect HUSB. Use HUSB to power the board and
-flash the ESP32-C61 slave firmware.
-
-### Build and Flash the ESP32-C61 Slave Firmware
-
-First, build and flash the ESP-Hosted slave firmware for the ESP32-C61:
-
-```bash
-cd ./examples/wt_factory/wt9932p4c61-tiny
-
-# Set the target chip
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
-
-# Build the firmware
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
-
-# Flash the ESP32-C61 (replace <HUSB_CDC_PORT> with the HUSB TinyUSB CDC port)
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
-
-# Optional: monitor the ESP32-C61 output
-idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave monitor -p <HUSB_CDC_PORT>
-```
-
-**About the `build_slave` directory:**
-
-- `build_slave` is the independent build directory for the slave firmware, separate from the main project's `build` directory.
-- The directory is generated in the project root and can be added to `.gitignore`.
-- Delete the `build_slave` directory when a clean build is required.
-
-The ESP32-P4 bridge firmware controls the ESP32-C61 EN and IO9 pins through the
-onboard wiring, so normally no external USB-to-UART adapter or manual download
-mode sequence is required.
-
-### Configure the Project
-
-Before building, you need to set the target board:
-
-```bash
-idf.py set-board
-```
-
-choice `WT9932P4C61-TINY (esp32p4)`:
-
-```bash
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny$ idf.py set-board
+...
 Supported boards in this example:
 0: WT9932P4C61-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
-Enter board number: 
-0
+Enter board number:
 ```
 
-This example already includes a default `sdkconfig.defaults`、`sdkconfig.wt9932p4c61_tiny`, which will automatically configure the relevant parameters for PSRAM, DSI, CSI, etc.
+Enter the number that matches your hardware kit model, then press Enter. A successful selection prints output similar to this:
 
-### Build and Flash
+```shell
+Enter board number: 0
+Generated sdkconfig.board
+Generated sdkconfig.board.Kconfig
+Updated build/sdkconfig
+Selected WT9932P4C61-TINY (esp32p4)
+```
 
-Build the project and flash it to the development board:
+Then run `idf.py build` to compile:
+
+```shell
+~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny$ idf.py build
+Executing action: all (aliases: build)
+Running ninja in directory ~/WT_BSP/examples/wt_factory/wt9932p4c61-tiny/build
+Executing "ninja all"...
+...
+```
+
+After modifying the code, run `idf.py build` again to compile.
+
+> During development, you can switch to another hardware kit whenever needed. When switching to a different target chip, `idf.py fullclean` is automatically executed.
+
+## ESP32-C61 Slave Firmware
+
+WT9932P4C61-TINY uses the onboard ESP32-C61 for wireless connectivity. Before running this ESP32-P4 firmware, flash the ESP32-C61 slave firmware when needed.
+
+1. Connect FUSB and flash ESP32-P4 as the C61 bridge:
 
 ```bash
-idf.py build flash monitor
+cd ./examples/wt_factory/wt9932p4c61-tiny
+idf.py p4_flash
 ```
 
-## Core Features Explanation
+2. Unplug FUSB, connect HUSB, then build and flash the ESP32-C61 slave firmware:
 
-* **Camera Preview**: The top area displays the real-time camera feed. Tapping the feed toggles between full-screen preview and normal preview modes.
-* **LED Control**: The bottom-left sliders adjust the color of the onboard RGB LED.
-* **SD Card Status**: The upper half of the bottom-right area tests SD card mounting and displays capacity information.
-* **Wi-Fi Status**: The lower half of the bottom-right area shows the connection state, configuration AP name when disconnected, and system time. Long-press the onboard button for about one second to enter provisioning mode at `http://192.168.4.1`.
+```bash
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave set-target esp32c61
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave build
+idf.py -C managed_components/espressif__esp_hosted/slave/ -B build_slave flash -p <HUSB_CDC_PORT>
+```
+
+3. Connect FUSB again and flash the ESP32-P4 factory firmware:
+
+```bash
+idf.py flash monitor
+```
+
+## Hardware Status Indication (RGB LED)
+
+At startup, the system detects peripheral status and uses the onboard RGB LED to indicate hardware state. After Wi-Fi initialization starts, Wi-Fi state indication overrides the startup peripheral indication.
+
+| LED Color | State |
+|-----------|-------|
+| Blue | Camera disconnected, or Wi-Fi scanning/connecting/reconnecting |
+| Green | All normal, or Wi-Fi connected |
+| Yellow | SD card disconnected |
+| Pink | Screen disconnected |
+| Red | All disconnected, or Wi-Fi disconnected/failed |
+| Purple | Provisioning mode is active |
+
+## Core Features
+
+* **Camera Preview**: Displays the live camera feed.
+* **LED Control**: Adjusts the onboard RGB LED color.
+* **SD Card Status**: Tests SD card mounting and displays capacity information.
+* **Wi-Fi Status**: Shows connection state, configuration AP name when disconnected, and system time. Long-press the onboard button for about one second to enter provisioning mode at `http://192.168.4.1`.
+
+## Project Structure
+
+* `main/main.c`: Main entry, BSP initialization, hardware detection, LVGL startup, and peripheral logic.
+* `main/lvgl_ui.c`: UI implementation.
+* `main/wifi_manager_bridge.cpp`: Wi-Fi connection and provisioning bridge.
+* `managed_components/`: ESP-IDF managed component dependencies.
