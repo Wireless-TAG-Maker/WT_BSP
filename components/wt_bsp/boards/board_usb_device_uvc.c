@@ -36,6 +36,7 @@
 
 #define BOARD_USB_UVC_BUFFER_COUNT 2
 #define BOARD_USB_UVC_JPEG_QUALITY 80
+#define BOARD_USB_UVC_INTERFACE_STRING_INDEX 4
 
 /* ==================== [Typedefs] ========================================== */
 
@@ -116,6 +117,10 @@ esp_err_t board_usb_device_uvc_init(void)
         board_usb_uvc_close_devices(&s_usb_uvc);
         return ret;
     }
+
+    // usb_device_uvc uses string descriptor index 4 as the camera name shown by Windows.
+    extern const char *string_desc_arr[];
+    string_desc_arr[BOARD_USB_UVC_INTERFACE_STRING_INDEX] = CONFIG_TUSB_PRODUCT;
 
     ret = uvc_device_init();
     if (ret != ESP_OK) {

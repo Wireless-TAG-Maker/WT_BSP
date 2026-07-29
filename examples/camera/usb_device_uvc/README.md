@@ -65,6 +65,16 @@ I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
 I (...) usbd_uvc: Mount
 ```
 
+### Windows Preview
+
+On Windows 11, open **Settings > Bluetooth & devices > Cameras**, select `Wireless-Tag CSI Camera`, and view the live preview as shown below:
+
+![Windows 11 UVC camera preview](docs/images/windows-uvc-camera-preview.png)
+
+> The screenshot was captured before the custom UVC interface name was applied. With the current firmware, `UVC CAM1` in the screenshot is displayed as `Wireless-Tag CSI Camera`.
+>
+> The screenshot above was captured with WT9932P4C61-TINY. This board uses an ESP32-P4 v3.x chip, and the camera image is processed by the ISP. WT9932P4-TINY uses an ESP32-P4 v1.x chip without ISP processing in this example, so its displayed image quality may be lower.
+
 ## Notes
 
 - USB UVC mode owns the CSI capture device. Do not call `wt_bsp_csi_start()` from the application while it is enabled.

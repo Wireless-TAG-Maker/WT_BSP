@@ -65,6 +65,16 @@ I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
 I (...) usbd_uvc: Mount
 ```
 
+### Windows 查看效果
+
+在 Windows 11 中打开 **设置 > 蓝牙和设备 > 摄像头**，选择 `Wireless-Tag CSI Camera`，即可查看如下图所示的实时画面：
+
+![Windows 11 UVC 摄像头预览](docs/images/windows-uvc-camera-preview.png)
+
+> 该截图拍摄于自定义 UVC 接口名称生效前。使用当前固件时，截图中的 `UVC CAM1` 会显示为 `Wireless-Tag CSI Camera`。
+>
+> 注意：上图使用 WT9932P4C61-TINY 开发板拍摄。该开发板使用 ESP32-P4 v3.x 芯片，摄像头画面经过 ISP 处理。WT9932P4-TINY 使用 ESP32-P4 v1.x 芯片，本示例不进行 ISP 处理，因此显示效果会相对差一些。
+
 ## 说明
 
 - USB UVC 模式独占 CSI 采集设备，应用不要再调用 `wt_bsp_csi_start()`。
