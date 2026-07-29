@@ -43,6 +43,7 @@ WT_BSP_BOARD=WT9932P4-TINY idf.py \
 - UVC MJPEG
 - 1024x600 @ 30 FPS
 - JPEG 压缩质量 80
+- 正常运行时 RGB LED 熄灭，摄像头初始化失败时常亮红灯
 
 可在以下 menuconfig 路径关闭板级 UVC 初始化：
 

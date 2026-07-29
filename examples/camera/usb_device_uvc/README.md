@@ -43,6 +43,7 @@ The default configuration uses:
 - UVC MJPEG
 - 1024x600 at 30 FPS
 - JPEG quality 80
+- RGB LED off during normal operation and solid red if camera initialization fails
 
 Board-level UVC initialization can be disabled at:
 

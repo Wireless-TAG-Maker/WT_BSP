@@ -130,6 +130,9 @@ static wt_bsp_touch_t board_get_touch(void);
 #if BOARD_I2C_FEATURE_ENABLED
 static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status);
 #endif
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
+static void board_indicate_camera_failure(void);
+#endif
 
 /* ==================== [Static Variables] ================================== */
 
@@ -183,6 +186,20 @@ wt_bsp_interface_t *board_get_bsp_interface(void)
 
 /* ==================== [Static Functions] ================================== */
 
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
+static void board_indicate_camera_failure(void)
+{
+    esp_err_t ret = wt_bsp_rgb_set_color(&s_bsp_rgb, (wt_bsp_rgb_color_t) {
+        .r = 255,
+        .g = 0,
+        .b = 0,
+    });
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set camera failure indicator: %s", esp_err_to_name(ret));
+    }
+}
+#endif
+
 /**
  * @brief 扫描 I2C 总线上的指定设备
  * @param bus_handle I2C 总线句柄
@@ -229,6 +246,9 @@ static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, boar
         ESP_LOGI(TAG, "Found camera device at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
     } else {
         ESP_LOGW(TAG, "Camera device not found at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
+        board_indicate_camera_failure();
+#endif
     }
 
     ESP_LOGI(TAG, "I2C scan complete. Display: %s, Touch: %s, Camera: %s",
@@ -350,6 +370,9 @@ static esp_err_t board_init(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize shared I2C bus: %s", esp_err_to_name(ret));
         s_shared_i2c_bus = NULL;
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
+        board_indicate_camera_failure();
+#endif
 #if WT_BSP_SDMMC_ENABLED
         wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
 #endif
@@ -418,6 +441,9 @@ static esp_err_t board_init(void)
         });
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "CSI initialization failed: %s", esp_err_to_name(ret));
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
+            board_indicate_camera_failure();
+#endif
         } else {
             ESP_LOGI(TAG, "CSI initialized successfully");
         }
