@@ -13,6 +13,10 @@
 
 #include "board.h"
 
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
+#include "board_usb_device_uvc.h"
+#endif
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -434,6 +438,23 @@ static esp_err_t board_init(void)
     }
 
 #endif
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
+    if (!s_bsp_csi.is_initialized) {
+        ESP_LOGE(TAG, "USB Device UVC requires an initialized CSI camera");
+        ret = ESP_ERR_NOT_FOUND;
+        s_board_is_init = true;
+        board_deinit();
+        return ret;
+    }
+
+    ret = board_usb_device_uvc_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "USB Device UVC initialization failed: %s", esp_err_to_name(ret));
+        s_board_is_init = true;
+        board_deinit();
+        return ret;
+    }
+#endif
 #endif
     s_board_is_init = true;
 
@@ -447,6 +468,13 @@ static esp_err_t board_deinit(void)
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
     }
+
+#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
+    ret = board_usb_device_uvc_deinit();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize USB Device UVC: %s", esp_err_to_name(ret));
+    }
+#endif
 
 #if WT_BSP_TOUCH_ENABLED
     // Deinitialize touch
