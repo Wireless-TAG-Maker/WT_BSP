@@ -65,6 +65,34 @@ I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
 I (...) usbd_uvc: Mount
 ```
 
+### Expected Warnings
+
+The following warnings can appear during normal operation and do not indicate a camera or UVC failure:
+
+```text
+W (...) board: Display device not found at address: 0x28
+W (...) board: Touch device not found at address: 0x55
+```
+
+The BSP scans the shared I2C bus for the optional display, touch controller, and camera. These two warnings are expected when only the SC2336 camera is connected. Camera initialization can continue as long as the camera is detected at address `0x30`.
+
+```text
+W (...) usb_phy: Using UTMI PHY instead of requested internal PHY
+```
+
+ESP-IDF selects the ESP32-P4 UTMI PHY for High-Speed USB Device operation. This compatibility fallback is expected and does not reduce the configured UVC speed.
+
+On ESP32-P4 revisions that support ISP AWB subwindows, a 1024x600 stream can also produce the following warning repeatedly while streaming. This example suppresses the `ISP_AWB` tag at runtime by default; the warning may still appear if that filter is removed or the BSP is used by another application:
+
+```text
+W (...) ISP_AWB: subwindow size (1024 x 600) is not divisible by AWB subwindow blocks grid (5 x 5).
+             Resolution will be floored to the nearest divisible value.
+```
+
+This warning applies only to the ISP automatic white balance statistics window. ESP-IDF aligns that internal window from 1024x600 to 1020x600 because its width must be divisible by the 5x5 AWB grid. Camera capture, JPEG encoding, and USB UVC output remain at 1024x600. With `esp_video` 2.3.x, AWB parameters can be reconfigured for each frame, so the same non-fatal warning may be printed at approximately the stream frame rate.
+
+Do not change the UVC resolution to 1020x600 only to suppress this warning. If the host receives a stable image and the log reports that CSI, UVC, and streaming started successfully, no action is required.
+
 ### Windows Preview
 
 On Windows 11, open **Settings > Bluetooth & devices > Cameras**, select `Wireless-Tag CSI Camera`, and view the live preview as shown below:
