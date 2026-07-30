@@ -24,17 +24,20 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_video_device.h"
+#include "esp_video_ioctl.h"
 #include "linux/videodev2.h"
 #include "usb_device_uvc.h"
 
 /* ==================== [Defines] =========================================== */
 
 #define BOARD_USB_UVC_BUFFER_COUNT 2
+#define BOARD_USB_UVC_DQBUF_TIMEOUT_MS 2000
 #define BOARD_USB_UVC_JPEG_QUALITY 80
 #define BOARD_USB_UVC_INTERFACE_STRING_INDEX 4
 
@@ -58,6 +61,7 @@ typedef struct {
 /* ==================== [Static Prototypes] ================================= */
 
 static esp_err_t board_usb_uvc_open_devices(board_usb_uvc_t *uvc);
+static esp_err_t board_usb_uvc_set_dqbuf_timeout(int fd, const char *device_name);
 static esp_err_t board_usb_uvc_start_cb(uvc_format_t format, int width, int height, int rate, void *cb_ctx);
 static void board_usb_uvc_stop_cb(void *cb_ctx);
 static uvc_fb_t *board_usb_uvc_frame_get_cb(void *cb_ctx);
@@ -162,6 +166,7 @@ esp_err_t board_usb_device_uvc_deinit(void)
 
 static esp_err_t board_usb_uvc_open_devices(board_usb_uvc_t *uvc)
 {
+    esp_err_t ret = ESP_OK;
     struct v4l2_ext_control control = {
         .id = V4L2_CID_JPEG_COMPRESSION_QUALITY,
         .value = BOARD_USB_UVC_JPEG_QUALITY,
@@ -184,8 +189,33 @@ static esp_err_t board_usb_uvc_open_devices(board_usb_uvc_t *uvc)
         return ESP_ERR_NOT_FOUND;
     }
 
+    ret = board_usb_uvc_set_dqbuf_timeout(uvc->capture_fd, "CSI");
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    ret = board_usb_uvc_set_dqbuf_timeout(uvc->codec_fd, "JPEG");
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
     if (ioctl(uvc->codec_fd, VIDIOC_S_EXT_CTRLS, &controls) != 0) {
         ESP_LOGW(TAG, "Failed to set JPEG compression quality");
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t board_usb_uvc_set_dqbuf_timeout(int fd, const char *device_name)
+{
+    struct timeval timeout = {
+        .tv_sec = BOARD_USB_UVC_DQBUF_TIMEOUT_MS / 1000,
+        .tv_usec = (BOARD_USB_UVC_DQBUF_TIMEOUT_MS % 1000) * 1000,
+    };
+
+    if (ioctl(fd, VIDIOC_S_DQBUF_TIMEOUT, &timeout) != 0) {
+        ESP_LOGE(TAG, "Failed to set %s frame dequeue timeout", device_name);
+        return ESP_FAIL;
     }
 
     return ESP_OK;
@@ -251,6 +281,13 @@ static esp_err_t board_usb_uvc_start_cb(uvc_format_t format, int width, int heig
         ESP_LOGE(TAG, "Failed to configure CSI capture format");
         return ESP_FAIL;
     }
+    capture_format = video_format.fmt.pix.pixelformat;
+    ESP_LOGI(TAG,
+             "CSI/JPEG input format: %c%c%c%c",
+             (char)(capture_format & 0xff),
+             (char)((capture_format >> 8) & 0xff),
+             (char)((capture_format >> 16) & 0xff),
+             (char)((capture_format >> 24) & 0xff));
 
     memset(&request, 0, sizeof(request));
     request.count = BOARD_USB_UVC_BUFFER_COUNT;
@@ -429,7 +466,9 @@ static uvc_fb_t *board_usb_uvc_frame_get_cb(void *cb_ctx)
     capture_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     capture_buffer.memory = V4L2_MEMORY_MMAP;
     if (ioctl(uvc->capture_fd, VIDIOC_DQBUF, &capture_buffer) != 0) {
-        ESP_LOGE(TAG, "Failed to dequeue CSI frame");
+        ESP_LOGE(TAG,
+                 "CSI frame dequeue failed or timed out after %d ms",
+                 BOARD_USB_UVC_DQBUF_TIMEOUT_MS);
         return NULL;
     }
 
@@ -455,7 +494,9 @@ static uvc_fb_t *board_usb_uvc_frame_get_cb(void *cb_ctx)
     codec_output_buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     codec_output_buffer.memory = V4L2_MEMORY_MMAP;
     if (ioctl(uvc->codec_fd, VIDIOC_DQBUF, &codec_output_buffer) != 0) {
-        ESP_LOGE(TAG, "Failed to dequeue JPEG frame");
+        ESP_LOGE(TAG,
+                 "JPEG frame dequeue failed or timed out after %d ms",
+                 BOARD_USB_UVC_DQBUF_TIMEOUT_MS);
         board_usb_uvc_stop_cb(uvc);
         return NULL;
     }

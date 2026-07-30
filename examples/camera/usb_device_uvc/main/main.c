@@ -31,6 +31,9 @@ static const char *TAG = "usb_device_uvc";
 
 void app_main(void)
 {
+    // Suppress the non-fatal per-frame subwindow alignment warning while keeping AWB errors visible.
+    esp_log_level_set("ISP_AWB", ESP_LOG_ERROR);
+
     ESP_LOGI(TAG, "Initializing Wireless-Tag BSP");
 
     esp_err_t ret = wt_bsp_init();

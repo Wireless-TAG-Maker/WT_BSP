@@ -65,6 +65,34 @@ I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
 I (...) usbd_uvc: Mount
 ```
 
+### 预期警告
+
+正常运行期间可能出现以下警告，它们不表示摄像头或 UVC 功能异常：
+
+```text
+W (...) board: Display device not found at address: 0x28
+W (...) board: Touch device not found at address: 0x55
+```
+
+BSP 会扫描共享 I2C 总线上的可选显示屏、触摸控制器和摄像头。仅连接 SC2336 摄像头时，未检测到显示屏和触摸控制器属于正常现象。只要在地址 `0x30` 检测到摄像头，摄像头初始化就可以继续。
+
+```text
+W (...) usb_phy: Using UTMI PHY instead of requested internal PHY
+```
+
+ESP-IDF 会为 ESP32-P4 的 High-Speed USB Device 模式选择 UTMI PHY。这是预期的兼容处理，不会降低配置的 UVC 速度。
+
+在支持 ISP AWB 子窗口的 ESP32-P4 芯片版本上，使用 1024x600 视频流时还可能在推流期间重复出现以下警告。本示例默认会在运行时屏蔽 `ISP_AWB` tag；如果移除该过滤设置，或在其他应用中使用 BSP，则仍可能看到该警告：
+
+```text
+W (...) ISP_AWB: subwindow size (1024 x 600) is not divisible by AWB subwindow blocks grid (5 x 5).
+             Resolution will be floored to the nearest divisible value.
+```
+
+该警告仅影响 ISP 自动白平衡的内部统计窗口。由于窗口宽度必须能被 5x5 AWB 网格整除，ESP-IDF 会将内部统计窗口从 1024x600 对齐为 1020x600。摄像头采集、JPEG 编码和 USB UVC 输出仍保持 1024x600。使用 `esp_video` 2.3.x 时，AWB 参数可能逐帧重新配置，因此同一条非致命警告可能按接近视频帧率的频率重复打印。
+
+不要仅为了消除该警告而把 UVC 分辨率修改为 1020x600。如果电脑能够稳定接收画面，并且日志显示 CSI、UVC 和视频流均已成功启动，则不需要处理该警告。
+
 ### Windows 查看效果
 
 在 Windows 11 中打开 **设置 > 蓝牙和设备 > 摄像头**，选择 `Wireless-Tag CSI Camera`，即可查看如下图所示的实时画面：
