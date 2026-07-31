@@ -4,7 +4,7 @@
 
 The **WT_BSP** is a comprehensive Board Support Package (BSP) designed for Wireless-Tag (启明云端) development boards based on Espressif's ESP32 series MCUs. It provides a unified, hardware-agnostic API for common peripherals, enabling developers to switch between different boards with minimal code changes.
 
-This BSP is optimized for **ESP-IDF v6.0.1 or later** and targets a wide range of chips, from the cost-effective ESP32-C2 to the high-performance ESP32-P4.
+This BSP requires **ESP-IDF v6.0.0 or later** and targets a wide range of chips, from the cost-effective ESP32-C2 to the high-performance ESP32-P4.
 
 ## 🚀 Key Features
 
@@ -33,7 +33,7 @@ For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_fla
 ## 🛠️ Getting Started
 
 ### Prerequisites
--   **ESP-IDF**: Version `v6.0.1` or later is recommended. (Compatible with `v5.3` and above).([Get esp-idf](https://developer.espressif.com/tags/esp-idf/))
+-   **ESP-IDF**: Version `v6.0.0` or later is required. ([Get ESP-IDF](https://developer.espressif.com/tags/esp-idf/))
 -   **Git**: To clone the repository and submodules.
 
 ### Installation

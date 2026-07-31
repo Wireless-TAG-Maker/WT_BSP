@@ -2,7 +2,7 @@ license: Apache-2.0
 
 dependencies:
   idf:
-    version: ">=5.3"
+    version: ">=6.0.0"
   button:
     version: "^4.1.6"
     require: public

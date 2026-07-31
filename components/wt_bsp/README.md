@@ -2,6 +2,10 @@
 
 `wt_bsp` 是 Wireless-Tag 板级支持组件。它把板卡差异收敛在 `boards/`，把可复用外设能力收敛在 `features/`，顶层应用只通过 `wt_bsp.h` 获取已初始化的板卡资源。
 
+## 版本要求
+
+`wt_bsp` 仅支持 ESP-IDF `v6.0.0` 及以上版本。组件管理器会根据 `idf_component.yml` 中的 `idf >=6.0.0` 约束检查项目使用的 ESP-IDF 版本。
+
 ## 设计目标
 
 - 应用代码不直接依赖具体板卡引脚。

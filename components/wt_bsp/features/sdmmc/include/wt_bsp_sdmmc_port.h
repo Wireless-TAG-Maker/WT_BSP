@@ -49,7 +49,7 @@ typedef struct {
     int spi_host;                /*!< SDSPI 使用的 SPI host。 */
     bool use_on_chip_ldo;        /*!< 是否启用片上 LDO 为 SD 卡供电（仅 ESP32-P4 需要）。 */
     int ldo_chan_id;             /*!< 片上 LDO 通道 ID（如 VO4 则设为 4）。 */
-    int ldo_voltage_mv;          /*!< LDO 输出电压（单位 mV，IDF v5.5.4 暂不支持）。 */
+    int ldo_voltage_mv;          /*!< LDO 输出电压（单位 mV）。 */
 } wt_bsp_sdmmc_info_t;
 
 /**

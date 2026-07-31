@@ -6,7 +6,7 @@
 
 这是 Wireless-Tag 的 ESP-IDF Board Support Package 仓库。核心组件位于 `components/wt_bsp`，用于给多块 Wireless-Tag TINY 系列 ESP32 开发板提供统一的 `wt_bsp_*` API。示例工程位于 `examples`。
 
-推荐 ESP-IDF 版本至少为 `v6.0.1`，组件声明兼容 `idf >=5.3`。
+项目仅支持 ESP-IDF `v6.0.0` 及以上版本，组件声明为 `idf >=6.0.0`。
 
 ## 目录职责
 

@@ -17,7 +17,7 @@
 
 ## 编译
 
-加载 ESP-IDF v6.0.1 环境后，在仓库根目录运行：
+加载 ESP-IDF v6.0.0 或以上版本的环境后，在仓库根目录运行：
 
 ```shell
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py \
