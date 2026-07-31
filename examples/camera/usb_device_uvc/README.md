@@ -17,7 +17,7 @@ IO0 is connected to the camera PWDN/LDO/RESET control path on both supported boa
 
 ## Build
 
-After loading the ESP-IDF v6.0.1 environment, run this command from the repository root:
+After loading an ESP-IDF v6.0.0 or later environment, run this command from the repository root:
 
 ```shell
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py \
