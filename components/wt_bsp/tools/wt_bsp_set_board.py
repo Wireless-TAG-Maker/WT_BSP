@@ -356,7 +356,9 @@ def select_board(project_path, board_name=None, input_fn=input, output_fn=print)
 
 
 def _run_set_target(project_path, target, build_dir=None, run_command=None):
-    command = ["idf.py", "-C", str(project_path)]
+    idf_path = os.environ.get("IDF_PATH")
+    command = [sys.executable, str(Path(idf_path) / "tools" / "idf.py")] if idf_path else ["idf.py"]
+    command.extend(["-C", str(project_path)])
     if build_dir:
         command.extend(["-B", str(build_dir)])
 
@@ -367,7 +369,9 @@ def _run_set_target(project_path, target, build_dir=None, run_command=None):
 
 
 def _run_fullclean(project_path, build_dir=None, run_command=None):
-    command = ["idf.py", "-C", str(project_path)]
+    idf_path = os.environ.get("IDF_PATH")
+    command = [sys.executable, str(Path(idf_path) / "tools" / "idf.py")] if idf_path else ["idf.py"]
+    command.extend(["-C", str(project_path)])
     if build_dir:
         command.extend(["-B", str(build_dir)])
 

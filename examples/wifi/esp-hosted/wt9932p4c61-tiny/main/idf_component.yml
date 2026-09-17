@@ -1,7 +1,7 @@
 dependencies:
   # esp_wifi_remote: 用于 ESP-Hosted Wi-Fi 功能
   espressif/esp_wifi_remote: ~1.6.1
-  # esp_hosted: ESP-Hosted 通信组件 (版本由 esp_wifi_remote 自动解析)
-  espressif/esp_hosted: '*'
+  # esp_hosted: 固定兼容当前从机配置的版本，避免自动升级到 3.x
+  espressif/esp_hosted: '2.12.8'
   # esp-wifi-connect: Wi-Fi 连接管理组件
   78/esp-wifi-connect: "^3.2.1"
