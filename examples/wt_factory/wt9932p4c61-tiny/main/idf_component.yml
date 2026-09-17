@@ -28,6 +28,7 @@ dependencies:
   espressif/esp_wifi_remote:
     version: "~1.6.1"
   espressif/esp_hosted:
-    version: "*"
+    # ESP-Hosted 3.x uses a different slave configuration API.
+    version: "2.12.8"
   78/esp-wifi-connect:
     version: "^3.2.1"

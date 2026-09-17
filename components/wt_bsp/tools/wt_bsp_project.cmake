@@ -62,6 +62,24 @@ function(wt_bsp_apply_sdkconfig_defaults)
             set(IDF_TARGET "${wt_bsp_idf_target}" CACHE STRING "ESP-IDF target selected by WT_BSP board" FORCE)
             set(IDF_TARGET "${wt_bsp_idf_target}" PARENT_SCOPE)
         endif()
+    elseif(NOT DEFINED IDF_TARGET AND NOT DEFINED ENV{IDF_TARGET}
+           AND NOT EXISTS "${SDKCONFIG}" AND NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/sdkconfig")
+        # set-board is a CMake target, so its first invocation must configure
+        # a supported chip before it can display the board selection menu.
+        if(NOT wt_bsp_python)
+            find_package(Python3 COMPONENTS Interpreter REQUIRED)
+            set(wt_bsp_python "${Python3_EXECUTABLE}")
+        endif()
+        execute_process(
+            COMMAND "${wt_bsp_python}" "${WT_BSP_TOOLS_DIR}/wt_bsp_set_board.py"
+                    --project-path "${CMAKE_CURRENT_LIST_DIR}" --list
+            RESULT_VARIABLE wt_bsp_list_result
+            OUTPUT_VARIABLE wt_bsp_available_boards
+        )
+        if(wt_bsp_list_result EQUAL 0 AND wt_bsp_available_boards MATCHES "\\(([a-z0-9]+)\\)")
+            set(IDF_TARGET "${CMAKE_MATCH_1}" CACHE STRING "Initial WT_BSP target" FORCE)
+            set(IDF_TARGET "${IDF_TARGET}" PARENT_SCOPE)
+        endif()
     endif()
 
     if(DEFINED SDKCONFIG_DEFAULTS AND NOT "${SDKCONFIG_DEFAULTS}" STREQUAL "")
