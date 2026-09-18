@@ -1,0 +1,73 @@
+name: Build examples
+
+on:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    name: Discover examples and boards
+    runs-on: ubuntu-24.04
+    outputs:
+      builds: ${{ steps.discover.outputs.builds }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - id: discover
+        name: Discover all supported combinations
+        shell: bash
+        run: |
+          builds="$(python3 .github/scripts/build_examples.py --matrix)"
+          printf 'builds=%s\n' "$builds" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.example }} / ${{ matrix.board || matrix.target }}
+    needs: matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.builds) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Select board and build
+        shell: bash
+        env:
+          EXAMPLE: ${{ matrix.example }}
+          BOARD: ${{ matrix.board }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          # Local runners can reuse an activated SDK; hosted runners install v6.1.
+          if [[ -z "${IDF_PATH:-}" ]]; then
+            export IDF_PATH="$RUNNER_TEMP/esp-idf"
+            git clone --branch v6.1 --depth 1 --recurse-submodules --shallow-submodules \
+              https://github.com/espressif/esp-idf.git "$IDF_PATH"
+            "$IDF_PATH/install.sh" esp32c2,esp32c3,esp32c5,esp32c61,esp32p4
+            source "$IDF_PATH/export.sh"
+          fi
+          python "$IDF_PATH/tools/idf.py" --version | grep -E '^ESP-IDF v6\.1($|[.-])'
+          python .github/scripts/build_examples.py \
+            --example "$EXAMPLE" --board "$BOARD" --target "$TARGET"
+
+  build-check:
+    name: Examples build check
+    if: ${{ always() }}
+    needs: [matrix, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every build to pass
+        shell: bash
+        env:
+          MATRIX_RESULT: ${{ needs.matrix.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          test "$MATRIX_RESULT" = success
+          test "$BUILD_RESULT" = success
