@@ -27,6 +27,9 @@
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, 按键 |
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键 |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | 外设与 P4-TINY 一致，额外搭载 ESP32-C61 用于无线/低功耗任务 |
+| **WT9932P4X-TINY** | ESP32-P4 v3.2 | 底板外设与 P4-TINY 一致 |
+
+WT9932P4X-TINY 使用 ESP32-P4 v3.2 芯片，底板硬件与 WT9932P4-TINY 一致。请选择与实物一致的板型，让 ESP-IDF 使用匹配的芯片版本配置。如果将旧版 `WT9932P4-TINY-UVC-Camera_fw-Online.zip` 固件烧入 WT9932P4X-TINY，运行态 USB Serial/JTAG 端口可能无法枚举；此时按住 BOOT、短按 RESET，再松开 BOOT，即可恢复下载并烧入 P4X 配置。
 
 对于 WT9932P4C61-TINY，请先接入 FUSB（全速 USB），在任意 WT_BSP 示例中运行 `idf.py p4_flash`，通过 FUSB 将 ESP32-P4 临时烧录成 USB-UART 桥；烧录 ESP32-C61 固件前，请拔掉 FUSB 并接入 HUSB（高速 USB），后续直接使用 HUSB 给开发板供电并给 ESP32-C61 单独编写、烧录和调试代码。
 

@@ -1,9 +1,9 @@
-| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY |
-| -------- | ------------- | ---------------- |
+| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY |
+| -------- | ------------- | ---------------- | -------------- |
 
 # USB Device UVC 摄像头示例
 
-本示例将 WT9932P4-TINY 或 WT9932P4C61-TINY 上连接的 SC2336 MIPI CSI 摄像头模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
+本示例将 WT9932P4-TINY、WT9932P4C61-TINY 或 WT9932P4X-TINY 上连接的 SC2336 MIPI CSI 摄像头模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
 
 摄像头采集、硬件 JPEG 编码和 USB Device UVC 的初始化都由 `wt_bsp_init()` 触发，并由板级 `board_init()` 管理生命周期。应用层不直接使用板级私有头文件或引脚定义。
 
@@ -13,7 +13,7 @@
 2. 使用 FUSB 接口烧录 ESP32-P4 固件和查看串口日志。
 3. 固件启动后，将 HUSB 接口连接到电脑。
 
-两块支持板卡的 IO0 都连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。
+所有支持板卡的 IO0 都连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。
 
 ## 编译
 
@@ -23,6 +23,15 @@
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py \
     -C examples/camera/usb_device_uvc \
     -B build-usb-device-uvc-p4c61 \
+    build
+```
+
+使用搭载 ESP32-P4 v3.2 的 WT9932P4X-TINY 时，选择对应板级配置：
+
+```shell
+WT_BSP_BOARD=WT9932P4X-TINY idf.py \
+    -C examples/camera/usb_device_uvc \
+    -B build-usb-device-uvc-p4x \
     build
 ```
 
@@ -37,13 +46,25 @@ WT_BSP_BOARD=WT9932P4-TINY idf.py \
 
 也可以进入示例目录，执行 `idf.py set-board` 并选择任一受支持板卡，然后运行 `idf.py build`。
 
+> 不要把旧版 `WT9932P4-TINY-UVC-Camera_fw-Online.zip` 固件烧入 WT9932P4X-TINY。该固件面向 ESP32-P4 v1.3，其配置可能导致 v3.2 芯片运行态的 USB Serial/JTAG 端口无法枚举。恢复时请按住 BOOT、短按 RESET、松开 BOOT，然后烧入使用 `WT9932P4X-TINY` 板型配置构建的固件。
+
 默认配置为：
 
 - High-Speed USB Device
 - UVC MJPEG
 - 1024x600 @ 30 FPS
 - JPEG 压缩质量 80
-- 正常运行时 RGB LED 熄灭，摄像头初始化失败时常亮红灯
+- WT9932P4X-TINY 使用下表所示的低亮度状态灯，既可确认运行的是正确的 v3.2 固件，也可区分 USB/UVC 状态
+- 早期板型正常运行时 RGB LED 熄灭，摄像头初始化失败时常亮红灯
+
+### WT9932P4X-TINY RGB 状态
+
+| 状态 | RGB LED |
+| --- | --- |
+| 固件已启动，USB 未枚举 | 绿色闪烁，最大亮度 5 |
+| USB 已枚举，UVC 未使用 | 自然绿色呼吸，亮度 0～5 |
+| UVC 使用中 | 绿色常亮，亮度 1 |
+| 摄像头初始化失败 | 红色常亮 |
 
 可在以下 menuconfig 路径关闭板级 UVC 初始化：
 
@@ -62,6 +83,7 @@ I (...) wt_bsp_csi: CSI initialized successfully
 I (...) usbd_uvc: UVC Device Start, Version: 1.3.1
 I (...) board_usb_uvc: USB Device UVC ready: MJPEG 1024x600@30fps
 I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
+I (...) board_usb_uvc: P4X status LED ready: blink=5, breathe=0..5/4.8s, solid=1
 I (...) usbd_uvc: Mount
 ```
 
@@ -101,7 +123,7 @@ W (...) ISP_AWB: subwindow size (1024 x 600) is not divisible by AWB subwindow b
 
 > 该截图拍摄于自定义 UVC 接口名称生效前。使用当前固件时，截图中的 `UVC CAM1` 会显示为 `Wireless-Tag CSI Camera`。
 >
-> 注意：上图使用 WT9932P4C61-TINY 开发板拍摄。该开发板使用 ESP32-P4 v3.x 芯片，摄像头画面经过 ISP 处理。WT9932P4-TINY 使用 ESP32-P4 v1.x 芯片，本示例不进行 ISP 处理，因此显示效果会相对差一些。
+> 注意：上图使用 WT9932P4C61-TINY 开发板拍摄。WT9932P4C61-TINY 和 WT9932P4X-TINY 使用 ESP32-P4 v3.x 芯片，摄像头画面经过 ISP 处理。WT9932P4-TINY 使用 ESP32-P4 v1.x 芯片，本示例不进行 ISP 处理，因此显示效果会相对差一些。
 
 ## 说明
 

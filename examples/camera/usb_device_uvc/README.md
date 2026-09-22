@@ -1,9 +1,9 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY |
+| ----------------- | ------------- | ---------------- | -------------- |
 
 # USB Device UVC Camera Example
 
-This example exposes the SC2336 MIPI CSI camera connected to WT9932P4-TINY or WT9932P4C61-TINY as a High-Speed USB UVC MJPEG camera. A USB host can open the stream with a standard camera application or OBS without a board-specific camera driver.
+This example exposes the SC2336 MIPI CSI camera connected to WT9932P4-TINY, WT9932P4C61-TINY, or WT9932P4X-TINY as a High-Speed USB UVC MJPEG camera. A USB host can open the stream with a standard camera application or OBS without a board-specific camera driver.
 
 Camera capture, hardware JPEG encoding, and USB Device UVC initialization are triggered by `wt_bsp_init()` and owned by the board-level `board_init()` lifecycle. The application does not include private board headers or duplicate board pin definitions.
 
@@ -13,7 +13,7 @@ Camera capture, hardware JPEG encoding, and USB Device UVC initialization are tr
 2. Use FUSB to flash and monitor the ESP32-P4 firmware.
 3. After the firmware starts, connect HUSB to the computer.
 
-IO0 is connected to the camera PWDN/LDO/RESET control path on both supported boards. The BSP drives IO0 high before detecting the camera.
+IO0 is connected to the camera PWDN/LDO/RESET control path on all supported boards. The BSP drives IO0 high before detecting the camera.
 
 ## Build
 
@@ -35,7 +35,18 @@ WT_BSP_BOARD=WT9932P4-TINY idf.py \
     build
 ```
 
-Alternatively, enter the example directory, run `idf.py set-board`, select either supported board, and then run `idf.py build`.
+For WT9932P4X-TINY with ESP32-P4 v3.2, select the matching board configuration:
+
+```shell
+WT_BSP_BOARD=WT9932P4X-TINY idf.py \
+    -C examples/camera/usb_device_uvc \
+    -B build-usb-device-uvc-p4x \
+    build
+```
+
+Alternatively, enter the example directory, run `idf.py set-board`, select a supported board, and then run `idf.py build`.
+
+> Do not flash the legacy `WT9932P4-TINY-UVC-Camera_fw-Online.zip` image to WT9932P4X-TINY. Its ESP32-P4 v1.3 configuration can prevent the running USB Serial/JTAG port from enumerating on the v3.2 chip. To recover, hold BOOT, press RESET, release BOOT, and flash firmware built with the `WT9932P4X-TINY` board configuration.
 
 The default configuration uses:
 
@@ -43,7 +54,17 @@ The default configuration uses:
 - UVC MJPEG
 - 1024x600 at 30 FPS
 - JPEG quality 80
-- RGB LED off during normal operation and solid red if camera initialization fails
+- WT9932P4X-TINY uses the low-brightness status patterns below to identify the correct v3.2 firmware and USB/UVC state
+- On the earlier boards, the RGB LED remains off during normal operation and solid red if camera initialization fails
+
+### WT9932P4X-TINY RGB Status
+
+| State | RGB LED |
+| --- | --- |
+| Firmware started, USB not enumerated | Green blink, maximum brightness 5 |
+| USB enumerated, UVC idle | Natural green breathe, brightness 0 to 5 |
+| UVC streaming | Green solid, brightness 1 |
+| Camera initialization failed | Red solid |
 
 Board-level UVC initialization can be disabled at:
 
@@ -62,6 +83,7 @@ I (...) wt_bsp_csi: CSI initialized successfully
 I (...) usbd_uvc: UVC Device Start, Version: 1.3.1
 I (...) board_usb_uvc: USB Device UVC ready: MJPEG 1024x600@30fps
 I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
+I (...) board_usb_uvc: P4X status LED ready: blink=5, breathe=0..5/4.8s, solid=1
 I (...) usbd_uvc: Mount
 ```
 
@@ -101,7 +123,7 @@ On Windows 11, open **Settings > Bluetooth & devices > Cameras**, select `Wirele
 
 > The screenshot was captured before the custom UVC interface name was applied. With the current firmware, `UVC CAM1` in the screenshot is displayed as `Wireless-Tag CSI Camera`.
 >
-> The screenshot above was captured with WT9932P4C61-TINY. This board uses an ESP32-P4 v3.x chip, and the camera image is processed by the ISP. WT9932P4-TINY uses an ESP32-P4 v1.x chip without ISP processing in this example, so its displayed image quality may be lower.
+> The screenshot above was captured with WT9932P4C61-TINY. WT9932P4C61-TINY and WT9932P4X-TINY use ESP32-P4 v3.x chips, and the camera image is processed by the ISP. WT9932P4-TINY uses an ESP32-P4 v1.x chip without ISP processing in this example, so its displayed image quality may be lower.
 
 ## Notes
 

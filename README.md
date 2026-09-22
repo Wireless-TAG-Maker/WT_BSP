@@ -27,6 +27,9 @@ This BSP requires **ESP-IDF v6.0.0 or later** and targets a wide range of chips,
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, Button |
 | **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | Same as P4-TINY, adds ESP32-C61 for low-power/wireless tasks |
+| **WT9932P4X-TINY** | ESP32-P4 v3.2 | Same baseboard peripherals as P4-TINY |
+
+WT9932P4X-TINY uses an ESP32-P4 v3.2 chip while retaining the same baseboard hardware as WT9932P4-TINY. Select the exact board model so ESP-IDF uses the matching chip revision settings. If the legacy `WT9932P4-TINY-UVC-Camera_fw-Online.zip` firmware is flashed to WT9932P4X-TINY, the running USB Serial/JTAG port may not enumerate; hold BOOT, press RESET, then release BOOT to recover and flash the P4X configuration.
 
 For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_flash` in any WT_BSP example to flash the ESP32-P4 bridge firmware. Before flashing ESP32-C61 firmware, unplug FUSB and connect HUSB (High-Speed USB); use HUSB to power the board and develop ESP32-C61 applications.
 

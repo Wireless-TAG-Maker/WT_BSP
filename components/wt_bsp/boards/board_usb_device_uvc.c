@@ -33,6 +33,11 @@
 #include "esp_video_ioctl.h"
 #include "linux/videodev2.h"
 #include "usb_device_uvc.h"
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "tusb.h"
+#endif
 
 /* ==================== [Defines] =========================================== */
 
@@ -40,6 +45,24 @@
 #define BOARD_USB_UVC_DQBUF_TIMEOUT_MS 2000
 #define BOARD_USB_UVC_JPEG_QUALITY 80
 #define BOARD_USB_UVC_INTERFACE_STRING_INDEX 4
+
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+#define BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS 5
+#define BOARD_USB_UVC_STATUS_LED_STREAMING_BRIGHTNESS 1
+#define BOARD_USB_UVC_STATUS_LED_POLL_MS 50
+#define BOARD_USB_UVC_STATUS_LED_BLINK_MS 500
+#define BOARD_USB_UVC_STATUS_LED_BREATH_UPDATE_MS 2
+#define BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS 1500
+#define BOARD_USB_UVC_STATUS_LED_BREATH_PEAK_MS 200
+#define BOARD_USB_UVC_STATUS_LED_BREATH_EXHALE_MS 2100
+#define BOARD_USB_UVC_STATUS_LED_BREATH_REST_MS 1000
+#define BOARD_USB_UVC_STATUS_LED_BREATH_CYCLE_MS (BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS + \
+                                                   BOARD_USB_UVC_STATUS_LED_BREATH_PEAK_MS + \
+                                                   BOARD_USB_UVC_STATUS_LED_BREATH_EXHALE_MS + \
+                                                   BOARD_USB_UVC_STATUS_LED_BREATH_REST_MS)
+#define BOARD_USB_UVC_STATUS_LED_TASK_STACK_SIZE 2048
+#define BOARD_USB_UVC_STATUS_LED_TASK_PRIORITY 2
+#endif
 
 /* ==================== [Typedefs] ========================================== */
 
@@ -58,6 +81,20 @@ typedef struct {
     bool initialized;
 } board_usb_uvc_t;
 
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+typedef enum {
+    BOARD_USB_UVC_STATUS_LED_IDLE = 1,
+    BOARD_USB_UVC_STATUS_LED_STREAMING,
+    BOARD_USB_UVC_STATUS_LED_STOP,
+} board_usb_uvc_status_led_mode_t;
+
+typedef enum {
+    BOARD_USB_UVC_LED_WAITING_FOR_HOST = 0,
+    BOARD_USB_UVC_LED_MOUNTED,
+    BOARD_USB_UVC_LED_STREAMING,
+} board_usb_uvc_led_state_t;
+#endif
+
 /* ==================== [Static Prototypes] ================================= */
 
 static esp_err_t board_usb_uvc_open_devices(board_usb_uvc_t *uvc);
@@ -67,6 +104,13 @@ static void board_usb_uvc_stop_cb(void *cb_ctx);
 static uvc_fb_t *board_usb_uvc_frame_get_cb(void *cb_ctx);
 static void board_usb_uvc_frame_return_cb(uvc_fb_t *frame, void *cb_ctx);
 static void board_usb_uvc_close_devices(board_usb_uvc_t *uvc);
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+static void board_usb_uvc_status_led_task(void *arg);
+static void board_usb_uvc_status_led_notify(board_usb_uvc_status_led_mode_t mode);
+static void board_usb_uvc_status_led_stop(void);
+static uint16_t board_usb_uvc_status_led_breath_brightness_q8(uint32_t phase_ms);
+static uint32_t board_usb_uvc_status_led_smoothstep_q16(uint32_t elapsed_ms, uint32_t duration_ms);
+#endif
 
 /* ==================== [Static Variables] ================================== */
 
@@ -76,6 +120,10 @@ static board_usb_uvc_t s_usb_uvc = {
     .capture_fd = -1,
     .codec_fd = -1,
 };
+
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+static TaskHandle_t s_status_led_task;
+#endif
 
 /* ==================== [Macros] ============================================ */
 
@@ -147,6 +195,10 @@ esp_err_t board_usb_device_uvc_deinit(void)
 {
     esp_err_t ret = ESP_OK;
 
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+    board_usb_uvc_status_led_stop();
+#endif
+
     if (!s_usb_uvc.initialized) {
         return ESP_OK;
     }
@@ -161,6 +213,41 @@ esp_err_t board_usb_device_uvc_deinit(void)
 
     return ret;
 }
+
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+esp_err_t board_usb_device_uvc_status_led_start(wt_bsp_rgb_t rgb)
+{
+    if (rgb == NULL) {
+        ESP_LOGE(TAG, "P4X status LED object is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (s_status_led_task != NULL) {
+        ESP_LOGW(TAG, "P4X status LED task is already running");
+        return ESP_OK;
+    }
+
+    BaseType_t result = xTaskCreate(board_usb_uvc_status_led_task,
+                                    "p4x_uvc_led",
+                                    BOARD_USB_UVC_STATUS_LED_TASK_STACK_SIZE,
+                                    rgb,
+                                    BOARD_USB_UVC_STATUS_LED_TASK_PRIORITY,
+                                    &s_status_led_task);
+    if (result != pdPASS) {
+        s_status_led_task = NULL;
+        ESP_LOGE(TAG, "Failed to create P4X status LED task");
+        return ESP_ERR_NO_MEM;
+    }
+
+    board_usb_uvc_status_led_notify(s_usb_uvc.capture_streaming ?
+                                    BOARD_USB_UVC_STATUS_LED_STREAMING :
+                                    BOARD_USB_UVC_STATUS_LED_IDLE);
+    ESP_LOGI(TAG, "P4X status LED ready: blink=%d, breathe=0..%d/4.8s, solid=%d",
+             BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS,
+             BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS,
+             BOARD_USB_UVC_STATUS_LED_STREAMING_BRIGHTNESS);
+    return ESP_OK;
+}
+#endif
 
 /* ==================== [Static Functions] ================================== */
 
@@ -415,6 +502,10 @@ static esp_err_t board_usb_uvc_start_cb(uvc_format_t format, int width, int heig
     uvc->frame_width = width;
     uvc->frame_height = height;
 
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+    board_usb_uvc_status_led_notify(BOARD_USB_UVC_STATUS_LED_STREAMING);
+#endif
+
     ESP_LOGI(TAG, "UVC streaming started: %dx%d@%dfps", width, height, rate);
     return ESP_OK;
 }
@@ -448,6 +539,9 @@ static void board_usb_uvc_stop_cb(void *cb_ctx)
 
     uvc->frame_width = 0;
     uvc->frame_height = 0;
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+    board_usb_uvc_status_led_notify(BOARD_USB_UVC_STATUS_LED_IDLE);
+#endif
 }
 
 static uvc_fb_t *board_usb_uvc_frame_get_cb(void *cb_ctx)
@@ -550,6 +644,155 @@ static void board_usb_uvc_frame_return_cb(uvc_fb_t *frame, void *cb_ctx)
         ESP_LOGE(TAG, "Failed to recycle JPEG output buffer");
     }
 }
+
+#if defined(CONFIG_WT_BSP_BOARD_WT9932P4X_TINY) && CONFIG_WT_BSP_BOARD_WT9932P4X_TINY
+static void board_usb_uvc_status_led_task(void *arg)
+{
+    wt_bsp_rgb_t rgb = (wt_bsp_rgb_t)arg;
+    board_usb_uvc_led_state_t state = BOARD_USB_UVC_LED_WAITING_FOR_HOST;
+    board_usb_uvc_led_state_t previous_state = (board_usb_uvc_led_state_t)-1;
+    bool streaming = s_usb_uvc.capture_streaming;
+    bool blink_on = true;
+    uint16_t breath_dither_accumulator = 0;
+    int last_brightness = -1;
+    TickType_t last_blink = xTaskGetTickCount();
+    TickType_t breath_cycle_start = last_blink;
+
+    while (true) {
+        uint32_t notification = 0;
+        TickType_t wait_ticks = pdMS_TO_TICKS(previous_state == BOARD_USB_UVC_LED_MOUNTED ?
+                                              BOARD_USB_UVC_STATUS_LED_BREATH_UPDATE_MS :
+                                              BOARD_USB_UVC_STATUS_LED_POLL_MS);
+        if (xTaskNotifyWait(0, UINT32_MAX, &notification,
+                            wait_ticks) == pdTRUE) {
+            if (notification == BOARD_USB_UVC_STATUS_LED_STOP) {
+                break;
+            }
+            streaming = notification == BOARD_USB_UVC_STATUS_LED_STREAMING;
+        }
+
+        if (streaming) {
+            state = BOARD_USB_UVC_LED_STREAMING;
+        } else if (tud_mounted()) {
+            state = BOARD_USB_UVC_LED_MOUNTED;
+        } else {
+            state = BOARD_USB_UVC_LED_WAITING_FOR_HOST;
+        }
+
+        TickType_t now = xTaskGetTickCount();
+        if (state != previous_state) {
+            previous_state = state;
+            last_brightness = -1;
+            blink_on = true;
+            breath_dither_accumulator = 0;
+            last_blink = now;
+            breath_cycle_start = now;
+            ESP_LOGI(TAG, "P4X status LED -> %s",
+                     state == BOARD_USB_UVC_LED_STREAMING ? "UVC streaming (green solid 1)" :
+                     state == BOARD_USB_UVC_LED_MOUNTED ? "USB mounted (natural green breathe 0..5, 4.8 s cycle)" :
+                     "waiting for USB host (green blink 5)");
+        }
+
+        uint8_t brightness;
+        if (state == BOARD_USB_UVC_LED_STREAMING) {
+            brightness = BOARD_USB_UVC_STATUS_LED_STREAMING_BRIGHTNESS;
+        } else if (state == BOARD_USB_UVC_LED_MOUNTED) {
+            uint32_t phase_ms = pdTICKS_TO_MS(now - breath_cycle_start) %
+                                BOARD_USB_UVC_STATUS_LED_BREATH_CYCLE_MS;
+            uint16_t brightness_q8 = board_usb_uvc_status_led_breath_brightness_q8(phase_ms);
+            brightness = brightness_q8 >> 8;
+            breath_dither_accumulator += brightness_q8 & 0xff;
+            if (breath_dither_accumulator >= 256) {
+                brightness++;
+                breath_dither_accumulator -= 256;
+            }
+            if (brightness > BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS) {
+                brightness = BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS;
+            }
+        } else {
+            if (now - last_blink >= pdMS_TO_TICKS(BOARD_USB_UVC_STATUS_LED_BLINK_MS)) {
+                blink_on = !blink_on;
+                last_blink = now;
+            }
+            brightness = blink_on ? BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS : 0;
+        }
+
+        if (brightness != last_brightness) {
+            esp_err_t ret = wt_bsp_rgb_set_color(rgb, (wt_bsp_rgb_color_t) {
+                .r = 0,
+                .g = brightness,
+                .b = 0,
+            });
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to update P4X status LED: %s", esp_err_to_name(ret));
+                break;
+            }
+            last_brightness = brightness;
+        }
+    }
+
+    wt_bsp_rgb_clear(rgb);
+    s_status_led_task = NULL;
+    vTaskDelete(NULL);
+}
+
+static uint16_t board_usb_uvc_status_led_breath_brightness_q8(uint32_t phase_ms)
+{
+    uint32_t curve_q16;
+
+    if (phase_ms < BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS) {
+        curve_q16 = board_usb_uvc_status_led_smoothstep_q16(
+                        phase_ms, BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS);
+    } else if (phase_ms < BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS +
+                          BOARD_USB_UVC_STATUS_LED_BREATH_PEAK_MS) {
+        curve_q16 = UINT16_MAX;
+    } else if (phase_ms < BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS +
+                          BOARD_USB_UVC_STATUS_LED_BREATH_PEAK_MS +
+                          BOARD_USB_UVC_STATUS_LED_BREATH_EXHALE_MS) {
+        uint32_t exhale_ms = phase_ms - BOARD_USB_UVC_STATUS_LED_BREATH_INHALE_MS -
+                             BOARD_USB_UVC_STATUS_LED_BREATH_PEAK_MS;
+        curve_q16 = UINT16_MAX - board_usb_uvc_status_led_smoothstep_q16(
+                                      exhale_ms, BOARD_USB_UVC_STATUS_LED_BREATH_EXHALE_MS);
+    } else {
+        curve_q16 = 0;
+    }
+
+    return (uint16_t)(((uint32_t)BOARD_USB_UVC_STATUS_LED_MAX_BRIGHTNESS * 256U * curve_q16 +
+                       (UINT16_MAX / 2)) / UINT16_MAX);
+}
+
+static uint32_t board_usb_uvc_status_led_smoothstep_q16(uint32_t elapsed_ms, uint32_t duration_ms)
+{
+    uint32_t x = (uint32_t)(((uint64_t)elapsed_ms * UINT16_MAX) / duration_ms);
+    uint32_t x_squared = (uint32_t)(((uint64_t)x * x) / UINT16_MAX);
+    return (uint32_t)(((uint64_t)x_squared * (3U * UINT16_MAX - 2U * x)) / UINT16_MAX);
+}
+
+static void board_usb_uvc_status_led_notify(board_usb_uvc_status_led_mode_t mode)
+{
+    if (s_status_led_task != NULL) {
+        xTaskNotify(s_status_led_task, mode, eSetValueWithOverwrite);
+    }
+}
+
+static void board_usb_uvc_status_led_stop(void)
+{
+    TaskHandle_t task = s_status_led_task;
+    if (task == NULL) {
+        return;
+    }
+
+    xTaskNotify(task, BOARD_USB_UVC_STATUS_LED_STOP, eSetValueWithOverwrite);
+    for (int retry = 0; retry < 20 && s_status_led_task != NULL; retry++) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (s_status_led_task != NULL) {
+        ESP_LOGW(TAG, "P4X status LED task did not stop in time; deleting it");
+        vTaskDelete(s_status_led_task);
+        s_status_led_task = NULL;
+    }
+}
+#endif
 
 static void board_usb_uvc_close_devices(board_usb_uvc_t *uvc)
 {
