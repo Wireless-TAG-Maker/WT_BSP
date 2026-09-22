@@ -25,8 +25,11 @@ This BSP requires **ESP-IDF v6.0.0 or later** and targets a wide range of chips,
 | **WT9932C3-TINY** | ESP32-C3 | RGB LED, Button |
 | **WT9932C5-TINY** | ESP32-C5 | RGB LED, Button |
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, Button |
-| **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button |
+| **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button, USB CDC |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | Same as P4-TINY, adds ESP32-C61 for low-power/wireless tasks |
+| **WT9932S31-TINY** | ESP32-S31 | RGB, Button, SDMMC, USB CDC, DVP camera UVC (GC2145/OV3660) |
+
+WT9932S31-TINY requires **ESP-IDF v6.1 or later**. Use `idf.py --preview` for S31 on v6.1. See the [board notes](components/wt_bsp/boards/WT9932S31-TINY/README.md) for USB connections and sensor selection.
 
 For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_flash` in any WT_BSP example to flash the ESP32-P4 bridge firmware. Before flashing ESP32-C61 firmware, unplug FUSB and connect HUSB (High-Speed USB); use HUSB to power the board and develop ESP32-C61 applications.
 
@@ -68,6 +71,15 @@ For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_fla
     -   `src`: Implementation of the common BSP interface.
     -   `tools`: `set-board` and project CMake helper scripts.
 -   `examples`: Usage demonstrations for various features.
+
+The [USB CDC echo example](examples/usb/device_cdc/README.md) supports
+WT9932P4-TINY, WT9932P4C61-TINY, and WT9932S31-TINY through their USB OTG connectors.
+
+The [S31 factory example](examples/wt_factory/wt9932s31-tiny/README.md) checks the
+camera and SD card offline and exposes UVC + CDC when J1 enumerates on a host.
+SD recording is disabled by default; enable it in `S31 factory` in menuconfig
+to record MJPEG AVI offline and use SW2 to pause/resume. RGB shows healthy (green),
+paused (blue), or error (red).
 
 ## ⚙️ How it Works
 

@@ -1,0 +1,43 @@
+# ESP32-S31 DVP camera to High-Speed USB Device UVC
+CONFIG_IDF_TARGET="esp32s31"
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# WT9932S31-TINY-CAM V1.1 schematic DVP pinout.
+
+# External RAM is used for video and UVC buffers.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_SPEED_250M=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# GC2145 is the default module. The project sensor choice derives the matching
+# component driver, capture format, XCLK and UVC descriptor settings. Keeping
+# those derived values out of this file also makes later menuconfig switching
+# between GC2145 and OV3660 clean and reversible.
+CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145=y
+# The application derives UXGA UYVY from the driver's complete UXGA timing table.
+CONFIG_CAMERA_GC2145_DVP_DEFAULT_FMT_RGB565_BE_1600X1200_13FPS=y
+CONFIG_CAMERA_XCLK_USE_LEDC=y
+# The application registers only the project-selected sensor. Keeping component
+# auto-detection disabled avoids probing both GC2145 and OV3660 at address 0x3c.
+# CONFIG_CAMERA_GC2145_AUTO_DETECT_DVP_INTERFACE_SENSOR is not set
+# CONFIG_CAMERA_OV3660_AUTO_DETECT_DVP_INTERFACE_SENSOR is not set
+
+# V4L2 camera capture and hardware JPEG encoder.
+CONFIG_ESP_VIDEO_ENABLE_DVP_VIDEO_DEVICE=y
+CONFIG_ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE=y
+CONFIG_WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS=200
+
+# High-Speed USB Device UVC, GC2145 hardware-encoded MJPEG 1600x1200 @ 8 FPS.
+CONFIG_TUSB_MANUFACTURER="Wireless-Tag"
+CONFIG_TUSB_PRODUCT="Wireless-Tag Camera"
+CONFIG_TUSB_SERIAL_NUM="ESP32S31"
+CONFIG_TINYUSB_RHPORT_HS=y
+CONFIG_FORMAT_MJPEG_CAM1=y
+CONFIG_UVC_MODE_BULK_CAM1=y
+# CONFIG_UVC_CAM1_MULTI_FRAMESIZE is not set
+# CONFIG_UVC_SUPPORT_TWO_CAM is not set
+
+CONFIG_WT_BSP_ENABLE_RGB=n
+CONFIG_WT_BSP_ENABLE_CSI=n
+CONFIG_WT_BSP_ENABLE_CAMERA=n

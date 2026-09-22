@@ -1,0 +1,10 @@
+list(APPEND WT_BSP_FEATURE_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}/include")
+
+if("usb_device_cdc" IN_LIST WT_BSP_BOARD_FEATURES AND CONFIG_WT_BSP_ENABLE_USB_DEVICE_CDC)
+    list(APPEND WT_BSP_FEATURE_SRCS "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_usb_device_cdc.c")
+    if(CONFIG_WT_BSP_USB_DEVICE_COMPOSITE)
+        list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES tinyusb)
+    else()
+        list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_tinyusb)
+    endif()
+endif()

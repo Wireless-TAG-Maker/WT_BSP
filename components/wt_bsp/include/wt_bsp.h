@@ -22,6 +22,8 @@
 #include "wt_bsp_dsi.h"
 #include "wt_bsp_csi.h"
 #include "wt_bsp_touch.h"
+#include "wt_bsp_usb_device_cdc.h"
+#include "wt_bsp_camera.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,6 +99,21 @@ wt_bsp_csi_t wt_bsp_get_csi(void);
  * @return 触摸句柄；BSP 未初始化或触摸支持关闭时返回 NULL。
  */
 wt_bsp_touch_t wt_bsp_get_touch(void);
+
+/**
+ * @brief 获取默认 USB CDC 句柄, 由 BSP 持有并随 wt_bsp_deinit() 释放。
+ *
+ * 应用不得释放该句柄, 使用期间不得反初始化 BSP。
+ * @return 已初始化的 CDC 句柄; 功能关闭、不支持或初始化失败时返回 NULL。
+ */
+wt_bsp_usb_device_cdc_t wt_bsp_get_usb_device_cdc(void);
+
+/**
+ * @brief Get the board-owned camera adapter for local JPEG capture.
+ * @return Camera handle, or NULL if BSP/feature is unavailable. The application
+ *         must not release it. Sensor availability is checked by prepare().
+ */
+wt_bsp_camera_t wt_bsp_get_camera(void);
 
 /* ==================== [Macros] ============================================ */
 

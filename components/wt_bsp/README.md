@@ -51,7 +51,13 @@ components/wt_bsp/
 - SDMMC：`wt_bsp_sdmmc_*`
 - DSI 显示：`wt_bsp_dsi_*`
 - CSI 摄像头：`wt_bsp_csi_*`
+- USB CDC：`wt_bsp_get_usb_device_cdc()`、`wt_bsp_usb_device_cdc_read()`、`wt_bsp_usb_device_cdc_write()`
+- 本地 JPEG：`wt_bsp_get_camera()`、`wt_bsp_camera_prepare()`、`wt_bsp_camera_capture()`、`wt_bsp_camera_get_status()`
 - 触摸：`wt_bsp_touch_*`
+
+USB CDC 支持 WT9932P4-TINY、WT9932P4C61-TINY 的 HUSB，以及 WT9932S31-TINY 的 J1。
+三个板卡共用 `features/usb_device_cdc` 实现，板级持有对象并管理初始化/释放。
+配置、接线和构建命令见 [CDC 回显示例](../../examples/usb/device_cdc/README_CN.md)。
 
 ## 顶层应用者视角
 
@@ -229,3 +235,7 @@ BSP 维护者负责维护公共接口、通用驱动和组件结构，目标是�
 ### 公共驱动何时需要抽象？
 
 当同类能力被两个以上板卡复用，或者应用需要稳定调用入口时，应沉淀为 `include/` 和 `src/` 中的公共能力。只有单板私有、不会复用的初始化细节才留在 `boards/<BOARD>/board.c`。
+
+### WT9932S31-TINY
+
+S31 使用 ESP-IDF v6.1 及以上版本，v6.1 的选板和构建命令需加 `--preview`。其 DVP/UVC 摄像头配置和资源由板级管理，`wt_bsp_get_csi()` 返回 `NULL`。CDC 可独立使用，也可在 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 下与 UVC 共用 USB 栈。本地 JPEG 接口借用同一摄像头数据路径，回调只在应用任务中同步使用帧，不转移缓冲所有权；USB 枚举后本地取帧返回 `ESP_ERR_INVALID_STATE`。详细引脚、生命周期和示例见[板卡说明](boards/WT9932S31-TINY/README.md)。

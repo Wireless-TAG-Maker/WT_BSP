@@ -22,6 +22,8 @@
 #include "wt_bsp_dsi_port.h"
 #include "wt_bsp_csi_port.h"
 #include "wt_bsp_touch_port.h"
+#include "wt_bsp_usb_device_cdc_port.h"
+#include "wt_bsp_camera_port.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,6 +49,8 @@ typedef struct {
     wt_bsp_dsi_t (*get_dsi)(void);         /*!< 获取默认 DSI 显示句柄。 */
     wt_bsp_csi_t (*get_csi)(void);         /*!< 获取默认 CSI 摄像头句柄。 */
     wt_bsp_touch_t (*get_touch)(void);     /*!< 获取默认触摸句柄。 */
+    wt_bsp_usb_device_cdc_t (*get_usb_device_cdc)(void); /*!< 获取默认 USB CDC 句柄。 */
+    wt_bsp_camera_t (*get_camera)(void);   /*!< 获取默认本地 JPEG 采集句柄。 */
 } wt_bsp_interface_t;
 
 /**

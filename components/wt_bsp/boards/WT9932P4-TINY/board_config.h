@@ -31,6 +31,11 @@
 /** @brief 该板卡是否具备触摸能力。 */
 #define WT_BSP_BOARD_HAS_TOUCH 1
 
+/** @brief 该板卡是否具备 USB UVC 能力。 */
+#define WT_BSP_BOARD_HAS_USB_DEVICE_UVC 1
+/** @brief 该板卡是否具备 USB CDC 能力。 */
+#define WT_BSP_BOARD_HAS_USB_DEVICE_CDC 1
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Global Prototypes] ================================= */

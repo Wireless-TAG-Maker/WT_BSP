@@ -1,5 +1,5 @@
-| Supported Targets | WT9932C2-TINY | WT9932C3-TINY | WT9932C5-TINY | WT9932C61-TINY | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ---------------- |
+| Supported Targets | WT9932C2-TINY | WT9932C3-TINY | WT9932C5-TINY | WT9932C61-TINY | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
+| ----------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ---------------- | ------------- |
 
 # Blink Example
 
@@ -57,4 +57,12 @@ I (2422) blink: Hello Wireless-Tag BSP
 I (3422) blink: Hello Wireless-Tag BSP
 I (4422) blink: Hello Wireless-Tag BSP
 I (5422) blink: Hello Wireless-Tag BSP
+```
+
+## WT9932S31-TINY
+
+使用 ESP-IDF v6.1 或以上版本，在仓库根目录运行：
+
+```shell
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/get-started/blink build
 ```

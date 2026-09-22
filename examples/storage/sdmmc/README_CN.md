@@ -1,5 +1,5 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
+| ----------------- | ------------- | ---------------- | ------------- |
 
 # SDMMC 示例
 
@@ -74,3 +74,13 @@ I (424) sdmmc_example: Example finished successfully
 
 * 如果挂载失败，请检查 SD 卡是否插入正确，并确认已格式化为 FAT/FAT32。
 * 检查板卡对应的 SD 卡供电配置和引脚连接。
+
+## WT9932S31-TINY
+
+使用 ESP-IDF v6.1 或以上版本，在仓库根目录运行：
+
+```shell
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/storage/sdmmc build
+```
+
+板载 SD 卡使用 slot 0、4-bit 总线及 LDO 1。BSP 初始化仅准备资源，示例显式挂载卡并写入测试文件；不要在存有重要数据的卡上运行写入测试。

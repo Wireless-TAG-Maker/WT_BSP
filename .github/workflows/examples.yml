@@ -50,7 +50,7 @@ jobs:
             export IDF_PATH="$RUNNER_TEMP/esp-idf"
             git clone --branch v6.1 --depth 1 --recurse-submodules --shallow-submodules \
               https://github.com/espressif/esp-idf.git "$IDF_PATH"
-            "$IDF_PATH/install.sh" esp32c2,esp32c3,esp32c5,esp32c61,esp32p4
+            "$IDF_PATH/install.sh" esp32c2,esp32c3,esp32c5,esp32c61,esp32p4,esp32s31
             source "$IDF_PATH/export.sh"
           fi
           python "$IDF_PATH/tools/idf.py" --version | grep -E '^ESP-IDF v6\.1($|[.-])'

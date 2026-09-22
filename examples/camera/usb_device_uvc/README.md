@@ -1,11 +1,39 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
+| ----------------- | ------------- | ---------------- | ------------- |
 
 # USB Device UVC Camera Example
 
 This example exposes the SC2336 MIPI CSI camera connected to WT9932P4-TINY or WT9932P4C61-TINY as a High-Speed USB UVC MJPEG camera. A USB host can open the stream with a standard camera application or OBS without a board-specific camera driver.
 
 Camera capture, hardware JPEG encoding, and USB Device UVC initialization are triggered by `wt_bsp_init()` and owned by the board-level `board_init()` lifecycle. The application does not include private board headers or duplicate board pin definitions.
+
+## WT9932S31-TINY (DVP)
+
+Use ESP-IDF v6.1 or later. Flash and monitor through J2; connect J1 to the UVC
+host and the camera to the DVP FPC. The P4 CSI/FUSB/HUSB and IO0 instructions
+below apply only to the P4 boards.
+
+```shell
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc build
+idf.py --preview -C examples/camera/usb_device_uvc menuconfig
+```
+
+Select the sensor under `WT BSP → Camera sensor`, then rebuild and flash:
+
+| Sensor | UVC mode | Encoding |
+| --- | --- | --- |
+| GC2145 / CKS-K210-GC3.1 (default) | MJPEG 1600×1200, nominal 8 FPS, Bulk | UYVY → S31 hardware JPEG |
+| OV3660 | MJPEG 640×480, nominal 25 FPS, Isochronous | Sensor-native JPEG |
+
+Both modules use SCCB address `0x3c`; only the selected sensor is probed. The
+GC2145 path retains the reference clock divider, 200 ms JPEG deadline and stream
+mutex. The USB product name is `Wireless-Tag Camera`. On S31,
+`wt_bsp_get_csi()` returns `NULL`; check `wt_bsp_init()` for UVC initialization
+success. UVC and the independent CDC feature are mutually exclusive.
+
+The reference project's GC2145 right-edge colored line, Windows Camera support
+and OV3660 image tuning still require hardware checks. The P4 screenshot below
+is not S31 validation. See the [board notes](../../../components/wt_bsp/boards/WT9932S31-TINY/README.md).
 
 ## Hardware
 
