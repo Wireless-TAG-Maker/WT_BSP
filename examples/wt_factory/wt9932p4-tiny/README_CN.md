@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY |
-| ----------------- | ------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4X-TINY |
+| --- | --- | --- |
 
 # 综合工厂测试示例 (Factory Firmware)
+
+WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设接线相同，固件不能混用。请在 `idf.py set-board` 中选择实际板型，详见[版本与构建说明](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
 
 本工厂固件集成了 Wireless-Tag BSP 提供的 MIPI DSI 显示、MIPI CSI 摄像头、触摸、SD 卡和 RGB LED 控制等外设能力。
 
@@ -14,6 +16,7 @@
 ...
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
+1: WT9932P4X-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
 Enter board number:

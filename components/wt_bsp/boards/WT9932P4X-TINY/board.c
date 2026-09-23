@@ -1,7 +1,7 @@
 /**
  * @file board.c
  * @author Wireless-Tag
- * @brief WT9932P4-TINY board identity and shared peripheral entry.
+ * @brief WT9932P4X-TINY board identity and shared peripheral entry.
  * @version 0.1
  * @date 2026-09-23
  *
@@ -27,7 +27,7 @@
 
 wt_bsp_interface_t *board_get_bsp_interface(void)
 {
-    return board_p4_tiny_get_interface("WT9932P4-TINY");
+    return board_p4_tiny_get_interface("WT9932P4X-TINY");
 }
 
 /* ==================== [Static Functions] ================================== */

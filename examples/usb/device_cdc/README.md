@@ -1,11 +1,14 @@
 # USB Device CDC echo
 
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
+
 This example provides USB CDC ACM serial echo through the BSP on ESP32-P4
 and ESP32-S31 boards.
 
 | Board | ESP-IDF | Flash / log connector | CDC echo connector |
 | --- | --- | --- | --- |
 | WT9932P4-TINY | v6.0.0 or later | FUSB | HUSB (High-Speed USB OTG) |
+| WT9932P4X-TINY | v6.0.0 or later | FUSB | HUSB (High-Speed USB OTG) |
 | WT9932P4C61-TINY | v6.0.0 or later | FUSB | HUSB (High-Speed USB OTG) |
 | WT9932S31-TINY | v6.1 or later | J2 | J1 (High-Speed USB OTG) |
 
@@ -15,6 +18,7 @@ Build from the repository root:
 
 ```sh
 WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4 build
+WT_BSP_BOARD=WT9932P4X-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4x build
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4c61 build
 WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/usb/device_cdc build
 ```

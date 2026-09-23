@@ -1,9 +1,11 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
-| ----------------- | ------------- | ---------------- | ------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY | WT9932S31-TINY |
+| --- | --- | --- | --- | --- |
 
 # USB Device UVC Camera Example
 
-This example exposes the SC2336 MIPI CSI camera connected to WT9932P4-TINY or WT9932P4C61-TINY as a High-Speed USB UVC MJPEG camera. A USB host can open the stream with a standard camera application or OBS without a board-specific camera driver.
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
+
+This example exposes the SC2336 MIPI CSI camera connected to WT9932P4-TINY, WT9932P4X-TINY, or WT9932P4C61-TINY as a High-Speed USB UVC MJPEG camera. A USB host can open the stream with a standard camera application or OBS without a board-specific camera driver.
 
 Camera capture, hardware JPEG encoding, and USB Device UVC initialization are triggered by `wt_bsp_init()` and owned by the board-level `board_init()` lifecycle. The application does not include private board headers or duplicate board pin definitions.
 
@@ -41,7 +43,7 @@ is not S31 validation. See the [board notes](../../../components/wt_bsp/boards/W
 2. Use FUSB to flash and monitor the ESP32-P4 firmware.
 3. After the firmware starts, connect HUSB to the computer.
 
-IO0 is connected to the camera PWDN/LDO/RESET control path on both supported boards. The BSP drives IO0 high before detecting the camera.
+IO0 is connected to the camera PWDN/LDO/RESET control path on all supported P4 boards. The BSP drives IO0 high before detecting the camera.
 
 ## Build
 

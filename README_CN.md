@@ -25,9 +25,12 @@
 | **WT9932C3-TINY** | ESP32-C3 | RGB LED, 按键 |
 | **WT9932C5-TINY** | ESP32-C5 | RGB LED, 按键 |
 | **WT9932C61-TINY** | ESP32-C6 | RGB LED, 按键 |
-| **WT9932P4-TINY** | ESP32-P4 | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键, USB CDC |
+| **WT9932P4-TINY** | ESP32-P4 v1.x | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键, USB CDC |
+| **WT9932P4X-TINY** | ESP32-P4 v3.x | MIPI-DSI, MIPI-CSI, SDMMC, 触摸, RGB, 按键, USB CDC |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | 外设与 P4-TINY 一致，额外搭载 ESP32-C61 用于无线/低功耗任务 |
 | **WT9932S31-TINY** | ESP32-S31 | RGB、按键、SDMMC、USB CDC、DVP 摄像头 UVC (GC2145/OV3660) |
+
+WT9932P4-TINY 与 WT9932P4X-TINY 的外设资源相同，但 v1.x/v3.x 固件不兼容；请按芯片版本选板并重新构建。详见[P4X 板卡说明](components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
 
 WT9932S31-TINY 使用 **ESP-IDF v6.1 或以上版本**。v6.1 中构建 S31 需使用 `idf.py --preview`；USB 数据连接和摄像头选择见[板卡说明](components/wt_bsp/boards/WT9932S31-TINY/README.md)。
 
@@ -71,7 +74,7 @@ WT9932S31-TINY 使用 **ESP-IDF v6.1 或以上版本**。v6.1 中构建 S31 需�
     -   `tools`：`set-board` 和项目 CMake 辅助脚本。
 -   `examples`：展示各种外设能力的示例工程。
 
-[USB CDC 回显示例](examples/usb/device_cdc/README_CN.md) 支持 WT9932P4-TINY、
+[USB CDC 回显示例](examples/usb/device_cdc/README_CN.md) 支持 WT9932P4-TINY、WT9932P4X-TINY、
 WT9932P4C61-TINY 和 WT9932S31-TINY，通过各板的 USB OTG 接口提供串口回显。
 
 [S31 工厂示例](examples/wt_factory/wt9932s31-tiny/README.md) 默认离线检查摄像头

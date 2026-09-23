@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
-| ----------------- | ------------- | ---------------- | ------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY | WT9932S31-TINY |
+| --- | --- | --- | --- | --- |
 
 # SDMMC 示例
+
+WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设接线相同，固件不能混用。请在 `idf.py set-board` 中选择实际板型，详见[版本与构建说明](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
 
 本示例演示如何使用 Wireless-Tag BSP 提供的 SDMMC 接口挂载 MicroSD 卡，并使用标准 C/POSIX API 完成基础文件写入、重命名和读取操作。
 
@@ -15,6 +17,8 @@
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 1: WT9932P4C61-TINY (esp32p4)
+2: WT9932P4X-TINY (esp32p4)
+3: WT9932S31-TINY (esp32s31)
 
 Please select the target board by entering the corresponding number.
 Enter board number:
@@ -49,6 +53,7 @@ Executing "ninja all"...
 目前支持的开发板：
 
 * **WT9932P4-TINY**。
+* **WT9932P4X-TINY**。
 * **WT9932P4C61-TINY**。
 
 运行示例前请插入 FAT 格式的 MicroSD 卡。使用 WT9932P4 硬件时，请确认板卡要求的 SD 卡供电配置和引脚连接正确。

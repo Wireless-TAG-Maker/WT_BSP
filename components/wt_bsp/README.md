@@ -55,8 +55,8 @@ components/wt_bsp/
 - 本地 JPEG：`wt_bsp_get_camera()`、`wt_bsp_camera_prepare()`、`wt_bsp_camera_capture()`、`wt_bsp_camera_get_status()`
 - 触摸：`wt_bsp_touch_*`
 
-USB CDC 支持 WT9932P4-TINY、WT9932P4C61-TINY 的 HUSB，以及 WT9932S31-TINY 的 J1。
-三个板卡共用 `features/usb_device_cdc` 实现，板级持有对象并管理初始化/释放。
+USB CDC 支持 WT9932P4-TINY、WT9932P4X-TINY、WT9932P4C61-TINY 的 HUSB，以及 WT9932S31-TINY 的 J1。
+四个板卡共用 `features/usb_device_cdc` 实现，板级持有对象并管理初始化/释放。
 配置、接线和构建命令见 [CDC 回显示例](../../examples/usb/device_cdc/README_CN.md)。
 
 ## 顶层应用者视角
@@ -239,3 +239,11 @@ BSP 维护者负责维护公共接口、通用驱动和组件结构，目标是�
 ### WT9932S31-TINY
 
 S31 使用 ESP-IDF v6.1 及以上版本，v6.1 的选板和构建命令需加 `--preview`。其 DVP/UVC 摄像头配置和资源由板级管理，`wt_bsp_get_csi()` 返回 `NULL`。CDC 可独立使用，也可在 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 下与 UVC 共用 USB 栈。本地 JPEG 接口借用同一摄像头数据路径，回调只在应用任务中同步使用帧，不转移缓冲所有权；USB 枚举后本地取帧返回 `ESP_ERR_INVALID_STATE`。详细引脚、生命周期和示例见[板卡说明](boards/WT9932S31-TINY/README.md)。
+
+### WT9932P4X-TINY
+
+P4X 对应 ESP32-P4 v3.x，原 WT9932P4-TINY 对应 v1.x。两者使用相同外设和引脚，
+共用原板目录中的 `board_common.c`；每款板卡保留自己的入口、板名和选板配置。
+所有支持原 P4 的示例均提供 `sdkconfig.wt9932p4x_tiny`，包括原 P4 工厂示例。
+`idf.py set-board` 会切换芯片版本及默认 CPU 频率；重新构建、烧录后才生效。
+详见[P4X 板卡说明](boards/WT9932P4X-TINY/README.md)。

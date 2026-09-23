@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY |
+| --- | --- | --- | --- |
 
 # CSI Camera Example
+
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
 
 This example uses the Wireless-Tag BSP MIPI CSI interface to capture camera frames and displays the live image on the MIPI DSI LCD through the PPA hardware accelerator.
 
@@ -15,6 +17,7 @@ This example uses the Wireless-Tag BSP MIPI CSI interface to capture camera fram
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 1: WT9932P4C61-TINY (esp32p4)
+2: WT9932P4X-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
 Enter board number:
@@ -49,6 +52,7 @@ After modifying the code, run `idf.py build` again to compile.
 Currently supported development boards:
 
 * **WT9932P4-TINY** with a MIPI DSI display and an SC2336 MIPI CSI camera.
+* **WT9932P4X-TINY** with a MIPI DSI display and an SC2336 MIPI CSI camera.
 * **WT9932P4C61-TINY** with a MIPI DSI display and an SC2336 MIPI CSI camera.
 
 Make sure both the MIPI DSI display and MIPI CSI camera are connected correctly. IO0 is connected to the camera PWDN/LDO/RESET control path on this hardware, and the BSP drives it high before camera detection.

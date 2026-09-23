@@ -1,7 +1,9 @@
-| Supported Targets | WT9932C2-TINY | WT9932C3-TINY | WT9932C5-TINY | WT9932C61-TINY | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
-| ----------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ---------------- | ------------- |
+| Supported Targets | WT9932C2-TINY | WT9932C3-TINY | WT9932C5-TINY | WT9932C61-TINY | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY | WT9932S31-TINY |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 # Button Example
+
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
 
 ## Getting Started
 
@@ -17,6 +19,8 @@ Supported boards in this example:
 3: WT9932C61-TINY (esp32c61)
 4: WT9932P4-TINY (esp32p4)
 5: WT9932P4C61-TINY (esp32p4)
+6: WT9932P4X-TINY (esp32p4)
+7: WT9932S31-TINY (esp32s31)
 
 Please select the target board by entering the corresponding number.
 Enter board number:

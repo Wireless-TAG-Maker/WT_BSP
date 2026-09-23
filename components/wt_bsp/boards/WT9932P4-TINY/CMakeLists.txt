@@ -1,4 +1,8 @@
 if(CONFIG_WT_BSP_BOARD_WT9932P4_TINY)
+    # The first set-board invocation configures before a board is selected.
+    if(CONFIG_WT_BSP_BOARD_SELECTED_BY_TOOL AND NOT CONFIG_ESP32P4_SELECTS_REV_LESS_V3)
+        message(FATAL_ERROR "WT9932P4-TINY requires ESP32-P4 v1.x firmware; select WT9932P4X-TINY for v3.x")
+    endif()
     list(APPEND WT_BSP_BOARD_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}")
     list(APPEND WT_BSP_BOARD_FEATURES board button rgb sdmmc dsi csi touch usb_device_cdc)
     file(GLOB board_sources "${CMAKE_CURRENT_LIST_DIR}/*.c")

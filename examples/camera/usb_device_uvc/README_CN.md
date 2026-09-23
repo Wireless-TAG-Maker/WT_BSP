@@ -1,7 +1,9 @@
-| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
-| -------- | ------------- | ---------------- | ------------- |
+| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY | WT9932S31-TINY |
+| --- | --- | --- | --- | --- |
 
 # USB Device UVC 摄像头示例
+
+WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设接线相同，固件不能混用。请在 `idf.py set-board` 中选择实际板型，详见[版本与构建说明](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
 
 本示例支持 P4 板卡的 SC2336 MIPI CSI 摄像头和 S31 板卡的 GC2145/OV3660 DVP 摄像头，将其模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
 
@@ -39,7 +41,7 @@ UVC 与独立 USB CDC 互斥。
 2. 使用 FUSB 接口烧录 ESP32-P4 固件和查看串口日志。
 3. 固件启动后，将 HUSB 接口连接到电脑。
 
-两块支持板卡的 IO0 都连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。
+三款 P4 板卡的 IO0 都连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。
 
 ## P4 编译
 
