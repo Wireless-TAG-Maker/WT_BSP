@@ -56,6 +56,8 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_dsi = NULL,
     .get_csi = NULL,
     .get_touch = NULL,
+    .get_usb_device_cdc = NULL,
+    .get_camera = NULL,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};

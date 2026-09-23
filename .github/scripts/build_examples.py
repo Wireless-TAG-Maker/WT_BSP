@@ -52,6 +52,8 @@ def build_example(case):
         raise ValueError("Activate the ESP-IDF environment before building")
     project = ROOT / case["example"]
     command = [sys.executable, str(Path(idf_path) / "tools/idf.py")]
+    if case["target"] == "esp32s31":
+        command.append("--preview")
     env = os.environ.copy()
     env.pop("WT_BSP_BOARD", None)
     env.pop("IDF_TARGET", None)

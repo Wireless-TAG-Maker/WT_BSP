@@ -1,0 +1,14 @@
+config WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+    bool
+
+config WT_BSP_ENABLE_USB_DEVICE_CDC
+    bool "Enable USB Device CDC BSP"
+    depends on WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+    depends on !WT_BSP_ENABLE_USB_DEVICE_UVC || WT_BSP_USB_DEVICE_COMPOSITE
+    select TINYUSB_CDC_ENABLED if !WT_BSP_USB_DEVICE_COMPOSITE
+    default y
+    help
+        Provide a CDC ACM serial interface on the board USB OTG connector.
+        The BSP owns the TinyUSB driver. This is separate from USB Serial
+        JTAG. Boards with composite USB support can share the UVC stack;
+        otherwise this feature owns a separate TinyUSB driver.

@@ -358,6 +358,8 @@ def select_board(project_path, board_name=None, input_fn=input, output_fn=print)
 def _run_set_target(project_path, target, build_dir=None, run_command=None):
     idf_path = os.environ.get("IDF_PATH")
     command = [sys.executable, str(Path(idf_path) / "tools" / "idf.py")] if idf_path else ["idf.py"]
+    if target == "esp32s31":
+        command.append("--preview")
     command.extend(["-C", str(project_path)])
     if build_dir:
         command.extend(["-B", str(build_dir)])

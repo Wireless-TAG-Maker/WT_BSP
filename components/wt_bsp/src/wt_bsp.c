@@ -116,4 +116,20 @@ wt_bsp_touch_t wt_bsp_get_touch(void)
 }
 
 
+wt_bsp_usb_device_cdc_t wt_bsp_get_usb_device_cdc(void)
+{
+    if (g_bsp.interface == NULL || g_bsp.interface->get_usb_device_cdc == NULL) {
+        return NULL;
+    }
+    return g_bsp.interface->get_usb_device_cdc();
+}
+
+wt_bsp_camera_t wt_bsp_get_camera(void)
+{
+    if (g_bsp.interface == NULL || g_bsp.interface->get_camera == NULL) {
+        return NULL;
+    }
+    return g_bsp.interface->get_camera();
+}
+
 /* ==================== [Static Functions] ================================== */

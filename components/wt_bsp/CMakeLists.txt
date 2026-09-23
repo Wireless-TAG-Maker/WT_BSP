@@ -65,6 +65,43 @@ if(CONFIG_WT_BSP_ENABLE_DSI AND "kevincoooool__esp_lcd_st7102" IN_LIST wt_bsp_bu
     target_compile_definitions(${wt_bsp_st7102_lib} PRIVATE color_space=rgb_ele_order)
 endif()
 
+if(CONFIG_WT_BSP_BOARD_WT9932S31_TINY AND CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC)
+    # Both the UVC component and TinyUSB include the same sensor-dependent
+    # endpoint configuration through TinyUSB's public configuration hook.
+    set(wt_bsp_s31_dir "${CMAKE_CURRENT_LIST_DIR}/boards/WT9932S31-TINY")
+    idf_component_get_property(wt_bsp_tinyusb_lib espressif__tinyusb COMPONENT_LIB)
+    target_include_directories(${wt_bsp_tinyusb_lib} PUBLIC "${wt_bsp_s31_dir}")
+    target_compile_definitions(${wt_bsp_tinyusb_lib} PUBLIC CFG_TUSB_CONFIG_FILE="board_tusb_config.h")
+
+    if(CONFIG_WT_BSP_USB_DEVICE_COMPOSITE)
+        # usb_device_uvc exports its descriptor source as PUBLIC; remove both
+        # copies so dependents cannot compile the original UVC-only descriptor.
+        foreach(wt_bsp_source_property SOURCES INTERFACE_SOURCES)
+            get_target_property(wt_bsp_tinyusb_sources ${wt_bsp_tinyusb_lib} ${wt_bsp_source_property})
+            if(wt_bsp_tinyusb_sources)
+                list(FILTER wt_bsp_tinyusb_sources EXCLUDE REGEX "(^|/)tusb/usb_descriptors\\.c$")
+                set_property(TARGET ${wt_bsp_tinyusb_lib} PROPERTY ${wt_bsp_source_property} "${wt_bsp_tinyusb_sources}")
+            endif()
+        endforeach()
+        target_sources(${wt_bsp_tinyusb_lib} PRIVATE "${wt_bsp_s31_dir}/board_usb_descriptors.c")
+    endif()
+
+    if(CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145 OR CONFIG_WT_BSP_USB_DEVICE_COMPOSITE)
+        # TinyUSB 0.19 needs a ZLP after packet-aligned, short UVC bulk payloads.
+        # Substitute a board-local adapter without modifying managed sources.
+        get_target_property(wt_bsp_tinyusb_sources ${wt_bsp_tinyusb_lib} SOURCES)
+        set(wt_bsp_tinyusb_video_sources ${wt_bsp_tinyusb_sources})
+        list(FILTER wt_bsp_tinyusb_video_sources INCLUDE REGEX "(^|/)class/video/video_device\\.c$")
+        list(LENGTH wt_bsp_tinyusb_video_sources wt_bsp_tinyusb_video_count)
+        if(NOT wt_bsp_tinyusb_video_count EQUAL 1)
+            message(FATAL_ERROR "Expected one TinyUSB video driver for the S31 bulk completion adapter")
+        endif()
+        list(REMOVE_ITEM wt_bsp_tinyusb_sources ${wt_bsp_tinyusb_video_sources})
+        list(APPEND wt_bsp_tinyusb_sources "${wt_bsp_s31_dir}/board_tinyusb_video.c")
+        set_property(TARGET ${wt_bsp_tinyusb_lib} PROPERTY SOURCES "${wt_bsp_tinyusb_sources}")
+    endif()
+endif()
+
 add_custom_target(set-board
     COMMAND ${PYTHON} ${CMAKE_CURRENT_LIST_DIR}/tools/wt_bsp_set_board.py
             --project-path ${PROJECT_DIR}

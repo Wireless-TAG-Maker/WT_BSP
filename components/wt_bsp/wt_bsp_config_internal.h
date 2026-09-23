@@ -97,6 +97,27 @@
 #define WT_BSP_TOUCH_ENABLED 0
 #endif
 
+/** @brief Local JPEG capture 是否在当前工程中启用。 */
+#if defined(WT_BSP_BOARD_HAS_CAMERA) && WT_BSP_BOARD_HAS_CAMERA && defined(CONFIG_WT_BSP_ENABLE_CAMERA) && CONFIG_WT_BSP_ENABLE_CAMERA
+#define WT_BSP_CAMERA_ENABLED 1
+#else
+#define WT_BSP_CAMERA_ENABLED 0
+#endif
+
+/** @brief USB CDC 是否在当前工程中启用。 */
+#if defined(WT_BSP_BOARD_HAS_USB_DEVICE_CDC) && WT_BSP_BOARD_HAS_USB_DEVICE_CDC && defined(CONFIG_WT_BSP_ENABLE_USB_DEVICE_CDC) && CONFIG_WT_BSP_ENABLE_USB_DEVICE_CDC
+#define WT_BSP_USB_DEVICE_CDC_ENABLED 1
+#else
+#define WT_BSP_USB_DEVICE_CDC_ENABLED 0
+#endif
+
+/** @brief USB UVC 是否在当前工程中启用。 */
+#if defined(WT_BSP_BOARD_HAS_USB_DEVICE_UVC) && WT_BSP_BOARD_HAS_USB_DEVICE_UVC && defined(CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC) && CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC
+#define WT_BSP_USB_DEVICE_UVC_ENABLED 1
+#else
+#define WT_BSP_USB_DEVICE_UVC_ENABLED 0
+#endif
+
 /* ==================== [Typedefs] ========================================== */
 
 /* ==================== [Global Prototypes] ================================= */

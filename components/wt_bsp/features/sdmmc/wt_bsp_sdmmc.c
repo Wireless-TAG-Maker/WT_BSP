@@ -21,6 +21,7 @@
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
+#include "soc/soc_caps.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -50,7 +51,7 @@ esp_err_t wt_bsp_sdmmc_init(wt_bsp_sdmmc_t sdmmc, const wt_bsp_sdmmc_info_t *inf
     sdmmc->card = NULL;
     sdmmc->pwr_ctrl_handle = NULL;
 
-#ifdef CONFIG_IDF_TARGET_ESP32P4
+#if SOC_GP_LDO_SUPPORTED
     // Initialize on-chip LDO for SD card power if requested
     if (sdmmc->info.use_on_chip_ldo) {
         ESP_LOGI(TAG, "Initializing on-chip LDO channel %d for SD card",
@@ -82,7 +83,7 @@ esp_err_t wt_bsp_sdmmc_deinit(wt_bsp_sdmmc_t sdmmc)
         wt_bsp_sdmmc_unmount(sdmmc);
     }
 
-#ifdef CONFIG_IDF_TARGET_ESP32P4
+#if SOC_GP_LDO_SUPPORTED
     // Release on-chip LDO power control handle
     if (sdmmc->pwr_ctrl_handle != NULL) {
         ESP_LOGI(TAG, "Releasing on-chip LDO power control");
@@ -123,7 +124,7 @@ esp_err_t wt_bsp_sdmmc_mount(wt_bsp_sdmmc_t sdmmc)
 
         sdmmc_host_t host = SDSPI_HOST_DEFAULT();
         host.slot = sdmmc->info.spi_host;
-#ifdef CONFIG_IDF_TARGET_ESP32P4
+#if SOC_GP_LDO_SUPPORTED
         host.pwr_ctrl_handle = sdmmc->pwr_ctrl_handle;
 #endif
 
@@ -165,13 +166,18 @@ esp_err_t wt_bsp_sdmmc_mount(wt_bsp_sdmmc_t sdmmc)
     ESP_LOGI(TAG, "Using SDMMC peripheral");
 
     // By default, SDMMC host property has its 'slot' set to 1.
-    // For ESP32-P4, we need to check if we can use other slots.
+    // The board selects the slot supported by its SD wiring.
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.slot = sdmmc->info.slot;
 
-#ifdef CONFIG_IDF_TARGET_ESP32P4
-    // Set the power control handle for SDMMC (required for ESP32-P4)
+#if SOC_GP_LDO_SUPPORTED
+    // Supply the SD pad regulator on SoCs with a general-purpose LDO.
     host.pwr_ctrl_handle = sdmmc->pwr_ctrl_handle;
+#endif
+
+    // ESP32-S31 uses external 3.3 V card power with an internal 1.8 V pad LDO.
+#if SOC_SDMMC_IO_UHS_POWER_EXTERNAL
+    host.io_voltage = 1.8f;
 #endif
 
     // This initializes the slot without card detect or write protect signals.
@@ -180,12 +186,14 @@ esp_err_t wt_bsp_sdmmc_mount(wt_bsp_sdmmc_t sdmmc)
     slot_config.width = sdmmc->info.width;
     slot_config.cd = sdmmc->info.cd_gpio;
     slot_config.wp = sdmmc->info.wp_gpio;
+#if SOC_SDMMC_USE_GPIO_MATRIX
     slot_config.clk = sdmmc->info.clk_gpio;
     slot_config.cmd = sdmmc->info.cmd_gpio;
     slot_config.d0 = sdmmc->info.d0_gpio;
     slot_config.d1 = sdmmc->info.d1_gpio;
     slot_config.d2 = sdmmc->info.d2_gpio;
     slot_config.d3 = sdmmc->info.d3_gpio;
+#endif
 
     // For ESP32-P4, if we want to use specific pins, we might need to set them.
     // However, usually SDMMC pins are fixed on some SoC versions or handled by GPIO matrix.

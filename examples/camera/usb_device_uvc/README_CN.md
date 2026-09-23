@@ -1,13 +1,39 @@
-| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY |
-| -------- | ------------- | ---------------- |
+| 支持目标 | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
+| -------- | ------------- | ---------------- | ------------- |
 
 # USB Device UVC 摄像头示例
 
-本示例将 WT9932P4-TINY 或 WT9932P4C61-TINY 上连接的 SC2336 MIPI CSI 摄像头模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
+本示例支持 P4 板卡的 SC2336 MIPI CSI 摄像头和 S31 板卡的 GC2145/OV3660 DVP 摄像头，将其模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
 
 摄像头采集、硬件 JPEG 编码和 USB Device UVC 的初始化都由 `wt_bsp_init()` 触发，并由板级 `board_init()` 管理生命周期。应用层不直接使用板级私有头文件或引脚定义。
 
-## 硬件连接
+## WT9932S31-TINY (DVP)
+
+S31 使用 ESP-IDF v6.1 或以上版本。J2 用于烧录/日志，J1 为 UVC USB 接口；
+摄像头连接 DVP FPC。该板不使用下面 P4 专属的 CSI、FUSB/HUSB 或 IO0 控制步骤。
+
+```shell
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc build
+idf.py --preview -C examples/camera/usb_device_uvc menuconfig
+```
+
+在 `WT BSP → Camera sensor` 切换两款摄像头，随后重新构建和烧录：
+
+| 型号 | UVC 模式 | 编码路径 |
+| --- | --- | --- |
+| GC2145 / CKS-K210-GC3.1 (默认) | MJPEG 1600×1200，标称 8 FPS，Bulk | UYVY → S31 硬件 JPEG |
+| OV3660 | MJPEG 640×480，标称 25 FPS，Isochronous | 传感器原生 JPEG |
+
+两款模组地址均为 `0x3c`，仅探测菜单选择的型号。GC2145 沿用参考工程的时钟二分频、
+200 ms 编码时限和开停流互斥保护。USB 产品名为 `Wireless-Tag Camera`。
+S31 的 `wt_bsp_get_csi()` 返回 `NULL`，以 `wt_bsp_init()` 返回值判断 UVC 初始化结果。
+UVC 与独立 USB CDC 互斥。
+
+参考工程记录的 GC2145 右侧细彩点竖线、Windows 原生相机兼容性及 OV3660
+画质微调仍需实板复验。下面的 P4 截图不是 S31 验证结果。详见
+[板卡说明](../../../components/wt_bsp/boards/WT9932S31-TINY/README.md)。
+
+## P4 硬件连接
 
 1. 将 SC2336 摄像头连接到开发板 MIPI CSI 接口。
 2. 使用 FUSB 接口烧录 ESP32-P4 固件和查看串口日志。
@@ -15,7 +41,7 @@
 
 两块支持板卡的 IO0 都连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。
 
-## 编译
+## P4 编译
 
 加载 ESP-IDF v6.0.0 或以上版本的环境后，在仓库根目录运行：
 
@@ -52,7 +78,7 @@ WT BSP
 └── Enable USB Device UVC
 ```
 
-## 运行效果
+## P4 运行效果
 
 正常启动后，电脑会枚举出名为 `Wireless-Tag CSI Camera` 的摄像头。串口日志类似：
 
@@ -105,6 +131,6 @@ W (...) ISP_AWB: subwindow size (1024 x 600) is not divisible by AWB subwindow b
 
 ## 说明
 
-- USB UVC 模式独占 CSI 采集设备，应用不要再调用 `wt_bsp_csi_start()`。
-- `wt_bsp_get_csi()` 返回 `NULL` 时表示摄像头未启用、未检测到或初始化失败。
+- P4 的 USB UVC 模式独占 CSI 采集设备，应用不要再调用 `wt_bsp_csi_start()`。
+- P4 的 `wt_bsp_get_csi()` 返回 `NULL` 时表示摄像头未启用、未检测到或初始化失败。
 - `CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC` 关闭后，BSP 不会初始化 USB Device UVC。

@@ -1,7 +1,7 @@
 /**
  * @file main.c
  * @author Wireless-Tag
- * @brief ESP32-P4 TINY 板卡 CSI 摄像头 USB Device UVC 示例。
+ * @brief TINY 板卡 CSI/DVP 摄像头 USB Device UVC 示例。
  * @version 0.1
  * @date 2026-07-28
  *
@@ -42,12 +42,19 @@ void app_main(void)
         return;
     }
 
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
+    ESP_LOGE(TAG, "Enable USB Device UVC in menuconfig");
+    return;
+#endif
+
+#if WT_BSP_CSI_ENABLED
     if (wt_bsp_get_csi() == NULL) {
         ESP_LOGE(TAG, "CSI camera is unavailable");
         return;
     }
+#endif
 
-    ESP_LOGI(TAG, "USB Device UVC is ready. Connect HUSB to the USB host.");
+    ESP_LOGI(TAG, "USB Device UVC is ready. Connect the board USB OTG port to the host.");
 }
 
 /* ==================== [Static Functions] ================================== */

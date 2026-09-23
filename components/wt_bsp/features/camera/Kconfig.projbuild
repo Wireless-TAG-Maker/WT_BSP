@@ -1,0 +1,12 @@
+config WT_BSP_BOARD_HAS_CAMERA
+    bool
+
+config WT_BSP_ENABLE_CAMERA
+    bool "Enable local JPEG capture alongside USB UVC"
+    depends on WT_BSP_BOARD_HAS_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC
+    default y
+    help
+        Expose board-owned JPEG frames to an application while the USB host
+        is not using the camera. Camera hardware is prepared explicitly by
+        the application, allowing the RGB and USB interfaces to report a
+        missing camera without tearing down the rest of the board.

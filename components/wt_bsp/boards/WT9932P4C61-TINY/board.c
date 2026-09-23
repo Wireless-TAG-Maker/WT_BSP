@@ -127,6 +127,7 @@ static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_dsi_t board_get_dsi(void);
 static wt_bsp_csi_t board_get_csi(void);
 static wt_bsp_touch_t board_get_touch(void);
+static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void);
 #if BOARD_I2C_FEATURE_ENABLED
 static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status);
 #endif
@@ -153,6 +154,8 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_dsi = board_get_dsi,
     .get_csi = board_get_csi,
     .get_touch = board_get_touch,
+    .get_usb_device_cdc = board_get_usb_device_cdc,
+    .get_camera = NULL,
 };
 
 static wt_bsp_board_obj_t s_bsp_board = {0};
@@ -173,6 +176,9 @@ static wt_bsp_csi_obj_t s_bsp_csi = {0};
 #endif
 #if WT_BSP_TOUCH_ENABLED
 static wt_bsp_touch_obj_t s_bsp_touch = {0};
+#endif
+#if WT_BSP_USB_DEVICE_CDC_ENABLED
+static wt_bsp_usb_device_cdc_obj_t s_bsp_usb_device_cdc = {0};
 #endif
 
 /* ==================== [Macros] ============================================ */
@@ -493,6 +499,17 @@ static esp_err_t board_init(void)
     }
 #endif
 #endif
+#if WT_BSP_USB_DEVICE_CDC_ENABLED
+    ret = wt_bsp_usb_device_cdc_init(&s_bsp_usb_device_cdc, &(wt_bsp_usb_device_cdc_info_t) {
+        .port = 0,
+    });
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "USB Device CDC initialization failed: %s", esp_err_to_name(ret));
+        s_board_is_init = true;
+        board_deinit();
+        return ret;
+    }
+#endif
     s_board_is_init = true;
 
     return ESP_OK;
@@ -505,6 +522,13 @@ static esp_err_t board_deinit(void)
         ESP_LOGW(TAG, "Board is not initialized");
         return ESP_OK;
     }
+
+#if WT_BSP_USB_DEVICE_CDC_ENABLED
+    ret = wt_bsp_usb_device_cdc_deinit(&s_bsp_usb_device_cdc);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinitialize USB Device CDC: %s", esp_err_to_name(ret));
+    }
+#endif
 
 #if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
     ret = board_usb_device_uvc_deinit();
@@ -632,6 +656,15 @@ static wt_bsp_touch_t board_get_touch(void)
 {
 #if WT_BSP_TOUCH_ENABLED
     return s_bsp_touch.is_initialized ? &s_bsp_touch : NULL;
+#else
+    return NULL;
+#endif
+}
+
+static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void)
+{
+#if WT_BSP_USB_DEVICE_CDC_ENABLED
+    return s_board_is_init && s_bsp_usb_device_cdc.is_initialized ? &s_bsp_usb_device_cdc : NULL;
 #else
     return NULL;
 #endif

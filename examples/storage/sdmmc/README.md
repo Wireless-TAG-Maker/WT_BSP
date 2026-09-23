@@ -1,5 +1,5 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
+| ----------------- | ------------- | ---------------- | ------------- |
 
 # SDMMC Example
 
@@ -74,3 +74,13 @@ I (424) sdmmc_example: Example finished successfully
 
 * If mounting fails, check that the SD card is inserted correctly and formatted as FAT/FAT32.
 * Check the board-specific SD card power and pin connections.
+
+## WT9932S31-TINY
+
+With ESP-IDF v6.1 or later, run from the repository root:
+
+```shell
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/storage/sdmmc build
+```
+
+The socket uses slot 0, a four-bit bus and LDO 1. BSP initialization only prepares resources; the example mounts the card and writes test files. Use a card without important data.

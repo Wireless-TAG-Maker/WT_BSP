@@ -1,0 +1,24 @@
+menu "S31 factory"
+    config WT_FACTORY_ENABLE_SD_RECORDING
+        bool "Enable SD card recording"
+        default n
+        help
+            Save camera frames as MJPEG AVI files when J1 is not enumerated.
+            SW2 pauses/resumes recording. Continuous recording writes large
+            amounts of data and consumes SD card capacity and write endurance.
+
+            When disabled, keep camera capture and SD health checks running
+            without creating recording directories or writing video files.
+            SW2 only logs button events. UVC, CDC and reading existing recordings
+            remain available in USB mode.
+
+    config WT_FACTORY_SEGMENT_SECONDS
+        int "Maximum recording segment duration (seconds)"
+        depends on WT_FACTORY_ENABLE_SD_RECORDING
+        range 1 300
+        default 60
+        help
+            Finalize the AVI and start a new file at this duration or 64 MiB.
+            Pausing or switching to USB mode also finalizes the current file.
+            A power interruption may leave the current .avi.part incomplete.
+endmenu

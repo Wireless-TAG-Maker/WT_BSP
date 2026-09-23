@@ -55,6 +55,76 @@ git diff --check
 
 不要提交 `build/`、`examples/**/build*`、`examples/**/sdkconfig`、`managed_components/`、`dependencies.lock`、IDE 配置和系统临时文件。
 
+### 较大改动提交前的本地 CI 确认
+
+- 较大改动包括公共 API、公共实现、CMake/Kconfig、依赖版本、CI 构建逻辑，以及影响多个示例或板卡的修改。
+- 这类改动准备执行 `git commit` 时，先询问用户："本次改动影响多个构建组合，是否先在 /tmp 副本中运行全量本地 CI，全部通过后再提交？" 收到答复后再执行相应流程；本轮已明确同意运行或跳过时，沿用该决定，不重复询问。
+- 用户选择运行时，使用下面的方法覆盖完整矩阵，全部成功后再提交。任一组合失败时先修复；每次修改构建相关代码或配置后，重新创建快照并从头验证所有组合。
+- 用户选择跳过时，仍执行相关基础检查，并在提交结果中明确说明未运行全量本地 CI。纯文档修改不按较大改动处理。
+
+### 在 /tmp 副本中运行 CI 构建脚本
+
+直接运行 `.github/scripts/build_examples.py`，复用 `.github/workflows/examples.yml` 的矩阵和构建入口，无需启动 GitHub、Docker 或 act。此方法验证构建脚本，不等同于验证 GitHub 事件触发或云端 SDK 安装。
+
+先在同一终端执行一次 `get_idf`；若无此命令，使用实际 SDK 路径的 `export.sh`。SDK 版本应与工作流一致，当前为 ESP-IDF v6.1。这里的“离线本地触发”指不依赖 GitHub 服务；完全断网构建需要事先准备好 SDK、工具链及组件依赖缓存，首次依赖解析或下载仍可能需要联网。
+
+从仓库根目录运行以下命令。快照包含工作区中已跟踪文件的当前内容和未被 Git 忽略的新文件，因此可验证尚未 commit 的修改；被忽略的构建产物不会复制。每个组合使用独立副本，避免选板配置、依赖锁文件和旧构建目录相互影响。
+
+```bash
+python - <<'PY'
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+root = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
+idf = Path(os.environ["IDF_PATH"]) / "tools/idf.py"
+subprocess.run([sys.executable, str(idf), "--version"], check=True)
+run_dir = Path(tempfile.mkdtemp(prefix="wt-bsp-ci-", dir="/tmp"))
+snapshot = run_dir / "source"
+snapshot.mkdir()
+names = subprocess.check_output(
+    ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=root
+).decode().split("\0")
+for name in sorted(set(names) - {""}):
+    source = root / name
+    if source.is_file():
+        target = snapshot / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+script = Path(".github/scripts/build_examples.py")
+matrix = json.loads(subprocess.check_output(
+    [sys.executable, "-B", str(snapshot / script), "--matrix"], text=True
+))["include"]
+(run_dir / "matrix.json").write_text(json.dumps(matrix, indent=2) + "\n")
+print(f"CI directory: {run_dir}; combinations: {len(matrix)}", flush=True)
+failed = []
+for index, case in enumerate(matrix, 1):
+    work = run_dir / f"case-{index:02d}"
+    shutil.copytree(snapshot, work)
+    label = f"{case['example']} / {case['board'] or case['target']}"
+    log = run_dir / f"case-{index:02d}.log"
+    print(f"[{index}/{len(matrix)}] {label}; log: {log}", flush=True)
+    with log.open("w") as output:
+        result = subprocess.run(
+            [sys.executable, "-B", str(work / script), "--example", case["example"],
+             "--board", case["board"], "--target", case["target"]],
+            cwd=work, stdout=output, stderr=subprocess.STDOUT,
+        )
+    if result.returncode:
+        failed.append(label)
+    print("FAIL" if result.returncode else "PASS", flush=True)
+print(f"Passed: {len(matrix) - len(failed)}/{len(matrix)}; failed: {failed}")
+raise SystemExit(1 if failed else 0)
+PY
+```
+
+以脚本生成的完整矩阵为准，不硬编码组合数量。所有组合退出码均为 0 才算通过；单个失败后继续记录其余组合。报告通过数、失败组合和 `/tmp` 日志目录，并确认待提交源码仍与验证快照一致。
+
 ## 架构约束
 
 - 应用层只能通过 `#include "wt_bsp.h"` 使用 BSP，不直接 include `boards/<BOARD>/board.h` 或 `board_config.h`。
