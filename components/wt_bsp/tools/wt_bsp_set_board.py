@@ -11,6 +11,11 @@ from typing import Optional
 ANSI_GREEN = "\033[32m"
 ANSI_RESET = "\033[0m"
 
+# Chip revision variants reuse the base board's peripheral implementation.
+BOARD_VARIANTS = {
+    "WT9932P4X-TINY": "WT9932P4-TINY",
+}
+
 
 class BspBoardError(Exception):
     pass
@@ -66,7 +71,17 @@ def discover_boards(repo_root):
     if not boards:
         raise BspBoardError("No WT_BSP boards found in {}".format(boards_dir))
 
-    return boards
+    for name, base_name in BOARD_VARIANTS.items():
+        base = boards.get(base_name)
+        if base is not None:
+            boards[name] = Board(
+                name=name,
+                target=base.target,
+                file_id=normalize_board_name(name),
+                config=base.config,
+            )
+
+    return dict(sorted(boards.items()))
 
 
 def find_board(boards, board_name):

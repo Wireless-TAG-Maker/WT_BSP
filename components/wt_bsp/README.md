@@ -243,7 +243,8 @@ S31 使用 ESP-IDF v6.1 及以上版本，v6.1 的选板和构建命令需加 `-
 ### WT9932P4X-TINY
 
 P4X 对应 ESP32-P4 v3.x，原 WT9932P4-TINY 对应 v1.x。两者使用相同外设和引脚，
-共用原板目录中的 `board_common.c`；每款板卡保留自己的入口、板名和选板配置。
+P4X 作为选板工具中的配置变体，直接复用原 P4 的板级实现和 Kconfig 选择。
+运行时 BSP 板名仍为 `WT9932P4-TINY`，芯片版本由独立 sdkconfig 区分。
 所有支持原 P4 的示例均提供 `sdkconfig.wt9932p4x_tiny`，包括原 P4 工厂示例。
 `idf.py set-board` 会切换芯片版本及默认 CPU 频率；重新构建、烧录后才生效。
 详见[P4X 板卡说明](boards/WT9932P4X-TINY/README.md)。

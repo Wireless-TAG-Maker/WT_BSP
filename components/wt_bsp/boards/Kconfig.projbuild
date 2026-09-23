@@ -6,12 +6,11 @@ rsource "WT9932C5-TINY/Kconfig.projbuild"
 rsource "WT9932C61-TINY/Kconfig.projbuild"
 rsource "WT9932P4-TINY/Kconfig.projbuild"
 rsource "WT9932P4C61-TINY/Kconfig.projbuild"
-rsource "WT9932P4X-TINY/Kconfig.projbuild"
 rsource "WT9932S31-TINY/Kconfig.projbuild"
 
 config WT_BSP_ENABLE_USB_DEVICE_UVC
     bool "Enable USB Device UVC"
-    depends on WT_BSP_BOARD_WT9932P4_TINY || WT_BSP_BOARD_WT9932P4C61_TINY || WT_BSP_BOARD_WT9932P4X_TINY || WT_BSP_BOARD_WT9932S31_TINY
+    depends on WT_BSP_BOARD_WT9932P4_TINY || WT_BSP_BOARD_WT9932P4C61_TINY || WT_BSP_BOARD_WT9932S31_TINY
     select WT_BSP_ENABLE_CSI if IDF_TARGET_ESP32P4
     select WT_BSP_ENABLE_RGB if IDF_TARGET_ESP32P4
     default n

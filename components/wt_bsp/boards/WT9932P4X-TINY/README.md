@@ -47,9 +47,9 @@ WT_BSP_BOARD=WT9932P4X-TINY idf.py -C examples/wt_factory/wt9932p4-tiny build
 用于 UVC 或 CDC；屏幕、SC2336 CSI 摄像头、触摸、SD、RGB 与按键的接线和
 操作方式沿用 WT9932P4-TINY。应用仍只包含 `wt_bsp.h`。
 
-## 共享实现
+## 配置变体
 
-两款板卡分别提供 `board_get_bsp_interface()` 和板名，共用
-`WT9932P4-TINY/board_common.c` 的引脚、对象和资源生命周期；P4X 的能力声明
-复用原板 `board_config.h`。构建时只链接所选板卡入口与一份共享实现。
-`WT9932P4C61-TINY` 保持其现有独立适配。
+`WT9932P4X-TINY` 是选板工具中的芯片版本变体，使用独立的
+`sdkconfig.wt9932p4x_tiny`，底层仍选择 `CONFIG_WT_BSP_BOARD_WT9932P4_TINY`。
+板级 C/H、Kconfig 和 CMake 直接沿用原 P4 实现，`wt_bsp_board_get_name()`
+仍返回 `WT9932P4-TINY`。固件对应的芯片版本由独立 sdkconfig 区分。
