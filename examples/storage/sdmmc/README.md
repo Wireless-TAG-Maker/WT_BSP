@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932S31-TINY |
-| ----------------- | ------------- | ---------------- | ------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY | WT9932S31-TINY |
+| --- | --- | --- | --- | --- |
 
 # SDMMC Example
+
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
 
 This example uses the Wireless-Tag BSP SDMMC interface to mount a MicroSD card and performs basic file write, rename, and read operations with standard C/POSIX APIs.
 
@@ -15,6 +17,8 @@ This example uses the Wireless-Tag BSP SDMMC interface to mount a MicroSD card a
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 1: WT9932P4C61-TINY (esp32p4)
+2: WT9932P4X-TINY (esp32p4)
+3: WT9932S31-TINY (esp32s31)
 
 Please select the target board by entering the corresponding number.
 Enter board number:
@@ -49,6 +53,7 @@ After modifying the code, run `idf.py build` again to compile.
 Currently supported development boards:
 
 * **WT9932P4-TINY**.
+* **WT9932P4X-TINY**.
 * **WT9932P4C61-TINY**.
 
 Insert a FAT-formatted MicroSD card before running the example. On WT9932P4 hardware, make sure the SD card power configuration required by the board is connected correctly.

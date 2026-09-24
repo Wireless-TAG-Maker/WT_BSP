@@ -11,6 +11,11 @@ from typing import Optional
 ANSI_GREEN = "\033[32m"
 ANSI_RESET = "\033[0m"
 
+# Chip revision variants reuse the base board's peripheral implementation.
+BOARD_VARIANTS = {
+    "WT9932P4X-TINY": "WT9932P4-TINY",
+}
+
 
 class BspBoardError(Exception):
     pass
@@ -66,7 +71,17 @@ def discover_boards(repo_root):
     if not boards:
         raise BspBoardError("No WT_BSP boards found in {}".format(boards_dir))
 
-    return boards
+    for name, base_name in BOARD_VARIANTS.items():
+        base = boards.get(base_name)
+        if base is not None:
+            boards[name] = Board(
+                name=name,
+                target=base.target,
+                file_id=normalize_board_name(name),
+                config=base.config,
+            )
+
+    return dict(sorted(boards.items()))
 
 
 def find_board(boards, board_name):
@@ -120,13 +135,19 @@ def _is_generated_config_line(line):
     )
 
 
-def _is_board_hardware_config_line(line):
+def _is_board_hardware_config_line(line, target):
     stripped = line.strip()
     return (
         stripped.startswith("CONFIG_ESP32P4_SELECTS_REV_LESS_V3")
         or stripped.startswith("# CONFIG_ESP32P4_SELECTS_REV_LESS_V3")
         or stripped.startswith("CONFIG_ESP32P4_REV_MIN_")
         or stripped.startswith("# CONFIG_ESP32P4_REV_MIN_")
+        # 400 MHz remains a valid Kconfig choice on v1.x, so stale v3.x
+        # settings would override the legacy board's 360 MHz defaults.
+        or (target == "esp32p4" and (
+            stripped.startswith("CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ")
+            or stripped.startswith("# CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ")
+        ))
     )
 
 
@@ -134,11 +155,11 @@ def _filtered_defaults_lines(lines):
     return [line.rstrip("\n") for line in lines if not _is_generated_config_line(line)]
 
 
-def _filtered_active_sdkconfig_lines(lines):
+def _filtered_active_sdkconfig_lines(lines, target):
     return [
         line.rstrip("\n")
         for line in lines
-        if not _is_generated_config_line(line) and not _is_board_hardware_config_line(line)
+        if not _is_generated_config_line(line) and not _is_board_hardware_config_line(line, target)
     ]
 
 
@@ -267,7 +288,7 @@ def sync_project_sdkconfig_target(project_path, target, sdkconfig_path=None, cre
         sdkconfig.with_name("sdkconfig.old").write_text(text, encoding="utf-8")
         lines = []
     else:
-        lines = _filtered_active_sdkconfig_lines(text.splitlines())
+        lines = _filtered_active_sdkconfig_lines(text.splitlines(), target)
 
     while lines and not lines[-1].strip():
         lines.pop()

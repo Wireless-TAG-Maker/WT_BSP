@@ -1,10 +1,13 @@
 # USB Device CDC 回显
 
+WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设接线相同，固件不能混用。请在 `idf.py set-board` 中选择实际板型，详见[版本与构建说明](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
+
 本示例通过 BSP 提供 USB CDC ACM 串口回显，支持 ESP32-P4 和 ESP32-S31 板卡。
 
 | 开发板 | ESP-IDF | 烧录 / 日志接口 | CDC 回显接口 |
 | --- | --- | --- | --- |
 | WT9932P4-TINY | v6.0.0 及以上 | FUSB | HUSB（High-Speed USB OTG） |
+| WT9932P4X-TINY | v6.0.0 及以上 | FUSB | HUSB（High-Speed USB OTG） |
 | WT9932P4C61-TINY | v6.0.0 及以上 | FUSB | HUSB（High-Speed USB OTG） |
 | WT9932S31-TINY | v6.1 及以上 | J2 | J1（High-Speed USB OTG） |
 
@@ -14,6 +17,7 @@ WT9932P4C61-TINY 的本示例运行在 ESP32-P4 上。
 
 ```sh
 WT_BSP_BOARD=WT9932P4-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4 build
+WT_BSP_BOARD=WT9932P4X-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4x build
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py -C examples/usb/device_cdc -B build-cdc-p4c61 build
 WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/usb/device_cdc build
 ```

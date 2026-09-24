@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY |
-| ----------------- | ------------- | ---------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4C61-TINY | WT9932P4X-TINY |
+| --- | --- | --- | --- |
 
 # CSI 摄像头示例
+
+WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设接线相同，固件不能混用。请在 `idf.py set-board` 中选择实际板型，详见[版本与构建说明](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md)。
 
 本示例演示如何使用 Wireless-Tag BSP 提供的 MIPI CSI 接口采集摄像头画面，并通过 PPA 硬件加速实时显示到 MIPI DSI 液晶屏上。
 
@@ -15,6 +17,7 @@
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
 1: WT9932P4C61-TINY (esp32p4)
+2: WT9932P4X-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
 Enter board number:
@@ -49,6 +52,7 @@ Executing "ninja all"...
 目前支持的开发板：
 
 * **WT9932P4-TINY**，配套 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头。
+* **WT9932P4X-TINY**，配套 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头。
 * **WT9932P4C61-TINY**，配套 MIPI DSI 屏幕和 SC2336 MIPI CSI 摄像头。
 
 请确保 MIPI DSI 屏幕和 MIPI CSI 摄像头已正确连接。该硬件中 IO0 连接到摄像头 PWDN/LDO/RESET 控制路径，BSP 会在检测摄像头前自动将 IO0 拉高。

@@ -1,7 +1,9 @@
-| Supported Targets | WT9932P4-TINY |
-| ----------------- | ------------- |
+| Supported Targets | WT9932P4-TINY | WT9932P4X-TINY |
+| --- | --- | --- |
 
 # Comprehensive Factory Test Example (Factory Firmware)
+
+WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share peripheral wiring but require different firmware. Select the actual board with `idf.py set-board`; see the [revision and build notes](../../../components/wt_bsp/boards/WT9932P4X-TINY/README.md).
 
 This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI display, MIPI CSI camera, touch, SD card, and RGB LED control.
 
@@ -14,6 +16,7 @@ This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI
 ...
 Supported boards in this example:
 0: WT9932P4-TINY (esp32p4)
+1: WT9932P4X-TINY (esp32p4)
 
 Please select the target board by entering the corresponding number.
 Enter board number:

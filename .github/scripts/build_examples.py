@@ -70,8 +70,9 @@ def build_example(case):
     if 'CONFIG_IDF_TARGET="{}"'.format(case["target"]) not in config.splitlines():
         raise ValueError("Built target does not match {}".format(case["target"]))
     if case["board"]:
-        selected = re.findall(r"^CONFIG_WT_BSP_BOARD_(WT\w+)=y$", config, re.MULTILINE)
-        if selected != [case["board"].replace("-", "_")]:
+        board = discover_boards(ROOT)[case["board"]]
+        selected = re.findall(r"^(CONFIG_WT_BSP_BOARD_WT\w+)=y$", config, re.MULTILINE)
+        if selected != [board.config]:
             raise ValueError("Built board does not match {}".format(case["board"]))
     if not any(path.stat().st_size for path in (project / "build").glob("*.bin")):
         raise ValueError("No application binary generated")
