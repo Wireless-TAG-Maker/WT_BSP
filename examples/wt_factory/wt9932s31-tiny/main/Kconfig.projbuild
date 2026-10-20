@@ -4,13 +4,14 @@ menu "S31 factory"
         default n
         help
             Save camera frames as MJPEG AVI files when J1 is not enumerated.
-            SW2 pauses/resumes recording. Continuous recording writes large
-            amounts of data and consumes SD card capacity and write endurance.
+            SW2 pauses/resumes recording and toggles the RGB LED on/off.
+            Continuous recording writes large amounts of data and consumes
+            SD card capacity and write endurance.
 
             When disabled, keep camera capture and SD health checks running
             without creating recording directories or writing video files.
-            SW2 only logs button events. UVC, CDC and reading existing recordings
-            remain available in USB mode.
+            SW2 toggles the RGB LED on/off. UVC, CDC and reading existing
+            recordings remain available in USB mode.
 
     config WT_FACTORY_SEGMENT_SECONDS
         int "Maximum recording segment duration (seconds)"

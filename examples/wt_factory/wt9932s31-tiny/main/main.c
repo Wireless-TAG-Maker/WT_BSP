@@ -37,6 +37,10 @@
 #define FACTORY_SEGMENT_US ((int64_t)CONFIG_WT_FACTORY_SEGMENT_SECONDS * 1000000)
 #endif
 #define FACTORY_LED_LEVEL 24
+#define FACTORY_LED_RED (1U << 0)
+#define FACTORY_LED_GREEN (1U << 1)
+#define FACTORY_LED_BLUE (1U << 2)
+#define FACTORY_LED_ALL (FACTORY_LED_RED | FACTORY_LED_GREEN | FACTORY_LED_BLUE)
 
 /* ==================== [Typedefs] ========================================== */
 
@@ -57,6 +61,7 @@ typedef struct {
 #endif
     bool controls_ok;
     bool mounted;
+    bool led_off;
     int led;
 } factory_t;
 
@@ -116,7 +121,8 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "J1 enumeration selects UVC+CDC; SD recording %s",
              factory->status.recording_enabled ? "enabled; SW2 toggles recording" : "disabled in menuconfig");
-    ESP_LOGI(TAG, "LED: green=healthy, blue=paused, red=error; directory=%s", factory->directory);
+    ESP_LOGI(TAG, "LED: green=healthy, red=SD error, blue=camera error, yellow=both errors, white=control error");
+    ESP_LOGI(TAG, "SW2 toggles LED output in every mode; directory=%s", factory->directory);
 
     int64_t next_probe = 0;
     int64_t next_card_check = 0;
@@ -134,19 +140,24 @@ void app_main(void)
         }
         uint32_t presses = ulTaskNotifyTake(pdTRUE, 0);
         if (presses != 0) {
-            if (!factory->status.recording_enabled) {
-                ESP_LOGI(TAG, "SW2 pressed (%" PRIu32 " press events); SD recording disabled", presses);
-            } else if (!usb) {
-                if (presses & 1U) {
-                    factory->status.paused = !factory->status.paused;
+            if (presses & 1U) {
+                factory->led_off = !factory->led_off;
+            }
+            ESP_LOGI(TAG, "SW2 pressed (%" PRIu32 " press events); LED output %s", presses,
+                     factory->led_off ? "disabled" : "enabled");
+            if (factory->status.recording_enabled) {
+                if (!usb) {
+                    if (presses & 1U) {
+                        factory->status.paused = !factory->status.paused;
+                    }
+                    if (factory->status.paused) {
+                        factory_close_segment(factory);
+                    }
+                    ESP_LOGI(TAG, "Recording %s (%" PRIu32 " press events)",
+                             factory->status.paused ? "paused" : "resumed", presses);
+                } else {
+                    ESP_LOGI(TAG, "Offline recording pause state preserved in USB mode");
                 }
-                if (factory->status.paused) {
-                    factory_close_segment(factory);
-                }
-                ESP_LOGI(TAG, "Recording %s (%" PRIu32 " press events)",
-                         factory->status.paused ? "paused" : "resumed", presses);
-            } else {
-                ESP_LOGI(TAG, "SW2 ignored in USB mode; offline pause state preserved");
             }
         }
 
@@ -333,20 +344,33 @@ static void factory_publish_status(factory_t *factory)
     factory->status.camera_ok = ret == ESP_OK && camera.ready && camera.last_error == ESP_OK;
     factory->status.free_internal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     factory->status.free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    int led = !factory->controls_ok || !factory->status.sd_ok || !factory->status.camera_ok ? 0 :
-              (!factory->status.usb && factory->status.paused ? 2 : 1);
+    int led = FACTORY_LED_GREEN;
+    if (!factory->status.sd_ok && !factory->status.camera_ok) {
+        led = FACTORY_LED_RED | FACTORY_LED_GREEN;
+    } else if (!factory->status.sd_ok) {
+        led = FACTORY_LED_RED;
+    } else if (!factory->status.camera_ok) {
+        led = FACTORY_LED_BLUE;
+    } else if (!factory->controls_ok) {
+        led = FACTORY_LED_ALL;
+    }
+    if (factory->led_off) {
+        led = 0;
+    }
     if (led != factory->led) {
         wt_bsp_rgb_color_t color = {
-            .r = led == 0 ? FACTORY_LED_LEVEL : 0,
-            .g = led == 1 ? FACTORY_LED_LEVEL : 0,
-            .b = led == 2 ? FACTORY_LED_LEVEL : 0,
+            .r = (led & FACTORY_LED_RED) ? FACTORY_LED_LEVEL : 0,
+            .g = (led & FACTORY_LED_GREEN) ? FACTORY_LED_LEVEL : 0,
+            .b = (led & FACTORY_LED_BLUE) ? FACTORY_LED_LEVEL : 0,
         };
         ret = wt_bsp_rgb_set_color(factory->rgb, color);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "RGB update failed: %s", esp_err_to_name(ret));
         } else {
             factory->led = led;
-            ESP_LOGI(TAG, "LED -> %s", led == 0 ? "red" : led == 1 ? "green" : "blue");
+            ESP_LOGI(TAG, "LED -> R=%u G=%u B=%u (off=%d)",
+                     (unsigned int)color.r, (unsigned int)color.g, (unsigned int)color.b,
+                     factory->led_off);
         }
     }
     xQueueOverwrite(factory->status_queue, &factory->status);
