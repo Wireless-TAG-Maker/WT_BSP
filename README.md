@@ -81,8 +81,19 @@ WT9932P4-TINY, WT9932P4X-TINY, WT9932P4C61-TINY, and WT9932S31-TINY through thei
 The [S31 factory example](examples/wt_factory/wt9932s31-tiny/README.md) checks the
 camera and SD card offline and exposes UVC + CDC when J1 enumerates on a host.
 SD recording is disabled by default; enable it in `S31 factory` in menuconfig
-to record MJPEG AVI offline and use SW2 to pause/resume. RGB shows healthy (green),
-paused (blue), or error (red).
+to record MJPEG AVI offline; SW2 also pauses/resumes recording in offline mode.
+Base RGB colors are green for healthy hardware, red for an SD fault, blue for a
+camera fault, yellow for both faults, and white when only button callback
+registration or CDC console startup fails while the SD card and camera are
+healthy. The LED starts on; each SW2/BOOT press
+toggles it off/on. Turning it back on displays the latest hardware status color.
+An LED switched off by BOOT does not indicate healthy hardware.
+This also works in USB mode and with recording disabled; reset turns the LED on.
+Pausing no longer has a separate blue indication; check
+the pause and file-finalization logs before powering off to remove the card.
+See the [RGB indicator reference](examples/wt_factory/wt9932s31-tiny/README.md#rgb-指示灯).
+The GC2145 firmware with recording disabled was flashed on 2026-10-20, and the user
+confirmed the changes work as expected; see the example's test records for details.
 
 ## ⚙️ How it Works
 
