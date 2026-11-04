@@ -1,12 +1,20 @@
+config WT_BSP_BOARD_SELECTED_BY_TOOL  # ignore: multiple-definition
+    bool
+
 orsource "$WT_BSP_BOARD_KCONFIG"
 
-rsource "WT9932C2-TINY/Kconfig.projbuild"
-rsource "WT9932C3-TINY/Kconfig.projbuild"
-rsource "WT9932C5-TINY/Kconfig.projbuild"
-rsource "WT9932C61-TINY/Kconfig.projbuild"
-rsource "WT9932P4-TINY/Kconfig.projbuild"
-rsource "WT9932P4C61-TINY/Kconfig.projbuild"
-rsource "WT9932S31-TINY/Kconfig.projbuild"
+choice WT_BSP_BOARD  # ignore: multiple-definition
+    prompt "Wireless-Tag board"
+    help
+        Select the board matching the configured ESP-IDF target. Projects
+        can set this choice in sdkconfig.defaults without the set-board tool.
+endchoice
+
+# Each board contributes its own choice member, defaults and target dependency.
+rsource "*/Kconfig.projbuild"
+
+# Additional board settings stay outside the board-selection choice.
+orsource "*/Kconfig.options"
 
 config WT_BSP_ENABLE_USB_DEVICE_UVC
     bool "Enable USB Device UVC"

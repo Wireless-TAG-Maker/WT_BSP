@@ -1,12 +1,18 @@
-config WT_BSP_BOARD_WT9932P4C61_TINY
+config WT_BSP_SELECTED_BOARD_WT9932P4C61_TINY  # ignore: multiple-definition
     bool
-    depends on IDF_TARGET_ESP32P4
-    default y if WT_BSP_SELECTED_BOARD_WT9932P4C61_TINY
-    select WT_BSP_BOARD_HAS_BOARD
-    select WT_BSP_BOARD_HAS_BUTTON
-    select WT_BSP_BOARD_HAS_RGB
-    select WT_BSP_BOARD_HAS_SDMMC
-    select WT_BSP_BOARD_HAS_DSI
-    select WT_BSP_BOARD_HAS_CSI
-    select WT_BSP_BOARD_HAS_TOUCH
-    select WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+
+choice WT_BSP_BOARD  # ignore: multiple-definition
+    default WT_BSP_BOARD_WT9932P4C61_TINY if WT_BSP_SELECTED_BOARD_WT9932P4C61_TINY
+
+    config WT_BSP_BOARD_WT9932P4C61_TINY
+        bool "WT9932P4C61-TINY"
+        depends on IDF_TARGET_ESP32P4
+        select WT_BSP_BOARD_HAS_BOARD
+        select WT_BSP_BOARD_HAS_BUTTON
+        select WT_BSP_BOARD_HAS_RGB
+        select WT_BSP_BOARD_HAS_SDMMC
+        select WT_BSP_BOARD_HAS_DSI
+        select WT_BSP_BOARD_HAS_CSI
+        select WT_BSP_BOARD_HAS_TOUCH
+        select WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+endchoice
