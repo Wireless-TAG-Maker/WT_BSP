@@ -5,3 +5,9 @@ config WT_BSP_ENABLE_TOUCH
     bool "Enable touch BSP"
     depends on WT_BSP_BOARD_HAS_TOUCH
     default y
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_TOUCH
+    string
+    default "y" if WT_BSP_ENABLE_TOUCH
+    default "n"

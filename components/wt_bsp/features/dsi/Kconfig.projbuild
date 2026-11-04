@@ -5,3 +5,9 @@ config WT_BSP_ENABLE_DSI
     bool "Enable DSI display BSP"
     depends on WT_BSP_BOARD_HAS_DSI
     default y
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_DSI
+    string
+    default "y" if WT_BSP_ENABLE_DSI
+    default "n"

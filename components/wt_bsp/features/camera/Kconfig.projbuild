@@ -10,3 +10,9 @@ config WT_BSP_ENABLE_CAMERA
         is not using the camera. Camera hardware is prepared explicitly by
         the application, allowing the RGB and USB interfaces to report a
         missing camera without tearing down the rest of the board.
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_CAMERA
+    string
+    default "y" if WT_BSP_ENABLE_CAMERA
+    default "n"
