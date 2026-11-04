@@ -1,7 +1,7 @@
 /**
  * @file wt_bsp_camera.c
  * @author Wireless-Tag
- * @brief Public access to a board's serialized JPEG capture adapter.
+ * @brief Reusable JPEG camera lifecycle and public capture API.
  * @version 0.1
  * @date 2026-09-20
  *
@@ -13,6 +13,8 @@
 #include "wt_bsp_camera_port.h"
 
 #if WT_BSP_CAMERA_ENABLED
+
+#include "interface/wt_bsp_camera_interface.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -29,12 +31,26 @@ static const char *TAG = "wt_bsp_camera";
 
 esp_err_t wt_bsp_camera_init(wt_bsp_camera_t camera, const wt_bsp_camera_info_t *info)
 {
-    if (camera == NULL || info == NULL || info->prepare == NULL ||
-            info->capture == NULL || info->get_status == NULL) {
-        ESP_LOGE(TAG, "Invalid camera adapter");
+    esp_err_t ret = ESP_OK;
+
+    if (camera == NULL || info == NULL || info->sensor_name == NULL ||
+            info->sensor_name[0] == '\0' || info->format.width == 0 ||
+            info->format.height == 0 || info->format.fps == 0) {
+        ESP_LOGE(TAG, "Invalid camera configuration");
         return ESP_ERR_INVALID_ARG;
     }
+    if (camera->is_initialized) {
+        ESP_LOGW(TAG, "Camera is already initialized");
+        return ESP_OK;
+    }
+
+    memset(camera, 0, sizeof(*camera));
     camera->info = *info;
+    ret = wt_bsp_camera_interface_init(camera, &camera->ops);
+    if (ret != ESP_OK) {
+        memset(camera, 0, sizeof(*camera));
+        return ret;
+    }
     camera->is_initialized = true;
     return ESP_OK;
 }
@@ -45,8 +61,14 @@ esp_err_t wt_bsp_camera_deinit(wt_bsp_camera_t camera)
         ESP_LOGE(TAG, "Camera is NULL");
         return ESP_ERR_INVALID_ARG;
     }
-    memset(camera, 0, sizeof(*camera));
-    return ESP_OK;
+    if (!camera->is_initialized) {
+        return ESP_OK;
+    }
+    esp_err_t ret = camera->ops->deinit(camera);
+    if (ret == ESP_OK) {
+        memset(camera, 0, sizeof(*camera));
+    }
+    return ret;
 }
 
 esp_err_t wt_bsp_camera_prepare(wt_bsp_camera_t camera, wt_bsp_camera_format_t *format)
@@ -55,7 +77,7 @@ esp_err_t wt_bsp_camera_prepare(wt_bsp_camera_t camera, wt_bsp_camera_format_t *
         ESP_LOGE(TAG, "Invalid camera prepare arguments");
         return ESP_ERR_INVALID_ARG;
     }
-    return camera->is_initialized ? camera->info.prepare(format) : ESP_ERR_INVALID_STATE;
+    return camera->is_initialized ? camera->ops->prepare(camera, format) : ESP_ERR_INVALID_STATE;
 }
 
 esp_err_t wt_bsp_camera_capture(wt_bsp_camera_t camera, wt_bsp_camera_frame_cb_t callback,
@@ -65,7 +87,7 @@ esp_err_t wt_bsp_camera_capture(wt_bsp_camera_t camera, wt_bsp_camera_frame_cb_t
         ESP_LOGE(TAG, "Invalid camera capture arguments");
         return ESP_ERR_INVALID_ARG;
     }
-    return camera->is_initialized ? camera->info.capture(callback, user_data) : ESP_ERR_INVALID_STATE;
+    return camera->is_initialized ? camera->ops->capture(camera, callback, user_data) : ESP_ERR_INVALID_STATE;
 }
 
 esp_err_t wt_bsp_camera_get_status(wt_bsp_camera_t camera, wt_bsp_camera_status_t *status)
@@ -74,7 +96,7 @@ esp_err_t wt_bsp_camera_get_status(wt_bsp_camera_t camera, wt_bsp_camera_status_
         ESP_LOGE(TAG, "Invalid camera status arguments");
         return ESP_ERR_INVALID_ARG;
     }
-    return camera->is_initialized ? camera->info.get_status(status) : ESP_ERR_INVALID_STATE;
+    return camera->is_initialized ? camera->ops->get_status(camera, status) : ESP_ERR_INVALID_STATE;
 }
 
 /* ==================== [Static Functions] ================================== */

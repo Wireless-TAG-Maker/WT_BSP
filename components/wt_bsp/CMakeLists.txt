@@ -23,6 +23,7 @@ list(REMOVE_DUPLICATES WT_BSP_FEATURE_INCLUDE_DIRS)
 list(REMOVE_DUPLICATES WT_BSP_FEATURE_REQUIRES)
 list(REMOVE_DUPLICATES WT_BSP_FEATURE_PRIV_REQUIRES)
 list(REMOVE_DUPLICATES WT_BSP_BOARD_PRIV_REQUIRES)
+list(REMOVE_DUPLICATES WT_BSP_FEATURE_LINK_OPTIONS)
 
 idf_component_register(SRCS
                         ${WT_BSP_BASE_SRCS}
@@ -37,8 +38,12 @@ idf_component_register(SRCS
                             PRIV_REQUIRES ${WT_BSP_IDF_PRIV_REQUIRES}
                                           ${WT_BSP_BOARD_PRIV_REQUIRES}
                                           ${WT_BSP_FEATURE_PRIV_REQUIRES}
-
+                            LDFRAGMENTS ${WT_BSP_FEATURE_LDFRAGMENTS}
                             )
+
+if(WT_BSP_FEATURE_LINK_OPTIONS)
+    target_link_libraries(${COMPONENT_LIB} INTERFACE ${WT_BSP_FEATURE_LINK_OPTIONS})
+endif()
 
 idf_build_get_property(wt_bsp_build_components BUILD_COMPONENTS)
 

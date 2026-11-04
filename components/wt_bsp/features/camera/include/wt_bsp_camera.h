@@ -35,7 +35,7 @@ extern "C" {
 
 /** @brief A borrowed JPEG frame; data is valid only inside the capture callback. */
 typedef struct {
-    const uint8_t *data; /*!< Complete JPEG bytes, owned by the board. */
+    const uint8_t *data; /*!< Complete JPEG bytes, owned by the BSP camera feature. */
     size_t length;      /*!< JPEG length in bytes. */
     uint32_t width;     /*!< Image width in pixels. */
     uint32_t height;    /*!< Image height in pixels. */
@@ -92,7 +92,8 @@ esp_err_t wt_bsp_camera_prepare(wt_bsp_camera_t camera, wt_bsp_camera_format_t *
  *         ESP_ERR_INVALID_STATE before initialization,
  *         a hardware error, or the consumer's error code.
  * @note Capture uses the board's bounded dequeue timeout. Do not call from an ISR
- *       or concurrently with wt_bsp_deinit().
+ *       or concurrently with wt_bsp_deinit(). Serialize init/deinit with all
+ *       camera operations and stop application consumers before teardown.
  */
 esp_err_t wt_bsp_camera_capture(wt_bsp_camera_t camera, wt_bsp_camera_frame_cb_t callback,
                               void *user_data);

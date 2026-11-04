@@ -4,11 +4,16 @@ config WT_BSP_BOARD_HAS_CAMERA
 config WT_BSP_ENABLE_CAMERA
     bool "Enable JPEG camera capture"
     depends on WT_BSP_BOARD_HAS_CAMERA
+    depends on SOC_LCDCAM_CAM_SUPPORTED && SOC_JPEG_ENCODE_SUPPORTED
     default y
+    select ESP_VIDEO_ENABLE_DVP_VIDEO_DEVICE
+    select ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE
     help
         Expose board-owned JPEG frames to an application. Camera hardware
         is prepared explicitly by the application. Recording, USB streaming
         and other consumers coordinate frame use in the application layer.
+
+orsource "sensors/*/Kconfig.projbuild"
 
 # Keep a value in sdkconfig.json even when the capability hides the bool.
 config WT_BSP_DEP_CAMERA

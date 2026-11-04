@@ -37,19 +37,39 @@
 #define WT_BSP_BOARD_HAS_CAMERA 1
 
 #if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
+/** @brief Driver identifier resolved by the camera interface. */
+#define BOARD_CAMERA_SENSOR_NAME "gc2145"
 /** @brief GC2145 fixed capture width in pixels. */
 #define BOARD_CAMERA_FRAME_WIDTH 1600
 /** @brief GC2145 fixed capture height in pixels. */
 #define BOARD_CAMERA_FRAME_HEIGHT 1200
 /** @brief GC2145 nominal capture rate for the selected register configuration. */
 #define BOARD_CAMERA_FRAME_RATE 8
+/** @brief One DVP user buffer leaves room for independent JPEG snapshots in 16 MiB PSRAM. */
+#define BOARD_CAMERA_CAPTURE_BUFFER_COUNT 1
+/** @brief GC2145 encoded-frame capacity in bytes. */
+#define BOARD_CAMERA_JPEG_BUFFER_CAPACITY (BOARD_CAMERA_FRAME_WIDTH * BOARD_CAMERA_FRAME_HEIGHT)
+/** @brief Drain incomplete frames after enabling the GC2145 output. */
+#define BOARD_CAMERA_STARTUP_DISCARD_COUNT 2
+/** @brief Hardware JPEG deadline selected for UXGA capture. */
+#define BOARD_CAMERA_JPEG_ENCODE_TIMEOUT_MS CONFIG_WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
 #elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+/** @brief Driver identifier resolved by the camera interface. */
+#define BOARD_CAMERA_SENSOR_NAME "ov3660"
 /** @brief OV3660 fixed capture width in pixels. */
 #define BOARD_CAMERA_FRAME_WIDTH 640
 /** @brief OV3660 fixed capture height in pixels. */
 #define BOARD_CAMERA_FRAME_HEIGHT 480
 /** @brief OV3660 nominal capture rate for the selected register configuration. */
 #define BOARD_CAMERA_FRAME_RATE 25
+/** @brief Number of sensor-native JPEG capture buffers. */
+#define BOARD_CAMERA_CAPTURE_BUFFER_COUNT 2
+/** @brief OV3660 encoded-frame capacity in bytes. */
+#define BOARD_CAMERA_JPEG_BUFFER_CAPACITY (BOARD_CAMERA_FRAME_WIDTH * BOARD_CAMERA_FRAME_HEIGHT * 2)
+/** @brief Native JPEG does not need startup-frame draining. */
+#define BOARD_CAMERA_STARTUP_DISCARD_COUNT 0
+/** @brief Unused hardware encoder deadline for the native JPEG profile. */
+#define BOARD_CAMERA_JPEG_ENCODE_TIMEOUT_MS 200
 #endif
 
 /* ==================== [Typedefs] ========================================== */

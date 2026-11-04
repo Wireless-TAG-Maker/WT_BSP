@@ -66,19 +66,6 @@ extern "C" {
 /** @brief Get this board's static operation table; ownership stays with BSP. */
 wt_bsp_interface_t *board_get_bsp_interface(void);
 
-#if WT_BSP_CAMERA_ENABLED
-/** @brief Initialize camera adapter state without probing the sensor; return ESP_OK or ESP_ERR_NO_MEM. */
-esp_err_t board_camera_init(void);
-/** @brief Stop capture and release board-owned sensor resources; return ESP_OK or the cleanup error. */
-esp_err_t board_camera_deinit(void);
-/** @brief Prepare the sensor and return its selected JPEG format. */
-esp_err_t board_camera_prepare(wt_bsp_camera_format_t *format);
-/** @brief Synchronously consume one borrowed JPEG; applications coordinate consumers. */
-esp_err_t board_camera_capture(wt_bsp_camera_frame_cb_t callback, void *user_data);
-/** @brief Read sensor and JPEG capture health. */
-esp_err_t board_camera_get_status(wt_bsp_camera_status_t *status);
-#endif
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

@@ -1,29 +1,5 @@
 if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
-choice CAMERA_GC2145_DVP_DEFAULT_FMT  # ignore: multiple-definition
-    default CAMERA_GC2145_DVP_DEFAULT_FMT_RGB565_BE_1600X1200_13FPS
-endchoice
-
-choice CAMERA_OV3660_DVP_DEFAULT_FMT  # ignore: multiple-definition
-    default CAMERA_OV3660_DVP_DEFAULT_FMT_JPEG_640X480_25FPS
-endchoice
-
-    config WT_BSP_S31_CAMERA_SENSOR_DRIVERS
-        bool
-        default y
-        select CAMERA_GC2145
-        select CAMERA_GC2145_DVP_RGB565_BE_1600X1200_13FPS
-        select CAMERA_OV3660
-        select CAMERA_OV3660_DVP_JPEG_640X480_25FPS
-        set CAMERA_GC2145_DVP_IF_FORMAT_INDEX_DEFAULT=1
-        set CAMERA_OV3660_DVP_IF_FORMAT_INDEX_DEFAULT=7
-        help
-            Build both supported low-level drivers and formats. The project
-            registers only the sensor selected below, avoiding ambiguous
-            auto-detection because both sensors use SCCB address 0x3c.
-            GC2145 uses the full-resolution register table as a timing base;
-            the board adapter selects UYVY for independent JPEG capture.
-
     choice WT_BSP_S31_CAMERA_SENSOR
         prompt "Camera sensor"
         default WT_BSP_S31_CAMERA_SENSOR_GC2145
@@ -33,6 +9,7 @@ endchoice
 
         config WT_BSP_S31_CAMERA_SENSOR_GC2145
             bool "GC2145 / CKS-K210-GC3.1 (default)"
+            select WT_BSP_CAMERA_SENSOR_GC2145
             help
                 Use GC2145 DVP UYVY 1600x1200 at a nominal 8 fps with
                 a 20 MHz XCLK and an output-clock divider of two, derived
@@ -41,6 +18,7 @@ endchoice
 
         config WT_BSP_S31_CAMERA_SENSOR_OV3660
             bool "OV3660 (legacy supported module)"
+            select WT_BSP_CAMERA_SENSOR_OV3660
             help
                 Keep the verified OV3660 sensor-native JPEG path at 640x480
                 and 25 fps with a 20 MHz XCLK.

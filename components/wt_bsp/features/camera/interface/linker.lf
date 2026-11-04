@@ -1,0 +1,13 @@
+[sections:wt_bsp_camera_drivers]
+entries:
+    .wt_bsp_camera_drivers+
+
+[scheme:wt_bsp_camera_drivers_default]
+entries:
+    wt_bsp_camera_drivers -> flash_rodata
+
+[mapping:wt_bsp_camera_driver_registry]
+archive: *
+entries:
+    * (wt_bsp_camera_drivers_default);
+        wt_bsp_camera_drivers -> flash_rodata KEEP() ALIGN(4) SURROUND(_wt_bsp_camera_driver_array)

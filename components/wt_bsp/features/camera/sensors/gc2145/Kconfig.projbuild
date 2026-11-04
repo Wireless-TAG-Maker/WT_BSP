@@ -1,0 +1,17 @@
+config WT_BSP_CAMERA_SENSOR_GC2145
+    bool
+    depends on WT_BSP_ENABLE_CAMERA
+    select CAMERA_GC2145
+    select CAMERA_GC2145_DVP_RGB565_BE_1600X1200_13FPS
+    set CAMERA_GC2145_DVP_IF_FORMAT_INDEX_DEFAULT=1
+    help
+        Build the GC2145 driver and its UXGA base format for the reusable
+        UYVY sensor profile. The board selects wiring and operating parameters.
+
+if WT_BSP_CAMERA_SENSOR_GC2145
+
+choice CAMERA_GC2145_DVP_DEFAULT_FMT  # ignore: multiple-definition
+    default CAMERA_GC2145_DVP_DEFAULT_FMT_RGB565_BE_1600X1200_13FPS
+endchoice
+
+endif
