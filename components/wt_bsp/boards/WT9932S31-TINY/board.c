@@ -27,8 +27,9 @@ static wt_bsp_button_t board_get_button(void);
 static wt_bsp_rgb_t board_get_rgb(void);
 static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void);
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void);
 static wt_bsp_camera_t board_get_camera(void);
-#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED
+#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED || WT_BSP_CAMERA_ENABLED
 static void board_record_cleanup_error(esp_err_t ret, const char *resource, esp_err_t *result);
 #endif
 
@@ -52,6 +53,9 @@ static wt_bsp_usb_device_cdc_obj_t s_bsp_usb_device_cdc;
 #if WT_BSP_CAMERA_ENABLED
 static wt_bsp_camera_obj_t s_bsp_camera;
 #endif
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+static wt_bsp_usb_device_uvc_obj_t s_bsp_usb_device_uvc;
+#endif
 
 static wt_bsp_interface_t s_bsp_interface = {
     .init = board_init,
@@ -64,6 +68,7 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_csi = NULL,
     .get_touch = NULL,
     .get_usb_device_cdc = board_get_usb_device_cdc,
+    .get_usb_device_uvc = board_get_usb_device_uvc,
     .get_camera = board_get_camera,
 };
 
@@ -144,6 +149,10 @@ static esp_err_t board_init(void)
     }
 #endif
 #if WT_BSP_CAMERA_ENABLED
+    ret = board_camera_init();
+    if (ret != ESP_OK) {
+        goto fail;
+    }
     ret = wt_bsp_camera_init(&s_bsp_camera, &(wt_bsp_camera_info_t) {
         .prepare = board_camera_prepare,
         .capture = board_camera_capture,
@@ -154,7 +163,7 @@ static esp_err_t board_init(void)
     }
 #endif
 #if WT_BSP_USB_DEVICE_UVC_ENABLED
-    ret = board_usb_device_uvc_init();
+    ret = wt_bsp_usb_device_uvc_init(&s_bsp_usb_device_uvc);
     if (ret != ESP_OK) {
         goto fail;
     }
@@ -175,10 +184,15 @@ static esp_err_t board_deinit(void)
     /* Cleanup also accepts partially initialized objects. Keep releasing
      * independent resources when a previous cleanup reports an error. */
 #if WT_BSP_USB_DEVICE_UVC_ENABLED
-    board_record_cleanup_error(board_usb_device_uvc_deinit(), "UVC", &result);
+    board_record_cleanup_error(wt_bsp_usb_device_uvc_deinit(&s_bsp_usb_device_uvc), "UVC", &result);
+    if (result != ESP_OK) {
+        // Application callbacks may still reference any of the board's resources.
+        return result;
+    }
 #endif
 #if WT_BSP_CAMERA_ENABLED
     board_record_cleanup_error(wt_bsp_camera_deinit(&s_bsp_camera), "camera", &result);
+    board_record_cleanup_error(board_camera_deinit(), "camera hardware", &result);
 #endif
 #if WT_BSP_USB_DEVICE_CDC_ENABLED
     board_record_cleanup_error(wt_bsp_usb_device_cdc_deinit(&s_bsp_usb_device_cdc), "CDC", &result);
@@ -202,7 +216,7 @@ static esp_err_t board_deinit(void)
     return result;
 }
 
-#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED
+#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED || WT_BSP_CAMERA_ENABLED
 static void board_record_cleanup_error(esp_err_t ret, const char *resource, esp_err_t *result)
 {
     if (ret != ESP_OK) {
@@ -260,6 +274,15 @@ static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void)
 {
 #if WT_BSP_USB_DEVICE_CDC_ENABLED
     return s_board_is_init && s_bsp_usb_device_cdc.is_initialized ? &s_bsp_usb_device_cdc : NULL;
+#else
+    return NULL;
+#endif
+}
+
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void)
+{
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    return s_board_is_init && s_bsp_usb_device_uvc.is_initialized ? &s_bsp_usb_device_uvc : NULL;
 #else
     return NULL;
 #endif

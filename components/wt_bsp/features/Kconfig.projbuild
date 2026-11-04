@@ -9,5 +9,6 @@ menu "Feature selection"
     rsource "sdmmc/Kconfig.projbuild"
     rsource "touch/Kconfig.projbuild"
     rsource "usb_device_cdc/Kconfig.projbuild"
+    rsource "usb_device_uvc/Kconfig.projbuild"
 
 endmenu

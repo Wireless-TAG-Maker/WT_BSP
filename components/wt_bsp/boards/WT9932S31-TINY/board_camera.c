@@ -1,7 +1,7 @@
 /**
- * @file board_usb_device_uvc.c
+ * @file board_camera.c
  * @author Wireless-Tag
- * @brief WT9932S31-TINY DVP/JPEG to USB UVC adaptation.
+ * @brief WT9932S31-TINY independent sensor and JPEG capture adapter.
  * @version 0.1
  * @date 2026-09-18
  *
@@ -41,10 +41,6 @@
 #include "esp_video_init.h"
 #include "esp_video_ioctl.h"
 #include "linux/videodev2.h"
-#include "usb_device_uvc.h"
-#if WT_BSP_CAMERA_ENABLED
-#include "tusb.h"
-#endif
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -58,10 +54,10 @@
 
 /* ==================== [Defines] =========================================== */
 
-#define BOARD_CAPTURE_BUFFER_COUNT       2
-#define BOARD_UVC_INTERFACE_STRING_INDEX 4
-
 #if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
+/* DVP keeps a backup buffer while this frame is borrowed. One user buffer
+ * leaves room for application JPEG snapshots within 16 MiB PSRAM. */
+#define BOARD_CAPTURE_BUFFER_COUNT            1
 #define BOARD_CAMERA_SENSOR_NAME             "GC2145"
 #define BOARD_CAMERA_SENSOR_PID              0x2145
 #define BOARD_CAMERA_SCCB_ADDR               GC2145_SCCB_ADDR
@@ -70,6 +66,7 @@
 #define BOARD_CAMERA_DATA_PATH               "UYVY -> hardware JPEG"
 #define BOARD_GC2145_STARTUP_DISCARD_COUNT    2
 #elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+#define BOARD_CAPTURE_BUFFER_COUNT            2
 #define BOARD_CAMERA_SENSOR_NAME             "OV3660"
 #define BOARD_CAMERA_SENSOR_PID              0x3660
 #define BOARD_CAMERA_SCCB_ADDR               OV3660_SCCB_ADDR
@@ -90,13 +87,20 @@
 /* ==================== [Typedefs] ========================================== */
 
 typedef struct {
+    uint8_t *buf;
+    size_t len;
+    uint32_t width;
+    uint32_t height;
+    struct timeval timestamp;
+} board_camera_buffer_t;
+
+typedef struct {
     int capture_fd;
     int codec_fd;
     uint8_t *capture_buffer[BOARD_CAPTURE_BUFFER_COUNT];
     uint8_t *codec_capture_buffer;
-    uint8_t *uvc_buffer;
-    size_t uvc_buffer_size;
-    uvc_fb_t frame;
+    size_t jpeg_buffer_capacity;
+    board_camera_buffer_t frame;
     uint32_t capture_buffer_count;
     uint32_t frame_width;
     uint32_t frame_height;
@@ -116,14 +120,14 @@ typedef struct {
 #if WT_BSP_CAMERA_ENABLED
     wt_bsp_camera_status_t health;
 #endif
-} board_uvc_context_t;
+} board_camera_context_t;
 
 /* ==================== [Static Prototypes] ================================= */
 
 static esp_err_t board_video_init(void);
 static esp_err_t board_video_deinit(void);
 static esp_err_t board_prepare_camera(void);
-static esp_err_t board_open_video_devices(board_uvc_context_t *ctx);
+static esp_err_t board_open_video_devices(board_camera_context_t *ctx);
 static esp_err_t board_set_dqbuf_timeout(int fd, const char *name);
 static esp_err_t board_get_sensor_id(int fd, esp_cam_sensor_id_t *sensor_id);
 static esp_err_t board_verify_configured_sensor(int fd);
@@ -134,19 +138,19 @@ static esp_err_t board_sensor_register_access(int fd, uint32_t command, esp_cam_
 static esp_err_t board_set_ov3660_saturation(int fd);
 static esp_err_t board_set_ov3660_detail_tuning(int fd);
 #endif
-static esp_err_t board_uvc_start_cb(uvc_format_t format, int width, int height, int rate, void *cb_ctx);
-static void board_uvc_stop_cb(void *cb_ctx);
-static uvc_fb_t *board_uvc_frame_get_cb(void *cb_ctx);
-static void board_uvc_frame_return_cb(uvc_fb_t *frame, void *cb_ctx);
-static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height, int rate, void *cb_ctx);
-static void board_uvc_stop_impl(void *cb_ctx);
-static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx);
-static void board_uvc_frame_return_impl(uvc_fb_t *frame, void *cb_ctx);
-static void board_close_video_devices(board_uvc_context_t *ctx);
+static esp_err_t board_camera_start_cb(int width, int height, int rate, void *cb_ctx);
+static void board_camera_stop_cb(void *cb_ctx);
+static board_camera_buffer_t *board_camera_frame_get_cb(void *cb_ctx);
+static void board_camera_frame_return_cb(board_camera_buffer_t *frame, void *cb_ctx);
+static esp_err_t board_camera_start_impl(int width, int height, int rate, void *cb_ctx);
+static void board_camera_stop_impl(void *cb_ctx);
+static board_camera_buffer_t *board_camera_frame_get_impl(void *cb_ctx);
+static void board_camera_frame_return_impl(board_camera_buffer_t *frame, void *cb_ctx);
+static void board_close_video_devices(board_camera_context_t *ctx);
 
 /* ==================== [Static Variables] ================================== */
 
-static const char *TAG = "dvp_usb_uvc";
+static const char *TAG = "board_camera";
 
 ESP_CAM_SENSOR_DETECT_FN(board_selected_sensor_detect,
                          ESP_CAM_SENSOR_DVP,
@@ -173,7 +177,7 @@ static const uint8_t s_ov3660_saturation_levels[5][11] = {
 };
 #endif
 
-static board_uvc_context_t s_uvc = {
+static board_camera_context_t s_camera = {
     .capture_fd = -1,
     .codec_fd = -1,
 };
@@ -183,162 +187,100 @@ static board_uvc_context_t s_uvc = {
 static jpeg_encoder_handle_t s_jpeg_encoder;
 #endif
 static StaticSemaphore_t s_stream_mutex_storage;
-static bool s_uvc_started;
+static bool s_camera_is_initialized;
 static bool s_video_initialized;
 
 /* ==================== [Macros] ============================================ */
 
 /* ==================== [Global Functions] ================================== */
 
-esp_err_t board_usb_device_uvc_init(void)
+esp_err_t board_camera_init(void)
 {
-    esp_err_t ret = ESP_OK;
-
-    if (s_uvc_started) {
-        ESP_LOGW(TAG, "UVC is already initialized");
+    if (s_camera_is_initialized) {
+        ESP_LOGW(TAG, "Camera adapter is already initialized");
         return ESP_OK;
     }
-    ret = board_usb_device_uvc_deinit();
-    if (ret != ESP_OK) {
-        return ret;
-    }
-    if (s_uvc.stream_mutex == NULL) {
-        s_uvc.stream_mutex = xSemaphoreCreateRecursiveMutexStatic(&s_stream_mutex_storage);
-        if (s_uvc.stream_mutex == NULL) {
+    if (s_camera.stream_mutex == NULL) {
+        s_camera.stream_mutex = xSemaphoreCreateRecursiveMutexStatic(&s_stream_mutex_storage);
+        if (s_camera.stream_mutex == NULL) {
+            ESP_LOGE(TAG, "Failed to create camera stream mutex");
             return ESP_ERR_NO_MEM;
         }
     }
-    ESP_LOGI(TAG, "Camera=%s, path=%s", BOARD_CAMERA_SENSOR_NAME, BOARD_CAMERA_DATA_PATH);
-#if !WT_BSP_CAMERA_ENABLED
-    ret = board_prepare_camera();
-    if (ret != ESP_OK) {
-        goto fail;
-    }
-#else
-    s_uvc.health = (wt_bsp_camera_status_t) {
+    s_camera.jpeg_buffer_capacity =
+        (size_t)BOARD_CAMERA_FRAME_WIDTH * BOARD_CAMERA_FRAME_HEIGHT * 2;
+#if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
+    // Match the fixed-format JPEG output pool to fit in 16 MB PSRAM.
+    s_camera.jpeg_buffer_capacity /= 2;
+#endif
+    s_camera.health = (wt_bsp_camera_status_t) {
         .last_error = ESP_ERR_INVALID_STATE,
     };
-#endif
-
-    size_t uvc_buffer_size =
-        (size_t)CONFIG_UVC_CAM1_FRAMESIZE_WIDTH * CONFIG_UVC_CAM1_FRAMESIZE_HEIGT * 2;
-#if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
-    // Match JPEG output capacity so UXGA capture and USB fit in 16 MB PSRAM.
-    uvc_buffer_size /= 2;
-#endif
-    s_uvc.uvc_buffer = heap_caps_malloc(uvc_buffer_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (s_uvc.uvc_buffer == NULL) {
-        ret = ESP_ERR_NO_MEM;
-        goto fail;
-    }
-    s_uvc.uvc_buffer_size = uvc_buffer_size;
-
-    uvc_device_config_t uvc_config = {
-        .uvc_buffer = s_uvc.uvc_buffer,
-        .uvc_buffer_size = uvc_buffer_size,
-        .start_cb = board_uvc_start_cb,
-        .fb_get_cb = board_uvc_frame_get_cb,
-        .fb_return_cb = board_uvc_frame_return_cb,
-        .stop_cb = board_uvc_stop_cb,
-        .cb_ctx = &s_uvc,
-    };
-    ret = uvc_device_config(0, &uvc_config);
-    if (ret != ESP_OK) {
-        goto fail;
-    }
-
-    // Descriptor index 4 is the camera interface name shown by the host.
-    extern char const *string_desc_arr[];
-    string_desc_arr[BOARD_UVC_INTERFACE_STRING_INDEX] = CONFIG_TUSB_PRODUCT;
-    ret = uvc_device_init();
-    if (ret != ESP_OK) {
-        goto fail;
-    }
-    s_uvc_started = true;
-    ESP_LOGI(TAG, "UVC ready: MJPEG %dx%d@%dfps on J1",
-             CONFIG_UVC_CAM1_FRAMESIZE_WIDTH, CONFIG_UVC_CAM1_FRAMESIZE_HEIGT,
-             CONFIG_UVC_CAM1_FRAMERATE);
+    s_camera_is_initialized = true;
     return ESP_OK;
-
-fail:
-    ESP_LOGE(TAG, "UVC initialization failed: %s", esp_err_to_name(ret));
-    board_usb_device_uvc_deinit();
-    return ret;
 }
 
-esp_err_t board_usb_device_uvc_deinit(void)
+esp_err_t board_camera_deinit(void)
 {
     esp_err_t ret = ESP_OK;
 
-    // Do not hold the stream mutex while waiting for the USB tasks to exit.
-    // Their final frame return/stop callbacks must be allowed to acquire it.
-    if (s_uvc_started) {
-        ret = uvc_device_deinit();
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to stop USB UVC: %s", esp_err_to_name(ret));
-            return ret;
-        }
-        s_uvc_started = false;
-    }
-    board_close_video_devices(&s_uvc);
+    board_close_video_devices(&s_camera);
     ret = board_video_deinit();
-    free(s_uvc.uvc_buffer);
-    s_uvc.uvc_buffer = NULL;
-    s_uvc.uvc_buffer_size = 0;
-    if (s_uvc.stream_mutex != NULL) {
-        vSemaphoreDelete(s_uvc.stream_mutex);
-        s_uvc.stream_mutex = NULL;
+    s_camera.jpeg_buffer_capacity = 0;
+    if (s_camera.stream_mutex != NULL) {
+        vSemaphoreDelete(s_camera.stream_mutex);
+        s_camera.stream_mutex = NULL;
     }
+    s_camera_is_initialized = false;
     return ret;
 }
 
-#if WT_BSP_CAMERA_ENABLED
 esp_err_t board_camera_prepare(wt_bsp_camera_format_t *format)
 {
-    if (!s_uvc_started || s_uvc.stream_mutex == NULL) {
+    if (format == NULL) {
+        ESP_LOGE(TAG, "Camera format output is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_camera_is_initialized || s_camera.stream_mutex == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    xSemaphoreTakeRecursive(s_uvc.stream_mutex, portMAX_DELAY);
+    xSemaphoreTakeRecursive(s_camera.stream_mutex, portMAX_DELAY);
     esp_err_t ret = board_prepare_camera();
     if (ret == ESP_OK) {
         *format = (wt_bsp_camera_format_t) {
-            .width = CONFIG_UVC_CAM1_FRAMESIZE_WIDTH,
-            .height = CONFIG_UVC_CAM1_FRAMESIZE_HEIGT,
-            .fps = CONFIG_UVC_CAM1_FRAMERATE,
+            .width = BOARD_CAMERA_FRAME_WIDTH,
+            .height = BOARD_CAMERA_FRAME_HEIGHT,
+            .fps = BOARD_CAMERA_FRAME_RATE,
         };
     }
-    xSemaphoreGiveRecursive(s_uvc.stream_mutex);
+    xSemaphoreGiveRecursive(s_camera.stream_mutex);
     return ret;
 }
 
 esp_err_t board_camera_capture(wt_bsp_camera_frame_cb_t callback, void *user_data)
 {
-    if (!s_uvc_started || s_uvc.stream_mutex == NULL) {
+    if (callback == NULL) {
+        ESP_LOGE(TAG, "Camera consumer callback is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_camera_is_initialized || s_camera.stream_mutex == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    xSemaphoreTakeRecursive(s_uvc.stream_mutex, portMAX_DELAY);
-    esp_err_t ret = ESP_OK;
-    /* USB control can arrive between the application's mode check and this
-     * call. Keep local recording out of an already configured USB session. */
-    if (tud_mounted()) {
-        ret = ESP_ERR_INVALID_STATE;
-        goto done;
-    }
-    ret = board_prepare_camera();
+    xSemaphoreTakeRecursive(s_camera.stream_mutex, portMAX_DELAY);
+    esp_err_t ret = board_prepare_camera();
     if (ret != ESP_OK) {
         goto done;
     }
-    if (!s_uvc.capture_streaming) {
-        ret = board_uvc_start_cb(UVC_FORMAT_JPEG, CONFIG_UVC_CAM1_FRAMESIZE_WIDTH,
-                                 CONFIG_UVC_CAM1_FRAMESIZE_HEIGT, CONFIG_UVC_CAM1_FRAMERATE,
-                                 &s_uvc);
+    if (!s_camera.capture_streaming) {
+        ret = board_camera_start_cb(BOARD_CAMERA_FRAME_WIDTH, BOARD_CAMERA_FRAME_HEIGHT,
+                                    BOARD_CAMERA_FRAME_RATE, &s_camera);
         if (ret != ESP_OK) {
             goto done;
         }
     }
-    uvc_fb_t *frame = board_uvc_frame_get_cb(&s_uvc);
+    board_camera_buffer_t *frame = board_camera_frame_get_cb(&s_camera);
     if (frame == NULL) {
-        ret = s_uvc.health.last_error;
+        ret = s_camera.health.last_error;
         if (ret == ESP_OK) {
             ret = ESP_FAIL;
         }
@@ -352,42 +294,45 @@ esp_err_t board_camera_capture(wt_bsp_camera_frame_cb_t callback, void *user_dat
         .timestamp_us = (int64_t)frame->timestamp.tv_sec * 1000000 + frame->timestamp.tv_usec,
     };
     ret = callback(&jpeg, user_data);
-    board_uvc_frame_return_cb(frame, &s_uvc);
+    board_camera_frame_return_cb(frame, &s_camera);
 done:
-    xSemaphoreGiveRecursive(s_uvc.stream_mutex);
+    xSemaphoreGiveRecursive(s_camera.stream_mutex);
     return ret;
 }
 
 esp_err_t board_camera_get_status(wt_bsp_camera_status_t *status)
 {
-    if (!s_uvc_started || s_uvc.stream_mutex == NULL) {
+    if (status == NULL) {
+        ESP_LOGE(TAG, "Camera status output is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_camera_is_initialized || s_camera.stream_mutex == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
-    xSemaphoreTakeRecursive(s_uvc.stream_mutex, portMAX_DELAY);
-    *status = s_uvc.health;
-    xSemaphoreGiveRecursive(s_uvc.stream_mutex);
+    xSemaphoreTakeRecursive(s_camera.stream_mutex, portMAX_DELAY);
+    *status = s_camera.health;
+    xSemaphoreGiveRecursive(s_camera.stream_mutex);
     return ESP_OK;
 }
-#endif
 
 /* ==================== [Static Functions] ================================== */
 
 static esp_err_t board_prepare_camera(void)
 {
-    if (s_video_initialized && s_uvc.capture_fd >= 0 && s_uvc.codec_fd >= 0) {
+    if (s_video_initialized && s_camera.capture_fd >= 0 && s_camera.codec_fd >= 0) {
         return ESP_OK;
     }
     esp_err_t ret = board_video_init();
     if (ret == ESP_OK) {
-        ret = board_open_video_devices(&s_uvc);
+        ret = board_open_video_devices(&s_camera);
     }
     if (ret != ESP_OK) {
-        board_close_video_devices(&s_uvc);
+        board_close_video_devices(&s_camera);
         board_video_deinit();
     }
 #if WT_BSP_CAMERA_ENABLED
-    s_uvc.health.ready = ret == ESP_OK;
-    s_uvc.health.last_error = ret;
+    s_camera.health.ready = ret == ESP_OK;
+    s_camera.health.last_error = ret;
 #endif
     return ret;
 }
@@ -484,7 +429,7 @@ static esp_err_t board_video_deinit(void)
     return ESP_OK;
 }
 
-static esp_err_t board_open_video_devices(board_uvc_context_t *ctx)
+static esp_err_t board_open_video_devices(board_camera_context_t *ctx)
 {
     struct v4l2_ext_control control = {
         .id = V4L2_CID_JPEG_COMPRESSION_QUALITY,
@@ -833,16 +778,16 @@ static esp_err_t board_set_ov3660_detail_tuning(int fd)
 }
 #endif
 
-static esp_err_t board_uvc_start_cb(uvc_format_t format, int width, int height, int rate, void *cb_ctx)
+static esp_err_t board_camera_start_cb(int width, int height, int rate, void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     if (ctx == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
     xSemaphoreTakeRecursive(ctx->stream_mutex, portMAX_DELAY);
     esp_err_t ret = board_prepare_camera();
     if (ret == ESP_OK) {
-        ret = board_uvc_start_impl(format, width, height, rate, cb_ctx);
+        ret = board_camera_start_impl(width, height, rate, cb_ctx);
     }
 #if WT_BSP_CAMERA_ENABLED
     ctx->health.last_error = ret;
@@ -851,29 +796,29 @@ static esp_err_t board_uvc_start_cb(uvc_format_t format, int width, int height, 
     return ret;
 }
 
-static void board_uvc_stop_cb(void *cb_ctx)
+static void board_camera_stop_cb(void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     if (ctx == NULL) {
         return;
     }
     xSemaphoreTakeRecursive(ctx->stream_mutex, portMAX_DELAY);
-    board_uvc_stop_impl(cb_ctx);
+    board_camera_stop_impl(cb_ctx);
     xSemaphoreGiveRecursive(ctx->stream_mutex);
 }
 
-static uvc_fb_t *board_uvc_frame_get_cb(void *cb_ctx)
+static board_camera_buffer_t *board_camera_frame_get_cb(void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     if (ctx == NULL) {
         return NULL;
     }
     xSemaphoreTakeRecursive(ctx->stream_mutex, portMAX_DELAY);
-    uvc_fb_t *frame = board_uvc_frame_get_impl(cb_ctx);
+    board_camera_buffer_t *frame = board_camera_frame_get_impl(cb_ctx);
 #if WT_BSP_CAMERA_ENABLED
     if (frame != NULL && (frame->len < 4 || frame->buf[0] != 0xff || frame->buf[1] != 0xd8 ||
             frame->buf[frame->len - 2] != 0xff || frame->buf[frame->len - 1] != 0xd9)) {
-        board_uvc_frame_return_impl(frame, cb_ctx);
+        board_camera_frame_return_impl(frame, cb_ctx);
         frame = NULL;
         ESP_LOGE(TAG, "Camera returned an incomplete JPEG");
     }
@@ -884,10 +829,8 @@ static uvc_fb_t *board_uvc_frame_get_cb(void *cb_ctx)
     }
 #endif
     if (frame != NULL) {
-        /* usb_device_uvc synchronously copies (or drops an oversized frame)
-         * and calls fb_return on this same task before starting USB transfer.
-         * Retain the lock through that copy so STREAMOFF cannot reset queues
-         * or let a restart overwrite the outstanding JPEG buffer. */
+        /* Retain the camera lock until the synchronous consumer returns
+         * the frame, so a stop cannot reset queues or overwrite its JPEG. */
         ctx->frame_lock_held = true;
     } else {
         xSemaphoreGiveRecursive(ctx->stream_mutex);
@@ -895,27 +838,26 @@ static uvc_fb_t *board_uvc_frame_get_cb(void *cb_ctx)
     return frame;
 }
 
-static void board_uvc_frame_return_cb(uvc_fb_t *frame, void *cb_ctx)
+static void board_camera_frame_return_cb(board_camera_buffer_t *frame, void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     if (ctx == NULL) {
         return;
     }
     xSemaphoreTakeRecursive(ctx->stream_mutex, portMAX_DELAY);
     bool release_frame_lock = ctx->frame_lock_held;
-    board_uvc_frame_return_impl(frame, cb_ctx);
+    board_camera_frame_return_impl(frame, cb_ctx);
     ctx->frame_lock_held = false;
     xSemaphoreGiveRecursive(ctx->stream_mutex);
     if (release_frame_lock) {
-        /* A get-side empty-frame cleanup has no retained successful-get
-         * reference; only the component's matching return releases one. */
+        /* Empty-frame cleanup has no retained successful-get reference. */
         xSemaphoreGiveRecursive(ctx->stream_mutex);
     }
 }
 
-static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height, int rate, void *cb_ctx)
+static esp_err_t board_camera_start_impl(int width, int height, int rate, void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     struct v4l2_buffer buffer;
     struct v4l2_requestbuffers request;
     struct v4l2_format video_format;
@@ -923,18 +865,18 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
     bool reuse_buffers = false;
     int type;
 
-    if (ctx == NULL || format != UVC_FORMAT_JPEG) {
-        ESP_LOGE(TAG, "Only MJPEG UVC streaming is supported");
-        return ESP_ERR_NOT_SUPPORTED;
+    if (ctx == NULL) {
+        ESP_LOGE(TAG, "Camera context is NULL");
+        return ESP_ERR_INVALID_ARG;
     }
-    if (width != CONFIG_UVC_CAM1_FRAMESIZE_WIDTH ||
-            height != CONFIG_UVC_CAM1_FRAMESIZE_HEIGT ||
-            rate != CONFIG_UVC_CAM1_FRAMERATE) {
-        ESP_LOGE(TAG, "Unsupported UVC mode %dx%d@%dfps", width, height, rate);
+    if (width != BOARD_CAMERA_FRAME_WIDTH ||
+            height != BOARD_CAMERA_FRAME_HEIGHT ||
+            rate != BOARD_CAMERA_FRAME_RATE) {
+        ESP_LOGE(TAG, "Unsupported camera mode %dx%d@%dfps", width, height, rate);
         return ESP_ERR_NOT_SUPPORTED;
     }
 
-    board_uvc_stop_cb(ctx);
+    board_camera_stop_cb(ctx);
 #if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
     if (ctx->capture_streaming || ctx->codec_output_streaming || ctx->codec_capture_streaming) {
         ESP_LOGE(TAG, "Cannot restart GC2145 while a video stream has not stopped");
@@ -1064,7 +1006,7 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
         ctx->capture_streaming = true;
         ctx->frame_width = width;
         ctx->frame_height = height;
-        ESP_LOGI(TAG, "UVC streaming started with sensor-native JPEG: %dx%d@%dfps", width, height, rate);
+        ESP_LOGI(TAG, "Camera capture started with sensor-native JPEG: %dx%d@%dfps", width, height, rate);
         return ESP_OK;
     }
 
@@ -1094,7 +1036,7 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
     video_format.fmt.pix.width = width;
     video_format.fmt.pix.height = height;
     video_format.fmt.pix.pixelformat = V4L2_PIX_FMT_JPEG;
-    video_format.fmt.pix.sizeimage = ctx->uvc_buffer_size;
+    video_format.fmt.pix.sizeimage = ctx->jpeg_buffer_capacity;
     if (ioctl(ctx->codec_fd, VIDIOC_S_FMT, &video_format) != 0) {
         ESP_LOGE(TAG, "Failed to configure JPEG output format (errno=%d)", errno);
         return ESP_FAIL;
@@ -1158,7 +1100,7 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
         ctx->buffers_ready = false;
 #endif
         ESP_LOGE(TAG, "Failed to start JPEG input stream (errno=%d)", errno);
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
         return ESP_FAIL;
     }
     ctx->codec_output_streaming = true;
@@ -1169,7 +1111,7 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
         ctx->buffers_ready = false;
 #endif
         ESP_LOGE(TAG, "Failed to start DVP stream (errno=%d)", errno);
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
         return ESP_FAIL;
     }
     ctx->capture_streaming = true;
@@ -1180,16 +1122,16 @@ static esp_err_t board_uvc_start_impl(uvc_format_t format, int width, int height
     ctx->frame_height = height;
 
     ESP_LOGI(TAG,
-             "UVC streaming started with hardware JPEG: %dx%d@%dfps",
+             "Camera capture started with hardware JPEG: %dx%d@%dfps",
              width,
              height,
              rate);
     return ESP_OK;
 }
 
-static void board_uvc_stop_impl(void *cb_ctx)
+static void board_camera_stop_impl(void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     int type;
 
     if (ctx == NULL) {
@@ -1243,9 +1185,9 @@ static void board_uvc_stop_impl(void *cb_ctx)
     ctx->frame_height = 0;
 }
 
-static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
+static board_camera_buffer_t *board_camera_frame_get_impl(void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     struct v4l2_buffer capture_buffer;
     struct v4l2_buffer codec_input_buffer;
     struct v4l2_buffer codec_output_buffer;
@@ -1266,7 +1208,7 @@ static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
         }
         if (capture_buffer.index >= ctx->capture_buffer_count) {
             ESP_LOGE(TAG, "DVP returned invalid buffer index %u", (unsigned int)capture_buffer.index);
-            board_uvc_stop_cb(ctx);
+            board_camera_stop_cb(ctx);
             return NULL;
         }
 #if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
@@ -1275,7 +1217,7 @@ static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
         if (ctx->startup_frames_to_discard > 0) {
             if (ioctl(ctx->capture_fd, VIDIOC_QBUF, &capture_buffer) != 0) {
                 ESP_LOGE(TAG, "Failed to recycle GC2145 startup frame (errno=%d)", errno);
-                board_uvc_stop_cb(ctx);
+                board_camera_stop_cb(ctx);
                 return NULL;
             }
             ctx->startup_frames_to_discard--;
@@ -1299,7 +1241,6 @@ static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
         ctx->frame.len = capture_buffer.bytesused;
         ctx->frame.width = ctx->frame_width;
         ctx->frame.height = ctx->frame_height;
-        ctx->frame.format = UVC_FORMAT_JPEG;
         ctx->frame.timestamp.tv_sec = timestamp_us / 1000000;
         ctx->frame.timestamp.tv_usec = timestamp_us % 1000000;
         return &ctx->frame;
@@ -1323,24 +1264,24 @@ static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
     codec_output_buffer.memory = V4L2_MEMORY_MMAP;
     if (ioctl(ctx->codec_fd, VIDIOC_DQBUF, &codec_output_buffer) != 0) {
         ESP_LOGE(TAG, "JPEG frame dequeue timed out or failed (errno=%d)", errno);
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
         return NULL;
     }
     ctx->codec_frame_outstanding = true;
 
     if (ioctl(ctx->capture_fd, VIDIOC_QBUF, &capture_buffer) != 0) {
         ESP_LOGE(TAG, "Failed to recycle DVP buffer (errno=%d)", errno);
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
         return NULL;
     }
     if (ioctl(ctx->codec_fd, VIDIOC_DQBUF, &codec_input_buffer) != 0) {
         ESP_LOGE(TAG, "Failed to recycle JPEG input buffer (errno=%d)", errno);
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
         return NULL;
     }
 
     if (codec_output_buffer.bytesused == 0) {
-        board_uvc_frame_return_cb(NULL, ctx);
+        board_camera_frame_return_cb(NULL, ctx);
         ESP_LOGW(TAG, "Hardware JPEG encoder returned an empty frame");
         return NULL;
     }
@@ -1350,16 +1291,15 @@ static uvc_fb_t *board_uvc_frame_get_impl(void *cb_ctx)
     ctx->frame.len = codec_output_buffer.bytesused;
     ctx->frame.width = ctx->frame_width;
     ctx->frame.height = ctx->frame_height;
-    ctx->frame.format = UVC_FORMAT_JPEG;
     ctx->frame.timestamp.tv_sec = timestamp_us / 1000000;
     ctx->frame.timestamp.tv_usec = timestamp_us % 1000000;
 
     return &ctx->frame;
 }
 
-static void board_uvc_frame_return_impl(uvc_fb_t *frame, void *cb_ctx)
+static void board_camera_frame_return_impl(board_camera_buffer_t *frame, void *cb_ctx)
 {
-    board_uvc_context_t *ctx = (board_uvc_context_t *)cb_ctx;
+    board_camera_context_t *ctx = (board_camera_context_t *)cb_ctx;
     struct v4l2_buffer codec_output_buffer;
 
     (void)frame;
@@ -1399,14 +1339,14 @@ static void board_uvc_frame_return_impl(uvc_fb_t *frame, void *cb_ctx)
     ctx->codec_frame_outstanding = false;
 }
 
-static void board_close_video_devices(board_uvc_context_t *ctx)
+static void board_close_video_devices(board_camera_context_t *ctx)
 {
     if (ctx == NULL) {
         return;
     }
 
     if (ctx->stream_mutex != NULL) {
-        board_uvc_stop_cb(ctx);
+        board_camera_stop_cb(ctx);
     }
 
     if (ctx->codec_fd >= 0) {

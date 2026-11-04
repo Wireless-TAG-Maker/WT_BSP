@@ -66,19 +66,16 @@ extern "C" {
 /** @brief Get this board's static operation table; ownership stays with BSP. */
 wt_bsp_interface_t *board_get_bsp_interface(void);
 
-#if WT_BSP_USB_DEVICE_UVC_ENABLED
-/** @brief Initialize board-owned DVP/JPEG/UVC resources; return ESP_OK or an initialization error. */
-esp_err_t board_usb_device_uvc_init(void);
-/** @brief Stop UVC before releasing video resources; return ESP_OK or the cleanup error. */
-esp_err_t board_usb_device_uvc_deinit(void);
-#endif
-
 #if WT_BSP_CAMERA_ENABLED
-/** @brief Prepare the board's shared sensor and return its selected JPEG format. */
+/** @brief Initialize camera adapter state without probing the sensor; return ESP_OK or ESP_ERR_NO_MEM. */
+esp_err_t board_camera_init(void);
+/** @brief Stop capture and release board-owned sensor resources; return ESP_OK or the cleanup error. */
+esp_err_t board_camera_deinit(void);
+/** @brief Prepare the sensor and return its selected JPEG format. */
 esp_err_t board_camera_prepare(wt_bsp_camera_format_t *format);
-/** @brief Consume one local JPEG while the USB host does not own capture. */
+/** @brief Synchronously consume one borrowed JPEG; applications coordinate consumers. */
 esp_err_t board_camera_capture(wt_bsp_camera_frame_cb_t callback, void *user_data);
-/** @brief Read health shared by local and UVC capture paths. */
+/** @brief Read sensor and JPEG capture health. */
 esp_err_t board_camera_get_status(wt_bsp_camera_status_t *status);
 #endif
 

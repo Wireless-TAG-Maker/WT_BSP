@@ -23,6 +23,7 @@
 #include "wt_bsp_csi.h"
 #include "wt_bsp_touch.h"
 #include "wt_bsp_usb_device_cdc.h"
+#include "wt_bsp_usb_device_uvc.h"
 #include "wt_bsp_camera.h"
 
 #ifdef __cplusplus
@@ -110,6 +111,17 @@ wt_bsp_touch_t wt_bsp_get_touch(void);
  * @return 已初始化的 CDC 句柄; 功能关闭、不支持或初始化失败时返回 NULL。
  */
 wt_bsp_usb_device_cdc_t wt_bsp_get_usb_device_cdc(void);
+
+/**
+ * @brief Get the board-owned USB UVC object without starting a video pipeline.
+ *
+ * The application supplies its frame source to wt_bsp_usb_device_uvc_start()
+ * and stops UVC before releasing its buffers or deinitializing the BSP.
+ *
+ * @return Prepared UVC handle, or NULL when BSP/feature initialization is
+ *         unavailable. The application must not free the returned object.
+ */
+wt_bsp_usb_device_uvc_t wt_bsp_get_usb_device_uvc(void);
 
 /**
  * @brief Get the board-owned camera adapter for local JPEG capture.

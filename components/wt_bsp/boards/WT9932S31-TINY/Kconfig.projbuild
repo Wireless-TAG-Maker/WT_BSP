@@ -13,5 +13,6 @@ choice WT_BSP_BOARD  # ignore: multiple-definition
         select WT_BSP_BOARD_HAS_RGB
         select WT_BSP_BOARD_HAS_SDMMC
         select WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+        select WT_BSP_BOARD_HAS_USB_DEVICE_UVC
         select WT_BSP_BOARD_HAS_CAMERA
 endchoice

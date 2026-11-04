@@ -18,6 +18,8 @@
 
 #include "board_gc2145.h"
 
+#include "wt_bsp_config_internal.h"
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -102,7 +104,7 @@ esp_err_t board_gc2145_configure_uxga(int capture_fd)
      * upstream UXGA crop, AEC/AWB and ISP table. The final global 0xfa write
      * also selects the two-way output divider: without it this board receives
      * only about 2.31 MB of a 3.84 MB frame. With 0xfa=0x10, DMA receives full
-     * UXGA frames at about 8.1 fps; the UVC profile advertises 8 fps.
+     * UXGA frames at about 8.1 fps; the board capture mode uses 8 fps.
      */
     uint8_t page = 0xff;
     unsigned int output_format_count = 0;
@@ -138,7 +140,7 @@ esp_err_t board_gc2145_configure_uxga(int capture_fd)
     s_uxga_format = base_format;
     s_uxga_format.name = "DVP_8bit_20Minput_YUV422_UYVY_1600x1200_8fps";
     s_uxga_format.format = ESP_CAM_SENSOR_PIXFORMAT_YUV422_UYVY;
-    s_uxga_format.fps = CONFIG_UVC_CAM1_FRAMERATE;
+    s_uxga_format.fps = BOARD_CAMERA_FRAME_RATE;
     s_uxga_format.regs = registers;
 
     /*
@@ -156,7 +158,7 @@ esp_err_t board_gc2145_configure_uxga(int capture_fd)
         ESP_LOGE(TAG, "Could not verify GC2145 UXGA format (errno=%d)", errno);
         return ESP_FAIL;
     }
-    if (!board_gc2145_is_uxga(&configured, CONFIG_UVC_CAM1_FRAMERATE) ||
+    if (!board_gc2145_is_uxga(&configured, BOARD_CAMERA_FRAME_RATE) ||
             configured.format != ESP_CAM_SENSOR_PIXFORMAT_YUV422_UYVY) {
         ESP_LOGE(TAG, "GC2145 sensor format does not match UXGA UYVY");
         return ESP_ERR_INVALID_STATE;

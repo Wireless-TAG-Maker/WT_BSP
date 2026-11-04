@@ -11,6 +11,7 @@
 /* ==================== [Includes] ========================================== */
 
 #include "wt_bsp.h"
+#include "camera_uvc.h"
 #include "factory_console.h"
 
 #include "sdkconfig.h"
@@ -88,6 +89,19 @@ void app_main(void)
         ESP_LOGE(TAG, "BSP initialization failed: %s", esp_err_to_name(ret));
         return;
     }
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    ret = camera_uvc_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Camera-to-UVC bridge failed: %s", esp_err_to_name(ret));
+        esp_err_t stop_ret = camera_uvc_stop();
+        if (stop_ret == ESP_OK) {
+            wt_bsp_deinit();
+        } else {
+            ESP_LOGE(TAG, "Bridge cleanup failed; retaining BSP resources: %s", esp_err_to_name(stop_ret));
+        }
+        return;
+    }
+#endif
     factory_t *factory = &s_factory;
     factory->rgb = wt_bsp_get_rgb();
     factory->camera = wt_bsp_get_camera();
@@ -166,9 +180,9 @@ void app_main(void)
             wt_bsp_camera_prepare(factory->camera, &factory->format);
             next_probe = now + 5000000;
         }
-        if (!usb && factory->format.fps != 0) {
+        if (!usb && !camera_uvc_is_streaming() && factory->format.fps != 0) {
             /* Disabled or paused recording still checks camera frames. The
-             * same capture engine is handed to UVC as soon as J1 enumerates. */
+             * application bridge receives camera frames during host streaming. */
             ret = wt_bsp_camera_capture(factory->camera, factory_consume_frame, factory);
             if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE && now >= next_log) {
                 ESP_LOGW(TAG, "Local capture failed: %s", esp_err_to_name(ret));

@@ -134,4 +134,12 @@ wt_bsp_camera_t wt_bsp_get_camera(void)
     return g_bsp.interface->get_camera();
 }
 
+wt_bsp_usb_device_uvc_t wt_bsp_get_usb_device_uvc(void)
+{
+    if (g_bsp.interface == NULL || g_bsp.interface->get_usb_device_uvc == NULL) {
+        return NULL;
+    }
+    return g_bsp.interface->get_usb_device_uvc();
+}
+
 /* ==================== [Static Functions] ================================== */

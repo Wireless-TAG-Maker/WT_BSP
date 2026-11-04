@@ -31,10 +31,26 @@
 #define WT_BSP_BOARD_HAS_TOUCH 0
 /** @brief J1 supports USB Device CDC. */
 #define WT_BSP_BOARD_HAS_USB_DEVICE_CDC 1
-/** @brief J1 supports DVP camera to USB Device UVC. */
+/** @brief J1 supports USB Device UVC with an application-provided frame source. */
 #define WT_BSP_BOARD_HAS_USB_DEVICE_UVC 1
-/** @brief Local JPEG frames can share the board's DVP/UVC capture path. */
+/** @brief The board provides an independent DVP JPEG camera adapter. */
 #define WT_BSP_BOARD_HAS_CAMERA 1
+
+#if CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145
+/** @brief GC2145 fixed capture width in pixels. */
+#define BOARD_CAMERA_FRAME_WIDTH 1600
+/** @brief GC2145 fixed capture height in pixels. */
+#define BOARD_CAMERA_FRAME_HEIGHT 1200
+/** @brief GC2145 nominal capture rate for the selected register configuration. */
+#define BOARD_CAMERA_FRAME_RATE 8
+#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+/** @brief OV3660 fixed capture width in pixels. */
+#define BOARD_CAMERA_FRAME_WIDTH 640
+/** @brief OV3660 fixed capture height in pixels. */
+#define BOARD_CAMERA_FRAME_HEIGHT 480
+/** @brief OV3660 nominal capture rate for the selected register configuration. */
+#define BOARD_CAMERA_FRAME_RATE 25
+#endif
 
 /* ==================== [Typedefs] ========================================== */
 

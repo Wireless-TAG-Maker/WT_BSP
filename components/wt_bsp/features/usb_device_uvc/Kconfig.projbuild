@@ -1,0 +1,34 @@
+config WT_BSP_BOARD_HAS_USB_DEVICE_UVC
+    bool
+
+config WT_BSP_ENABLE_USB_DEVICE_UVC
+    bool "Enable USB Device UVC"
+    depends on WT_BSP_BOARD_HAS_USB_DEVICE_UVC
+    default n
+    help
+        Prepare a USB video device independently of the capture hardware.
+        The application supplies frame callbacks and starts USB explicitly.
+        No camera, encoder, CSI or RGB feature is selected automatically.
+        A second independent USB device driver cannot run at the same time.
+
+config WT_BSP_USB_DEVICE_COMPOSITE_AVAILABLE
+    bool
+    help
+        Selected by an application that provides compatible UVC+CDC USB
+        descriptors. A board capability alone does not provide that profile.
+
+config WT_BSP_USB_DEVICE_COMPOSITE
+    bool "Share USB UVC and CDC"
+    depends on WT_BSP_BOARD_HAS_USB_DEVICE_CDC && WT_BSP_ENABLE_USB_DEVICE_UVC
+    depends on WT_BSP_USB_DEVICE_COMPOSITE_AVAILABLE
+    default n
+    help
+        Use one USB device stack for UVC video and CDC serial interfaces.
+        The application must supply matching composite descriptors and start
+        UVC before using CDC. No capture or encoding pipeline is implied.
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_USB_DEVICE_UVC
+    string
+    default "y" if WT_BSP_ENABLE_USB_DEVICE_UVC
+    default "n"
