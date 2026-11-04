@@ -7,6 +7,12 @@ WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设�
 
 本工厂固件集成了 Wireless-Tag BSP 提供的 MIPI DSI 显示、MIPI CSI 摄像头、触摸、SD 卡和 RGB LED 控制等外设能力。
 
+默认 `CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC=n`，沿用独立的 CSI 屏幕预览流程。
+需要 USB 视频时，在 menuconfig 中同时启用 USB UVC 和 CSI；应用会在 BSP 初始化后
+显式调用 `camera_uvc_start()`，启动公共应用组件 `wt_camera_uvc`，由它负责相机/JPEG
+到 USB 的桥接。此模式跳过竞争同一采集源的 CSI 屏幕预览，避免两个消费者同时占用摄像头。
+退出时先成功调用 `camera_uvc_stop()`，再反初始化 BSP；关闭 UVC 后保留原有 CSI 预览。
+
 ## 🛠️ 快速上手
 
 1.  **选择开发板**：在示例目录中运行 `idf.py set-board` 并选择支持的开发板，命令会生成下一次配置/构建使用的板级默认配置：
@@ -60,7 +66,7 @@ Executing "ninja all"...
 
 ## 核心功能
 
-* **摄像头预览**：显示实时摄像头画面，点击画面可切换全屏预览和普通预览模式。
+* **摄像头预览（UVC 关闭时）**：显示实时摄像头画面，点击画面可切换全屏预览和普通预览模式。
 * **LED 控制**：调节板载 RGB LED 颜色。
 * **SD 卡状态**：测试 SD 卡挂载并显示容量信息。
 * **触摸控制**：使用 DSI 屏配套触摸功能。

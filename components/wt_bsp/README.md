@@ -6,10 +6,15 @@
 
 `wt_bsp` 仅支持 ESP-IDF `v6.0.0` 及以上版本。组件管理器会根据 `idf_component.yml` 中的 `idf >=6.0.0` 约束检查项目使用的 ESP-IDF 版本。
 
+WT9932S31-TINY 需要 ESP-IDF v6.1 及以上版本，v6.1 命令需加 `--preview`。
+ESP-IDF 6.0 下，清单为 P4 显示/触摸选择 `esp_lvgl_port 2.8.*`，并在相关显示/视频功能
+引入 H.264 依赖时固定 `esp_h264 1.3.0`，规避后续版本调用该 SDK 尚未提供的 API。
+6.1 及以上保留原来的 LVGL `^2` 选择，不施加该 H.264 兼容约束。
+
 ## 设计目标
 
 - 应用代码不直接依赖具体板卡引脚。
-- 新增板卡时只新增一个 `boards/<BOARD>/` 目录，并接入 Kconfig/CMake。
+- 新增板卡时只新增一个 `boards/<BOARD>/` 目录及其 Kconfig/CMake 文件，无需修改公共板卡列表。
 - 新增通用外设能力时优先沉淀到 `features/<FEATURE>/`，板级目录只负责填硬件参数和对象生命周期。
 - 板卡能力由移植者通过 `WT_BSP_BOARD_HAS_<FEATURE>` 和 `WT_BSP_BOARD_FEATURES` 声明，应用通过 `CONFIG_WT_BSP_ENABLE_<FEATURE>` 在 menuconfig 中裁剪。
 - 公共代码只使用 `wt_bsp_config_internal.h` 合成后的 `WT_BSP_<FEATURE>_ENABLED`。
@@ -34,7 +39,8 @@ components/wt_bsp/
 │       ├── board.h          # board_get_bsp_interface 声明
 │       ├── board_config.h   # 当前板卡硬件能力边界
 │       ├── CMakeLists.txt   # 当前板卡源文件接入
-│       └── Kconfig.projbuild
+│       ├── Kconfig.projbuild # 板卡选项、默认选择和能力
+│       └── Kconfig.options  # 可选的额外板级设置
 ├── tools/                   # set-board 和项目 CMake 辅助脚本
 │   ├── wt_bsp_project.cmake
 │   └── wt_bsp_set_board.py
@@ -52,6 +58,7 @@ components/wt_bsp/
 - DSI 显示：`wt_bsp_dsi_*`
 - CSI 摄像头：`wt_bsp_csi_*`
 - USB CDC：`wt_bsp_get_usb_device_cdc()`、`wt_bsp_usb_device_cdc_read()`、`wt_bsp_usb_device_cdc_write()`
+- USB UVC：`wt_bsp_get_usb_device_uvc()`、`wt_bsp_usb_device_uvc_start()`、`wt_bsp_usb_device_uvc_stop()`
 - 本地 JPEG：`wt_bsp_get_camera()`、`wt_bsp_camera_prepare()`、`wt_bsp_camera_capture()`、`wt_bsp_camera_get_status()`
 - 触摸：`wt_bsp_touch_*`
 
@@ -59,9 +66,40 @@ USB CDC 支持 WT9932P4-TINY、WT9932P4X-TINY、WT9932P4C61-TINY 的 HUSB，以�
 四个板卡共用 `features/usb_device_cdc` 实现，板级持有对象并管理初始化/释放。
 配置、接线和构建命令见 [CDC 回显示例](../../examples/usb/device_cdc/README_CN.md)。
 
+CSI/JPEG 相机和 USB UVC 是独立能力。`wt_bsp_init()` 准备各自启用的对象，不自动把摄像头连接到 USB。
+摄像头转 USB 的源选择、JPEG 转交和缓冲由应用组件
+[`wt_camera_uvc`](../../examples/common_components/wt_camera_uvc/README.md) 管理。
+应用显式调用 `camera_uvc_start()`，并在成功调用 `camera_uvc_stop()` 后再反初始化 BSP。
+
+JPEG 相机的采集、缓冲、互斥、状态和资源释放由 [`features/camera`](features/camera/README.md) 实现，
+其 DVP 后端和传感器模式扩展可供其他板卡复用。板级通过 `wt_bsp_camera_info_t` 提供引脚、
+SCCB/XCLK、`sensor_name`、通用整数属性、格式及缓冲预算，并持有静态对象，无需包含具体传感器头文件。
+interface 按名称查找驱动的自注册项，由其 factory 接收统一配置并返回统一相机操作表，公共 API 经该表调用。
+新增传感器时在 `features/camera/sensors/` 添加自行注册 factory 的 `.c/.h`，由使用它的板级填写名称和属性，
+设置所需驱动配置。源文件和头文件目录自动收集，无需修改中央型号表或公共 camera 文件；额外传感器菜单可选。
+
 ## 顶层应用者视角
 
 顶层应用只需要包含 `wt_bsp.h`，不要包含 `boards/<BOARD>/board.h` 或直接使用板级引脚宏。
+
+### 自有项目接入
+
+将本仓库的 `components/wt_bsp` 复制到项目同名位置后，在项目 `CMakeLists.txt`
+的 `project.cmake` 之前接入选板辅助工具：
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+include("${CMAKE_CURRENT_LIST_DIR}/components/wt_bsp/tools/wt_bsp_project.cmake")
+wt_bsp_apply_sdkconfig_defaults()
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(my_app)
+```
+
+为项目实际适配的板卡新增 `sdkconfig.<board_id>` 预设，可从对应仓库示例开始调整，
+随后运行 `idf.py set-board`、`idf.py build`。选板工具从项目父目录查找
+`components/wt_bsp/boards`；仅通过外部 `EXTRA_COMPONENT_DIRS` 引用 BSP、且项目不在
+该目录树中时，使用 ESP-IDF 原生目标/Kconfig 选板流程。原生流程先配置正确的
+`IDF_TARGET`，再选择匹配板卡；跨芯片切换仍需切换目标并清理旧构建。
 
 ### 基本流程
 
@@ -86,9 +124,11 @@ void app_main(void)
 
 - 先调用 `wt_bsp_init()`，再调用 `wt_bsp_get_*()`。
 - `wt_bsp_get_*()` 可能返回 `NULL`，应用需要处理功能未启用或初始化失败的情况。
+- 生命周期调用由应用串行协调。先成功停止采集消费者和应用桥接，再反初始化 BSP；停止/清理失败时保留仍被借用的对象和依赖，处理错误后重试，不应提前释放回调缓冲。
 - RGB 默认支持自动刷新，可通过 `wt_bsp_rgb_set_auto_refresh()` 改为手动刷新。
 - 按键事件通过 `wt_bsp_button_register_event_cb()` 注册，回调里只做轻量操作，复杂业务交给任务处理。
-- 应用侧通过 `idf.py set-board` 生成板卡选择和目标芯片配置，`menuconfig` 只用于裁剪外设能力，不在业务代码里写板卡条件编译。非交互场景可使用 `WT_BSP_BOARD=<BOARD> idf.py set-board`，也可以直接用 `WT_BSP_BOARD=<BOARD> idf.py build` 构建。
+- 保留 `idf.py set-board` 再 `idf.py build` 的流程；非交互选板可使用 `WT_BSP_BOARD=<BOARD> idf.py set-board`，无需额外的 `idf_ext.py`。
+- 已配置目标芯片后，也可在 `menuconfig` 的 `WT BSP -> Wireless-Tag board` 中选择匹配板卡，或在 `sdkconfig.defaults` 中设置对应的 `CONFIG_WT_BSP_BOARD_*`。外设能力可独立裁剪；跨目标芯片切换仍使用 `set-board`。
 
 ### 构建示例
 
@@ -112,19 +152,22 @@ components/wt_bsp/boards/<BOARD>/
 2. 添加 `Kconfig.projbuild`：
 
 ```kconfig
-config WT_BSP_BOARD_<BOARD_ID>
+config WT_BSP_SELECTED_BOARD_<BOARD_ID>  # ignore: multiple-definition
     bool
-    depends on IDF_TARGET_<TARGET>
-    select WT_BSP_BOARD_HAS_BOARD
-    select WT_BSP_BOARD_HAS_RGB
+
+choice WT_BSP_BOARD  # ignore: multiple-definition
+    default WT_BSP_BOARD_<BOARD_ID> if WT_BSP_SELECTED_BOARD_<BOARD_ID>
+    default WT_BSP_BOARD_<BOARD_ID> if !WT_BSP_BOARD_SELECTED_BY_TOOL && IDF_TARGET_<TARGET>
+
+    config WT_BSP_BOARD_<BOARD_ID>
+        bool "<BOARD>"
+        depends on IDF_TARGET_<TARGET>
+        select WT_BSP_BOARD_HAS_BOARD
+        select WT_BSP_BOARD_HAS_RGB
+endchoice
 ```
 
-3. 在 `boards/Kconfig.projbuild` 中加入默认选择和 `rsource`：
-
-```kconfig
-default WT_BSP_BOARD_<BOARD_ID> if IDF_TARGET_<TARGET>
-rsource "<BOARD>/Kconfig.projbuild"
-```
+3. 公共 `boards/Kconfig.projbuild` 通过通配符自动载入各板的 `Kconfig.projbuild` 和可选 `Kconfig.options`，无需新增 `rsource`、板名或目标芯片条件。每块板在自己的命名 `choice WT_BSP_BOARD` 中贡献成员和默认值；同一目标有多块板时，只为默认板保留目标芯片回退的 `default`。额外传感器等设置放入该板的 `Kconfig.options`，并依赖对应 `WT_BSP_BOARD_*`，保持在选板 choice 之外。
 
 4. 添加 `CMakeLists.txt`：
 
@@ -133,6 +176,7 @@ if(CONFIG_WT_BSP_BOARD_<BOARD_ID>)
     list(APPEND WT_BSP_BOARD_INCLUDE_DIRS "${CMAKE_CURRENT_LIST_DIR}")
     file(GLOB board_sources "${CMAKE_CURRENT_LIST_DIR}/*.c")
     list(APPEND WT_BSP_BOARD_SRCS ${board_sources})
+    list(APPEND WT_BSP_BOARD_FEATURES board rgb)
 endif()
 ```
 
@@ -194,12 +238,28 @@ BSP 维护者负责维护公共接口、通用驱动和组件结构，目标是�
 6. 在对应 `board_config.h`、板级 `Kconfig.projbuild`、板级 `CMakeLists.txt` 和 `board.c` 中接入 audio 能力。
 7. 给现有示例或新增示例补验证路径。
 
+若新能力需要按 Kconfig 控制托管依赖，在自己的 Kconfig 中定义始终导出的隐藏字符串，
+例如 `WT_BSP_DEP_AUDIO`，按有效启用状态默认取 `"y"` 或 `"n"`。不可见的 bool
+可能不进入 ESP-IDF 的 `sdkconfig.json`，不能假定其始终以 `false` 存在。
+清单沿用 `matches` 和下面的引号形式，并对多个布尔项显式嵌套括号：
+
+```yaml
+matches:
+  - if: '$CONFIG{WT_BSP_DEP_AUDIO} == "y"'
+```
+
+用真实 Kconfig JSON 序列化结果和 Component Manager 解析器验证启用、关闭、
+板卡不具备能力及目标/SDK 条件。现有回归入口是 `tools/tests/test_dependency_kconfig_exports.py`。
+没有托管依赖条件的纯源码能力无需额外增加该字符串。
+
 ### 维护构建系统
 
 - `components/wt_bsp/CMakeLists.txt` 负责收集 board/feature 变量并统一调用一次 `idf_component_register()`。
 - `boards/CMakeLists.txt` 自动扫描板级目录，但板级源文件只有在对应 Kconfig 开启时才进入编译。
+- 各板的 Kconfig 默认值、目标依赖和额外设置均由本板目录提供，公共收集器不枚举板名或目标芯片。
 - SoC 后端差异优先用 ESP-IDF 的能力宏隔离，例如 `CONFIG_SOC_RMT_SUPPORTED`、`CONFIG_SOC_GPSPI_SUPPORTED`。
 - 不把某个芯片专用实现强行编进所有目标。
+- 应用桥接自己的 CSI/V4L2 头文件依赖由 `examples/common_components/wt_camera_uvc/idf_component.yml` 以私有 `esp_video` 依赖声明；不要在 ESP-IDF 早期依赖扫描尚无 Kconfig 值时，仅用条件 `PRIV_REQUIRES` 声明它。
 
 ### 维护检查清单
 
@@ -208,13 +268,15 @@ BSP 维护者负责维护公共接口、通用驱动和组件结构，目标是�
 - 至少构建一个 SPI 灯带路径目标，例如 `esp32c2` 或 `esp32c61`
 - 新增板卡时确认 `menuconfig` 中只在对应 `IDF_TARGET` 下可选
 - 新增公共 API 时确认示例或测试覆盖了基本调用链
+- 配置回归及完整矩阵方法、2026-11-04 结果和模拟器边界见[验证记录](../../docs/bsp-validation.md)。
 
 ## 扩展边界
 
 | 需求 | 应放位置 | 原因 |
 | --- | --- | --- |
 | 新板卡引脚、资源数量、板卡版本 | `boards/<BOARD>/` | 属于硬件差异 |
-| 通用按键/RGB/SDMMC/DSI/CSI/touch 对象和 API | `features/<FEATURE>/` | 可复用能力 |
+| 通用按键/RGB/SDMMC/DSI/CSI/UVC/touch 对象和 API | `features/<FEATURE>/` | 可复用能力 |
+| CSI/JPEG 到 UVC 的桥接、USB 描述符组合和消费优先级 | 应用工程 | 连接独立能力的应用策略 |
 | ESP-IDF 后端选择 | `features/<FEATURE>/` 或 BSP 内部适配层 | 与 SoC 能力相关，应用不应感知 |
 | 顶层业务逻辑 | 应用工程 | 不属于 BSP |
 
@@ -234,11 +296,11 @@ BSP 维护者负责维护公共接口、通用驱动和组件结构，目标是�
 
 ### 公共驱动何时需要抽象？
 
-当同类能力被两个以上板卡复用，或者应用需要稳定调用入口时，应沉淀为 `include/` 和 `src/` 中的公共能力。只有单板私有、不会复用的初始化细节才留在 `boards/<BOARD>/board.c`。
+当同类能力被两个以上板卡复用，或者应用需要稳定调用入口时，应沉淀到 `features/<FEATURE>/`，由该 feature 提供公共头和实现。只有单板私有、不会复用的初始化细节才留在 `boards/<BOARD>/board.c`。
 
 ### WT9932S31-TINY
 
-S31 使用 ESP-IDF v6.1 及以上版本，v6.1 的选板和构建命令需加 `--preview`。其 DVP/UVC 摄像头配置和资源由板级管理，`wt_bsp_get_csi()` 返回 `NULL`。CDC 可独立使用，也可在 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 下与 UVC 共用 USB 栈。本地 JPEG 接口借用同一摄像头数据路径，回调只在应用任务中同步使用帧，不转移缓冲所有权；USB 枚举后本地取帧返回 `ESP_ERR_INVALID_STATE`。详细引脚、生命周期和示例见[板卡说明](boards/WT9932S31-TINY/README.md)。
+S31 使用 ESP-IDF v6.1 及以上版本，v6.1 的选板和构建命令需加 `--preview`。板级配置 DVP 引脚、传感器和资源预算，`features/camera` 负责采集与 JPEG 输出，`wt_bsp_get_csi()` 返回 `NULL`。独立相机 API 在调用任务中借出 JPEG 帧，回调返回后归还，不检查 USB 状态；录像和推流优先级由应用管理。UVC 通过公共 feature 提供，示例应用负责 JPEG 桥接和 USB profile。CDC 可独立使用，也可在应用提供复合描述符并启用 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 时与 UVC 共用 USB 栈。详细引脚、生命周期和示例见[板卡说明](boards/WT9932S31-TINY/README.md)。
 
 ### WT9932P4X-TINY
 

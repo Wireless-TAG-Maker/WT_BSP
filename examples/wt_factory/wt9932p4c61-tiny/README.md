@@ -5,6 +5,12 @@
 
 This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI display, MIPI CSI camera, touch, SD card, RGB LED control, and Wi-Fi provisioning through the onboard ESP32-C61.
 
+When USB UVC is enabled, the application explicitly starts the shared
+`wt_camera_uvc` application component after BSP initialization. That component
+owns camera/JPEG-to-USB bridging; the factory application skips the competing
+CSI display-preview consumer in this mode. With UVC disabled, the original
+independent CSI preview remains available.
+
 ## Getting Started
 
 1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:

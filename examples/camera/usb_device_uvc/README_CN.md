@@ -7,7 +7,10 @@ WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设�
 
 本示例支持 P4 板卡的 SC2336 MIPI CSI 摄像头和 S31 板卡的 GC2145/OV3660 DVP 摄像头，将其模拟为 High-Speed USB UVC MJPEG 摄像头。电脑无需专用驱动即可通过系统相机、OBS 等兼容 UVC 的软件获取画面。
 
-摄像头采集、硬件 JPEG 编码和 USB Device UVC 的初始化都由 `wt_bsp_init()` 触发，并由板级 `board_init()` 管理生命周期。应用层不直接使用板级私有头文件或引脚定义。
+`wt_bsp_init()` 分别准备独立的 CSI/相机和 USB UVC 对象，应用随后显式调用
+`examples/common_components/wt_camera_uvc/` 提供的 `camera_uvc_start()`。
+该应用组件选择帧源、按需编码 JPEG，并向公共 UVC API 提供缓冲和回调。
+应用层通过 `wt_bsp.h` 获取资源，不直接使用板级私有头文件或引脚定义。
 
 ## WT9932S31-TINY (DVP)
 
@@ -15,7 +18,8 @@ S31 使用 ESP-IDF v6.1 或以上版本。J2 用于烧录/日志，J1 为 UVC US
 摄像头连接 DVP FPC。该板不使用下面 P4 专属的 CSI、FUSB/HUSB 或 IO0 控制步骤。
 
 ```shell
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc set-board
+idf.py --preview -C examples/camera/usb_device_uvc build
 idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 ```
 
@@ -28,8 +32,10 @@ idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 
 两款模组地址均为 `0x3c`，仅探测菜单选择的型号。GC2145 沿用参考工程的时钟二分频、
 200 ms 编码时限和开停流互斥保护。USB 产品名为 `Wireless-Tag Camera`。
-S31 的 `wt_bsp_get_csi()` 返回 `NULL`，以 `wt_bsp_init()` 返回值判断 UVC 初始化结果。
-UVC 与独立 USB CDC 互斥。
+S31 的 `wt_bsp_get_csi()` 返回 `NULL`，应用通过 `wt_bsp_get_camera()` 获取相机。
+DVP 采集、传感器模式和 JPEG 处理位于 `features/camera`；板级提供接线、型号参数和缓冲预算。
+需要分别检查 `wt_bsp_init()` 和 `camera_uvc_start()` 的返回值。
+UVC 和独立 USB CDC 不能各自占用同一个 USB 控制器；复合设备需由应用提供 USB profile。
 
 参考工程记录的 GC2145 右侧细彩点竖线、Windows 原生相机兼容性及 OV3660
 画质微调仍需实板复验。下面的 P4 截图不是 S31 验证结果。详见
@@ -51,6 +57,10 @@ UVC 与独立 USB CDC 互斥。
 WT_BSP_BOARD=WT9932P4C61-TINY idf.py \
     -C examples/camera/usb_device_uvc \
     -B build-usb-device-uvc-p4c61 \
+    set-board
+idf.py \
+    -C examples/camera/usb_device_uvc \
+    -B build-usb-device-uvc-p4c61 \
     build
 ```
 
@@ -58,6 +68,10 @@ WT_BSP_BOARD=WT9932P4C61-TINY idf.py \
 
 ```shell
 WT_BSP_BOARD=WT9932P4-TINY idf.py \
+    -C examples/camera/usb_device_uvc \
+    -B build-usb-device-uvc-p4 \
+    set-board
+idf.py \
     -C examples/camera/usb_device_uvc \
     -B build-usb-device-uvc-p4 \
     build
@@ -71,27 +85,18 @@ WT_BSP_BOARD=WT9932P4-TINY idf.py \
 - UVC MJPEG
 - 1024x600 @ 30 FPS
 - JPEG 压缩质量 80
-- 正常运行时 RGB LED 熄灭，摄像头初始化失败时常亮红灯
+- 推流启动和故障通过应用日志报告
 
-可在以下 menuconfig 路径关闭板级 UVC 初始化：
-
-```text
-WT BSP
-└── Enable USB Device UVC
-```
+在 `WT BSP -> Feature selection` 中独立启用 USB UVC，以及 P4 的 CSI 或 S31 的
+JPEG 相机采集。单独启用 UVC 不会选择摄像头或自动推流。
+传感器到 UVC 的应用配置位于 `Camera UVC application`。
 
 ## P4 运行效果
 
-正常启动后，电脑会枚举出名为 `Wireless-Tag CSI Camera` 的摄像头。串口日志类似：
-
-```text
-I (...) usb_device_uvc: Initializing Wireless-Tag BSP
-I (...) wt_bsp_csi: CSI initialized successfully
-I (...) usbd_uvc: UVC Device Start, Version: 1.3.1
-I (...) board_usb_uvc: USB Device UVC ready: MJPEG 1024x600@30fps
-I (...) usb_device_uvc: USB Device UVC is ready. Connect HUSB to the USB host.
-I (...) usbd_uvc: Mount
-```
+BSP 初始化和应用桥接启动都成功后，P4 的 USB 主机会枚举出名为
+`Wireless-Tag CSI Camera` 的摄像头。主机请求推流时，应用桥接从相机取得帧并向独立
+UVC feature 提供 JPEG 数据。应用成功日志为
+`Application camera-to-UVC bridge is ready. Connect USB OTG to the host.`。
 
 ### 预期警告
 
@@ -127,12 +132,12 @@ W (...) ISP_AWB: subwindow size (1024 x 600) is not divisible by AWB subwindow b
 
 ![Windows 11 UVC 摄像头预览](docs/images/windows-uvc-camera-preview.png)
 
-> 该截图拍摄于自定义 UVC 接口名称生效前。使用当前固件时，截图中的 `UVC CAM1` 会显示为 `Wireless-Tag CSI Camera`。
+> 这是 camera/UVC 分层调整前、且自定义接口名称生效前的历史实板截图。P4 的预期接口名为 `Wireless-Tag CSI Camera`；本次迁移未重新拍摄实板画面，构建和模拟器覆盖见[验证记录](../../../docs/bsp-validation.md)。
 >
 > 注意：上图使用 WT9932P4C61-TINY 开发板拍摄。该开发板使用 ESP32-P4 v3.x 芯片，摄像头画面经过 ISP 处理。WT9932P4-TINY 使用 ESP32-P4 v1.x 芯片，本示例不进行 ISP 处理，因此显示效果会相对差一些。
 
 ## 说明
 
-- P4 的 USB UVC 模式独占 CSI 采集设备，应用不要再调用 `wt_bsp_csi_start()`。
+- 应用桥接运行时拥有 CSI 采集；启动其他 CSI 消费者或调用 `wt_bsp_deinit()` 前，先成功调用 `camera_uvc_stop()`。
 - P4 的 `wt_bsp_get_csi()` 返回 `NULL` 时表示摄像头未启用、未检测到或初始化失败。
-- `CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC` 关闭后，BSP 不会初始化 USB Device UVC。
+- 关闭 `CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC` 会移除 UVC feature；CSI 和相机采集可独立关闭。
