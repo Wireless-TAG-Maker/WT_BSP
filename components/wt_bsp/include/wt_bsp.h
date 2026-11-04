@@ -47,6 +47,9 @@ esp_err_t wt_bsp_init(void);
 /**
  * @brief 反初始化当前选中板卡的 BSP。
  *
+ * 停止外设失败时保留 BSP 接口, 应用应保留相关缓冲区并重试释放。
+ * 成功释放后, 获取类 API 返回 NULL。
+ *
  * @return 成功时返回 ESP_OK，失败时返回 ESP-IDF 错误码。
  */
 esp_err_t wt_bsp_deinit(void);

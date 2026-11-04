@@ -19,13 +19,17 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include <errno.h>
 #include "esp_log.h"
 #include "esp_check.h"
 #include "esp_video_init.h"
+#include "esp_video_ioctl.h"
 #include "linux/videodev2.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 /* ==================== [Defines] =========================================== */
 
@@ -35,6 +39,9 @@
 
 #define CSI_STREAM_TASK_STACK_SIZE    (8192)
 #define CSI_STREAM_TASK_PRIO          (5)
+#define CSI_DQBUF_TIMEOUT_MS          (2000)
+#define CSI_STREAM_STOP_TIMEOUT_MS    (5000)
+#define CSI_BUFFER_CAPACITY           (3)
 
 /* ==================== [Typedefs] ========================================== */
 
@@ -54,14 +61,25 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 {
     esp_err_t ret = ESP_OK;
 
-    if (csi == NULL || info == NULL) {
+    if (csi == NULL || info == NULL || info->buffer_count == 0 ||
+            info->buffer_count > CSI_BUFFER_CAPACITY) {
+        ESP_LOGE(TAG, "Invalid CSI configuration or buffer count");
         return ESP_ERR_INVALID_ARG;
+    }
+    if (csi->is_initialized) {
+        ESP_LOGW(TAG, "CSI is already initialized");
+        return ESP_OK;
     }
 
     memset(csi, 0, sizeof(*csi));
     csi->info = *info;
     csi->v4l2_fd = -1;
     csi->is_initialized = false;
+    csi->stream_stop_semaphore = xSemaphoreCreateBinary();
+    if (csi->stream_stop_semaphore == NULL) {
+        ESP_LOGE(TAG, "Failed to create CSI stream stop semaphore");
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_video_init_csi_config_t csi_config = {0};
     csi_config.sccb_config.init_sccb = (info->i2c_bus_handle == NULL);
@@ -89,6 +107,8 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
     ret = esp_video_init(&cam_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_video_init failed: %s", esp_err_to_name(ret));
+        vSemaphoreDelete((SemaphoreHandle_t)csi->stream_stop_semaphore);
+        csi->stream_stop_semaphore = NULL;
         return ret;
     }
 
@@ -104,9 +124,10 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info)
 esp_err_t wt_bsp_csi_set_pixel_format(wt_bsp_csi_t csi, uint32_t pixel_format)
 {
     if (csi == NULL) {
+        ESP_LOGE(TAG, "CSI object is NULL");
         return ESP_ERR_INVALID_ARG;
     }
-    if (csi->is_streaming) {
+    if (!csi->is_initialized || csi->stream_task_active || csi->is_streaming) {
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -116,12 +137,23 @@ esp_err_t wt_bsp_csi_set_pixel_format(wt_bsp_csi_t csi, uint32_t pixel_format)
 
 esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, void *user_data)
 {
-    if (csi == NULL || !csi->is_initialized || frame_cb == NULL) {
+    esp_err_t ret = ESP_FAIL;
+
+    if (csi == NULL || frame_cb == NULL) {
+        ESP_LOGE(TAG, "Invalid CSI start arguments");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!csi->is_initialized || csi->stream_stop_semaphore == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    if (csi->is_streaming) {
-        return ESP_OK;
+    if (csi->stream_task_active || csi->is_streaming || csi->v4l2_fd >= 0) {
+        ESP_LOGE(TAG, "Previous CSI stream must be stopped and joined first");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    SemaphoreHandle_t stopped = (SemaphoreHandle_t)csi->stream_stop_semaphore;
+    while (xSemaphoreTake(stopped, 0) == pdTRUE) {
     }
 
     int fd = open(WT_BSP_CSI_DEV_PATH, O_RDONLY);
@@ -130,6 +162,15 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
         return ESP_FAIL;
     }
     csi->v4l2_fd = fd;
+
+    struct timeval dequeue_timeout = {
+        .tv_sec = CSI_DQBUF_TIMEOUT_MS / 1000,
+        .tv_usec = (CSI_DQBUF_TIMEOUT_MS % 1000) * 1000,
+    };
+    if (ioctl(fd, VIDIOC_S_DQBUF_TIMEOUT, &dequeue_timeout) != 0) {
+        ESP_LOGE(TAG, "Failed to set CSI frame dequeue timeout (errno=%d)", errno);
+        goto err;
+    }
 
     struct v4l2_format format = {
         .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
@@ -142,6 +183,14 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
         ESP_LOGE(TAG, "Failed to set format");
         goto err;
     }
+    uint32_t requested_pixel_format = csi->info.pixel_format ? csi->info.pixel_format : V4L2_PIX_FMT_RGB24;
+    if (format.fmt.pix.width != csi->info.width ||
+            format.fmt.pix.height != csi->info.height ||
+            format.fmt.pix.pixelformat != requested_pixel_format) {
+        ESP_LOGE(TAG, "Video driver changed the requested CSI frame format");
+        ret = ESP_ERR_NOT_SUPPORTED;
+        goto err;
+    }
 
     struct v4l2_requestbuffers req = {
         .count = csi->info.buffer_count,
@@ -151,6 +200,10 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
 
     if (ioctl(fd, VIDIOC_REQBUFS, &req) != 0) {
         ESP_LOGE(TAG, "Failed to request buffers");
+        goto err;
+    }
+    if (req.count == 0 || req.count > CSI_BUFFER_CAPACITY) {
+        ESP_LOGE(TAG, "Video driver returned unsupported buffer count: %u", (unsigned int)req.count);
         goto err;
     }
 
@@ -168,6 +221,7 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
 
         csi->buffers[i] = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
         if (csi->buffers[i] == MAP_FAILED) {
+            csi->buffers[i] = NULL;
             ESP_LOGE(TAG, "Failed to mmap buffer %d", i);
             goto err;
         }
@@ -188,11 +242,15 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
     csi->frame_cb = frame_cb;
     csi->user_data = user_data;
     csi->is_streaming = true;
+    csi->stream_task_active = true;
 
     BaseType_t res = xTaskCreate(wt_bsp_csi_stream_task, "csi_stream", CSI_STREAM_TASK_STACK_SIZE, csi, CSI_STREAM_TASK_PRIO, (TaskHandle_t *)&csi->video_stream_task_handle);
     if (res != pdPASS) {
         ESP_LOGE(TAG, "Failed to create stream task");
+        csi->is_streaming = false;
+        csi->stream_task_active = false;
         ioctl(fd, VIDIOC_STREAMOFF, &type);
+        ret = ESP_ERR_NO_MEM;
         goto err;
     }
 
@@ -201,37 +259,75 @@ esp_err_t wt_bsp_csi_start(wt_bsp_csi_t csi, wt_bsp_csi_frame_cb_t frame_cb, voi
 err:
     close(fd);
     csi->v4l2_fd = -1;
-    return ESP_FAIL;
+    csi->is_streaming = false;
+    csi->stream_task_active = false;
+    csi->video_stream_task_handle = NULL;
+    csi->frame_cb = NULL;
+    csi->user_data = NULL;
+    memset(csi->buffers, 0, sizeof(csi->buffers));
+    csi->buffer_size = 0;
+    return ret;
 }
 
 esp_err_t wt_bsp_csi_stop(wt_bsp_csi_t csi)
 {
-    if (csi == NULL || !csi->is_streaming) {
+    if (csi == NULL) {
+        ESP_LOGE(TAG, "CSI object is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!csi->is_initialized) {
         return ESP_OK;
     }
 
-    csi->is_streaming = false;
-    // Task will delete itself and call streamoff
-
-    // Wait for task to finish (optional, could use semaphores for better sync)
-    vTaskDelay(pdMS_TO_TICKS(100));
+    if (csi->stream_task_active) {
+        if (csi->video_stream_task_handle != NULL &&
+                xTaskGetCurrentTaskHandle() == (TaskHandle_t)csi->video_stream_task_handle) {
+            ESP_LOGE(TAG, "Cannot stop CSI from its frame callback task");
+            return ESP_ERR_INVALID_STATE;
+        }
+        if (csi->stream_stop_semaphore == NULL) {
+            ESP_LOGE(TAG, "Active CSI task has no stop semaphore");
+            return ESP_ERR_INVALID_STATE;
+        }
+        csi->is_streaming = false;
+        if (xSemaphoreTake((SemaphoreHandle_t)csi->stream_stop_semaphore,
+                           pdMS_TO_TICKS(CSI_STREAM_STOP_TIMEOUT_MS)) != pdTRUE) {
+            ESP_LOGE(TAG, "Timed out waiting for CSI stream task to stop");
+            return ESP_ERR_TIMEOUT;
+        }
+        // Only the lifecycle task clears this flag after consuming completion.
+        csi->stream_task_active = false;
+    }
 
     if (csi->v4l2_fd >= 0) {
         close(csi->v4l2_fd);
         csi->v4l2_fd = -1;
     }
+    csi->video_stream_task_handle = NULL;
+    csi->frame_cb = NULL;
+    csi->user_data = NULL;
+    memset(csi->buffers, 0, sizeof(csi->buffers));
+    csi->buffer_size = 0;
 
     return ESP_OK;
 }
 
 esp_err_t wt_bsp_csi_deinit(wt_bsp_csi_t csi)
 {
-    if (csi == NULL || !csi->is_initialized) {
-        return ESP_OK;
+    if (csi == NULL) {
+        ESP_LOGE(TAG, "CSI object is NULL");
+        return ESP_ERR_INVALID_ARG;
     }
 
-    wt_bsp_csi_stop(csi);
-    csi->is_initialized = false;
+    esp_err_t ret = wt_bsp_csi_stop(csi);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+    if (csi->stream_stop_semaphore != NULL) {
+        vSemaphoreDelete((SemaphoreHandle_t)csi->stream_stop_semaphore);
+    }
+    memset(csi, 0, sizeof(*csi));
+    csi->v4l2_fd = -1;
 
     return ESP_OK;
 }
@@ -242,6 +338,7 @@ static void wt_bsp_csi_stream_task(void *arg)
 {
     wt_bsp_csi_t csi = (wt_bsp_csi_t)arg;
     int fd = csi->v4l2_fd;
+    SemaphoreHandle_t stopped = (SemaphoreHandle_t)csi->stream_stop_semaphore;
 
     while (csi->is_streaming) {
         struct v4l2_buffer buf = {
@@ -250,12 +347,17 @@ static void wt_bsp_csi_stream_task(void *arg)
         };
 
         if (ioctl(fd, VIDIOC_DQBUF, &buf) == 0) {
-            if (csi->frame_cb) {
+            if (buf.index >= CSI_BUFFER_CAPACITY || csi->buffers[buf.index] == NULL ||
+                    buf.bytesused > csi->buffer_size) {
+                ESP_LOGE(TAG, "Video driver returned an invalid CSI buffer");
+                break;
+            }
+            if (csi->is_streaming && csi->frame_cb != NULL) {
                 csi->frame_cb(csi->buffers[buf.index], csi->info.width, csi->info.height, buf.bytesused, csi->user_data);
             }
             ioctl(fd, VIDIOC_QBUF, &buf);
         } else {
-            if (errno != EAGAIN) {
+            if (errno != EAGAIN && errno != ETIMEDOUT && errno != EINTR) {
                 ESP_LOGE(TAG, "VIDIOC_DQBUF failed: %d", errno);
                 break;
             }
@@ -266,7 +368,10 @@ static void wt_bsp_csi_stream_task(void *arg)
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     ioctl(fd, VIDIOC_STREAMOFF, &type);
 
+    csi->is_streaming = false;
     csi->video_stream_task_handle = NULL;
+    // Do not access csi after signaling: stop/deinit may immediately release it.
+    xSemaphoreGive(stopped);
     vTaskDelete(NULL);
 }
 

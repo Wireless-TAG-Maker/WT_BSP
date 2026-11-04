@@ -48,7 +48,9 @@ esp_err_t wt_bsp_deinit(void)
         return ESP_ERR_INVALID_ARG;
     }
     esp_err_t ret = g_bsp.interface->deinit();
-    g_bsp.interface = NULL;
+    if (ret == ESP_OK) {
+        g_bsp.interface = NULL;
+    }
     return ret;
 }
 

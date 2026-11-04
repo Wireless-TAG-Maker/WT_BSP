@@ -549,7 +549,9 @@ static esp_err_t board_deinit(void)
     // Deinitialize CSI
     ret = wt_bsp_csi_deinit(&s_bsp_csi);
     if (ret != ESP_OK) {
+        // A live capture task still owns the camera and its shared SCCB bus.
         ESP_LOGE(TAG, "Failed to deinitialize CSI: %s", esp_err_to_name(ret));
+        return ret;
     }
 #endif
 
