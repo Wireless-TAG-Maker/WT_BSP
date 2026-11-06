@@ -1,5 +1,16 @@
 menu "Camera UVC application"
 
+    config WT_CAMERA_UVC_P4_CSI_PROFILE
+        bool
+        default y if IDF_TARGET_ESP32P4 && WT_BSP_ENABLE_CSI && WT_BSP_ENABLE_USB_DEVICE_UVC
+        select ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE
+        set UVC_CAM1_FRAMERATE=30
+        set UVC_CAM1_FRAMESIZE_WIDTH=1024
+        set UVC_CAM1_FRAMESIZE_HEIGT=600
+        help
+            Match the application USB profile to the TINY P4 CSI capture mode.
+            This profile is active only when CSI and USB UVC are both enabled.
+
     config WT_CAMERA_UVC_S31_USB_PROFILE
         bool
         default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC

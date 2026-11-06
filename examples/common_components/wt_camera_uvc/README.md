@@ -14,9 +14,16 @@ CSI is selected when enabled; otherwise the board-owned JPEG camera API is used.
 The camera feature owns DVP capture, sensor profiles and JPEG conversion for
 that API. Boards supply hardware configuration and hold the camera object;
 this application component consumes public frames and manages their USB delivery.
-Enable the required source explicitly in the project's configuration. The S31
-profiles here align the application USB descriptor format with the selected
-sensor without making camera hardware depend on USB configuration.
+Enable the required source explicitly in the project's configuration. The P4
+CSI profile enables the hardware JPEG video device and sets USB video to
+1024x600 at 30 FPS, matching the TINY boards' CSI capture mode. This also applies
+when enabling UVC in either P4 factory application. The S31 profiles align USB
+video with the selected sensor. These profiles require both the selected source
+and UVC to be enabled; enabling UVC alone does not enable a camera.
+
+CSI frames are copied into a cache-aligned PSRAM buffer before being submitted
+to the JPEG encoder as USERPTR input. The allocator uses the current target's
+cache requirements, including P4 configurations with 128-byte cache lines.
 
 The S31 factory application selects local recording versus host streaming.
 The BSP camera API does not inspect USB state or decide which consumer wins.
@@ -81,3 +88,5 @@ reusing it; applications need not include `esp_video` headers or expose its type
 The manifest handles the managed dependency condition because Kconfig is not
 available during ESP-IDF's initial component requirements discovery. Basic IDF
 requirements remain declared in CMake independently of the enabled source.
+The JPEG driver is an explicit requirement so the encoder remains available in
+applications using ESP-IDF's minimal build mode.

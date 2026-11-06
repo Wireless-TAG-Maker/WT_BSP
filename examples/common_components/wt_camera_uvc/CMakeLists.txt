@@ -10,7 +10,7 @@ idf_component_register(SRCS ${camera_uvc_srcs}
                        INCLUDE_DIRS "include"
                        PRIV_INCLUDE_DIRS "."
                        REQUIRES wt_bsp
-                       PRIV_REQUIRES freertos heap esp_timer)
+                       PRIV_REQUIRES freertos heap esp_timer esp_driver_jpeg)
 
 # The application chooses this camera's USB transport and optional CDC function.
 # BSP camera acquisition and the UVC feature do not select this device profile.
