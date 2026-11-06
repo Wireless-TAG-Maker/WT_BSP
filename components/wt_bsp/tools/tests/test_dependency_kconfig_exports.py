@@ -25,6 +25,7 @@ except ImportError:
 
 
 COMPONENT = Path(__file__).resolve().parents[2]
+CAMERA_UVC = COMPONENT.parents[1] / "examples/common_components/wt_camera_uvc"
 FEATURES = ("BUTTON", "RGB", "DSI", "TOUCH", "CSI", "CAMERA", "USB_DEVICE_UVC", "USB_DEVICE_CDC")
 spec = importlib.util.spec_from_file_location(
     "wt_bsp_dependency_board_tools", COMPONENT / "tools/wt_bsp_set_board.py",
@@ -104,6 +105,18 @@ class DependencyExportTests(unittest.TestCase):
         with patch.dict(os.environ, {"WT_BSP_BOARD_KCONFIG": str(selector)}):
             return esp_kconfiglib.Kconfig(str(self.kconfig_file), warn_to_stderr=False)
 
+    def include_uvc_application(self):
+        vendor_settings = []
+        for name, value in (("UVC_CAM1_FRAMESIZE_WIDTH", 1280),
+                            ("UVC_CAM1_FRAMESIZE_HEIGT", 720),
+                            ("UVC_CAM1_FRAMERATE", 15)):
+            vendor_settings.append('config {}\n    int "USB video setting"\n    default {}\n'.format(
+                name, value))
+        self.kconfig_file.write_text(
+            self.kconfig_file.read_text() + "\n" + "\n".join(vendor_settings)
+            + '\nsource "{}"\n'.format(CAMERA_UVC / "Kconfig.projbuild")
+        )
+
     def export(self, model):
         # Exercise the serializer used by ESP-IDF, then round-trip its JSON.
         result = json.loads(json.dumps(get_json_values(model)))
@@ -180,6 +193,70 @@ class DependencyExportTests(unittest.TestCase):
         fresh.load_config(str(sdkconfig))
         self.assertEqual(fresh.syms["WT_BSP_ENABLE_CAMERA"].str_value, "n")
         self.assertEqual(self.export(fresh)["WT_BSP_DEP_CAMERA"], "n")
+        self.assert_common_unchanged()
+
+    def test_p4_uvc_application_matches_csi_and_enables_jpeg(self):
+        self.include_uvc_application()
+        for board in ("WT9932P4-TINY", "WT9932P4C61-TINY", "WT9932P4X-TINY"):
+            with self.subTest(board=board):
+                model = self.load(board)
+                model.syms["WT_BSP_ENABLE_USB_DEVICE_UVC"].set_value("y")
+                # Saved vendor defaults must not override the application's CSI mode.
+                for name, value in (("UVC_CAM1_FRAMESIZE_WIDTH", 1280),
+                                    ("UVC_CAM1_FRAMESIZE_HEIGT", 720),
+                                    ("UVC_CAM1_FRAMERATE", 15)):
+                    model.syms[name].set_value(value)
+                values = self.export(model)
+                self.assertIs(values.get("ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE", False), True)
+                self.assertEqual(values["UVC_CAM1_FRAMESIZE_WIDTH"], 1024)
+                self.assertEqual(values["UVC_CAM1_FRAMESIZE_HEIGT"], 600)
+                self.assertEqual(values["UVC_CAM1_FRAMERATE"], 30)
+        self.assert_common_unchanged()
+
+    def test_disabling_uvc_releases_the_p4_application_profile(self):
+        self.include_uvc_application()
+        model = self.load("WT9932P4-TINY")
+        uvc = model.syms["WT_BSP_ENABLE_USB_DEVICE_UVC"]
+        for enabled in ("y", "n", "y"):
+            uvc.set_value(enabled)
+            values = self.export(model)
+            self.assertIs(values["WT_BSP_ENABLE_CSI"], True)
+            self.assertEqual(values["UVC_CAM1_FRAMESIZE_WIDTH"], 1024 if enabled == "y" else 1280)
+            self.assertEqual(values["UVC_CAM1_FRAMESIZE_HEIGT"], 600 if enabled == "y" else 720)
+            self.assertEqual(values["UVC_CAM1_FRAMERATE"], 30 if enabled == "y" else 15)
+            self.assertEqual(values.get("ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE", False), enabled == "y")
+        self.assert_common_unchanged()
+
+    def test_uvc_only_application_does_not_enable_a_camera(self):
+        self.include_uvc_application()
+        model = self.load(self.add_board("UVCONLYAPP", ("USB_DEVICE_UVC",)))
+        model.syms["WT_BSP_ENABLE_USB_DEVICE_UVC"].set_value("y")
+        values = self.export(model)
+        self.assertEqual(values["WT_BSP_DEP_CSI"], "n")
+        self.assertEqual(values["WT_BSP_DEP_CAMERA"], "n")
+        self.assertEqual(values["WT_BSP_DEP_RGB"], "n")
+        self.assertIs(values.get("ESP_VIDEO_ENABLE_HW_JPEG_ENC_VIDEO_DEVICE", False), False)
+        self.assertEqual(values["UVC_CAM1_FRAMESIZE_WIDTH"], 1280)
+        self.assertEqual(values["UVC_CAM1_FRAMESIZE_HEIGT"], 720)
+        self.assert_common_unchanged()
+
+    def test_s31_uvc_application_keeps_its_sensor_profiles(self):
+        self.include_uvc_application()
+        text = self.kconfig_file.read_text()
+        text = text.replace("config IDF_TARGET_ESP32P4\n    bool\n    default y\n",
+                            "config IDF_TARGET_ESP32P4\n    bool\n    default n\n")
+        text = text.replace("config IDF_TARGET_ESP32S31\n    bool\n    default n\n",
+                            "config IDF_TARGET_ESP32S31\n    bool\n    default y\n")
+        self.kconfig_file.write_text(text)
+        model = self.load("WT9932S31-TINY")
+        model.syms["WT_BSP_ENABLE_USB_DEVICE_UVC"].set_value("y")
+        for sensor, width, height, rate in (("GC2145", 1600, 1200, 8), ("OV3660", 640, 480, 25)):
+            with self.subTest(sensor=sensor):
+                model.syms["WT_BSP_S31_CAMERA_SENSOR_" + sensor].set_value("y")
+                values = self.export(model)
+                self.assertEqual(values["UVC_CAM1_FRAMESIZE_WIDTH"], width)
+                self.assertEqual(values["UVC_CAM1_FRAMESIZE_HEIGT"], height)
+                self.assertEqual(values["UVC_CAM1_FRAMERATE"], rate)
         self.assert_common_unchanged()
 
     @unittest.skipUnless(OptionalRequirement, "run with ESP-IDF Component Manager")
