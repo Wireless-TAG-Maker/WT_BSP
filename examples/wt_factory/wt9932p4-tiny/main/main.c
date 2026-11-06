@@ -24,6 +24,7 @@
 #include "driver/ppa.h"
 #include "linux/videodev2.h"
 #include "wt_bsp.h"
+#include "camera_uvc.h"
 
 static const char *TAG = "factory_firmware";
 
@@ -42,16 +43,23 @@ extern void update_led_color(uint8_t r, uint8_t g, uint8_t b);
 extern bool camera_is_fullscreen(void);
 
 /* Camera streaming state */
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
 static ppa_client_handle_t s_ppa_srm_handle = NULL;
+#endif
 static lv_display_t *s_lvgl_disp = NULL;
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
 static uint8_t *s_ui_cam_buffer[2] = {NULL, NULL};
 static size_t s_ui_cam_buffer_size = 0;
 static uint8_t s_current_buf_idx = 0;
+#endif
 static uint8_t s_led_red = 0;
 static uint8_t s_led_green = 0;
 static uint8_t s_led_blue = 0;
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
 static bool s_camera_buffer_error_logged = false;
+#endif
 
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
 static bool alloc_camera_buffers(size_t buffer_size, uint8_t *buffers[2])
 {
     size_t data_cache_line_size = 0;
@@ -180,6 +188,8 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
     }
 }
 
+#endif
+
 /* Functions required by lvgl_demo_ui.c implemented using BSP */
 
 void example_set_led_color(uint8_t r, uint8_t g, uint8_t b)
@@ -222,8 +232,15 @@ void app_main(void)
     esp_err_t ret = wt_bsp_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "BSP init failed: %s", esp_err_to_name(ret));
-        //return;
+        return;
     }
+
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    ret = camera_uvc_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Camera-to-UVC bridge failed: %s", esp_err_to_name(ret));
+    }
+#endif
 
     wt_bsp_dsi_t dsi = wt_bsp_get_dsi();
     wt_bsp_csi_t csi = wt_bsp_get_csi();
@@ -281,7 +298,12 @@ void app_main(void)
     if (!dsi_ok) {
         ESP_LOGW(TAG, "Display not available, skipping UI initialization");
         ESP_LOGI(TAG, "Factory firmware example running (no display mode)");
-        wt_bsp_deinit();
+        esp_err_t stop_ret = camera_uvc_stop();
+        if (stop_ret == ESP_OK) {
+            wt_bsp_deinit();
+        } else {
+            ESP_LOGE(TAG, "Bridge cleanup failed; retaining BSP resources: %s", esp_err_to_name(stop_ret));
+        }
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(100000));
         }
@@ -324,7 +346,8 @@ void app_main(void)
     wt_bsp_dsi_display_on(dsi);
     wt_bsp_dsi_set_brightness(dsi, 100);
 
-    /* 5. Initialize PPA and Camera */
+#if !WT_BSP_USB_DEVICE_UVC_ENABLED
+    /* This application assigns CSI either to the UVC bridge or the local UI. */
     if (csi) {
         ESP_LOGI(TAG, "Initializing PPA and Camera");
         ppa_client_handle_t ppa_srm_handle = NULL;
@@ -359,6 +382,8 @@ void app_main(void)
             }
         }
     }
+
+#endif
 
     ESP_LOGI(TAG, "Factory firmware example running");
 

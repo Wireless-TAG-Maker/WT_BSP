@@ -1,75 +1,89 @@
 license: Apache-2.0
 
+# Exported feature strings remain available when an unsupported feature's
+# invisible boolean is omitted from sdkconfig.json. matches also lets Component
+# Manager track configuration changes when optional features are toggled.
 dependencies:
   idf:
     version: ">=6.0.0"
   button:
     version: "^4.1.6"
     require: public
-    rules:
-      - if: "$CONFIG{WT_BSP_ENABLE_BUTTON} == True"
+    matches:
+      - if: '$CONFIG{WT_BSP_DEP_BUTTON} == "y"'
   led_strip:
     version: "^3.0.3"
     require: public
-    rules:
-      - if: "$CONFIG{WT_BSP_ENABLE_RGB} == True"
+    matches:
+      - if: '$CONFIG{WT_BSP_DEP_RGB} == "y"'
   esp_lcd_ek79007:
     version: "1.*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_DSI} == "y"'
   espressif/esp_lcd_ili9881c:
     version: "1.*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_DSI} == "y"'
   kevincoooool/esp_lcd_st7102:
     version: "1.*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_DSI} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_DSI} == "y"'
   espressif/esp_lcd_touch:
     version: "*"
     require: public
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_TOUCH} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_TOUCH} == "y"'
   espressif/esp_lcd_touch_st7123:
     version: "1.*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_TOUCH} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_TOUCH} == "y"'
   esp_lvgl_port:
     version: "^2"
     require: public
-    rules:
-      - if: "target == esp32p4 && ($CONFIG{WT_BSP_ENABLE_DSI} == True || $CONFIG{WT_BSP_ENABLE_TOUCH} == True)"
+    matches:
+      # 2.9 uses DPI callbacks that are unavailable in ESP-IDF 6.0.
+      - if: 'idf_version <6.1 && (target == esp32p4 && ($CONFIG{WT_BSP_DEP_DSI} == "y" || $CONFIG{WT_BSP_DEP_TOUCH} == "y"))'
+        version: "2.8.*"
+      - if: 'idf_version >=6.1 && (target == esp32p4 && ($CONFIG{WT_BSP_DEP_DSI} == "y" || $CONFIG{WT_BSP_DEP_TOUCH} == "y"))'
+        version: "^2"
   lvgl/lvgl:
     version: ">=9"
     require: public
-    rules:
-      - if: "target == esp32p4 && ($CONFIG{WT_BSP_ENABLE_DSI} == True || $CONFIG{WT_BSP_ENABLE_TOUCH} == True)"
+    matches:
+      - if: 'target == esp32p4 && ($CONFIG{WT_BSP_DEP_DSI} == "y" || $CONFIG{WT_BSP_DEP_TOUCH} == "y")'
   espressif/esp_video:
     version: "2.3.*"
-    rules:
-      - if: "(target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True) || (target == esp32s31 && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_UVC} == True)"
+    matches:
+      - if: '(target == esp32p4 && $CONFIG{WT_BSP_DEP_CSI} == "y") || (target in [esp32p4, esp32s31] && $CONFIG{WT_BSP_DEP_CAMERA} == "y")'
   espressif/esp_cam_sensor:
     version: "2.3.*"
-    rules:
-      - if: "(target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True) || (target == esp32s31 && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_UVC} == True)"
+    matches:
+      - if: '(target == esp32p4 && $CONFIG{WT_BSP_DEP_CSI} == "y") || (target in [esp32p4, esp32s31] && $CONFIG{WT_BSP_DEP_CAMERA} == "y")'
+  espressif/esp_h264:
+    # Later 1.3.x releases use an eFuse API unavailable in ESP-IDF 6.0.
+    # DSI panel drivers can also bring esp_video in when cameras are disabled.
+    version: "1.3.0"
+    matches:
+      - if: 'idf_version <6.1 && (target == esp32p4 && ($CONFIG{WT_BSP_DEP_DSI} == "y" || ($CONFIG{WT_BSP_DEP_CSI} == "y" || $CONFIG{WT_BSP_DEP_CAMERA} == "y")))'
   espressif/esp_sccb_intf:
     version: "*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_CSI} == "y"'
   espressif/esp_ipa:
     version: "2.2.*"
-    rules:
-      - if: "target == esp32p4 && $CONFIG{WT_BSP_ENABLE_CSI} == True"
+    matches:
+      - if: 'target == esp32p4 && $CONFIG{WT_BSP_DEP_CSI} == "y"'
   espressif/usb_device_uvc:
     version: "1.3.*"
-    rules:
-      - if: "target in [esp32p4, esp32s31] && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_UVC} == True"
+    require: public
+    matches:
+      - if: 'target in [esp32p4, esp32s31] && $CONFIG{WT_BSP_DEP_USB_DEVICE_UVC} == "y"'
   espressif/tinyusb:
-    # The S31 bulk completion adapter uses this driver's private state.
+    # The application's S31 bulk completion adapter uses this driver's private state.
     version: "0.19.*"
-    rules:
-      - if: "target == esp32s31 && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_UVC} == True"
+    matches:
+      - if: 'target == esp32s31 && $CONFIG{WT_BSP_DEP_USB_DEVICE_UVC} == "y"'
   espressif/esp_tinyusb:
     version: "2.2.*"
-    rules:
-      - if: "target in [esp32p4, esp32s31] && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_UVC} == False && $CONFIG{WT_BSP_ENABLE_USB_DEVICE_CDC} == True"
+    matches:
+      - if: 'target in [esp32p4, esp32s31] && ($CONFIG{WT_BSP_DEP_USB_DEVICE_UVC} == "n" && $CONFIG{WT_BSP_DEP_USB_DEVICE_CDC} == "y")'

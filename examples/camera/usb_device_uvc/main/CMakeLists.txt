@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.c"
                        INCLUDE_DIRS "."
-                       REQUIRES wt_bsp)
+                       REQUIRES wt_bsp wt_camera_uvc)

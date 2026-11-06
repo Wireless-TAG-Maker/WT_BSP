@@ -2,7 +2,11 @@
 
 板级适配依据 `SCH_WT9932S31-TINY_1V1(Kirto).pdf`，摄像头设置来自所提供的
 `dvp_usb_device_uvc` 参考工程。RGB、按键和 SD 卡复用公共 feature；USB CDC
-使用 `features/usb_device_cdc`；DVP 摄像头型号、引脚及 UVC 数据路径留在本板目录。
+使用 `features/usb_device_cdc`；USB UVC 配置和启停复用 `features/usb_device_uvc`。
+DVP 摄像头型号、引脚、工作参数和缓冲预算由本板配置，采集与 JPEG 输出复用
+[`features/camera`](../../features/camera/README.md)。板级持有静态相机对象，并调用公共 feature 初始化和释放。
+应用层的 `examples/common_components/wt_camera_uvc` 负责将 JPEG 转交 UVC，BSP 不自动连接两者。
+启用相机不需要启用 UVC；`wt_bsp_init()` 准备 UVC 对象，应用显式调用 start 后才启动 USB。
 
 ## SDK 与选板
 
@@ -11,12 +15,18 @@
 ESP-IDF v6.0.0 最低要求。
 
 ```sh
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/get-started/blink build
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/get-started/button build
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/storage/sdmmc build
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/usb/device_cdc build
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc build
-WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/wt_factory/wt9932s31-tiny build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/get-started/blink set-board
+idf.py --preview -C examples/get-started/blink build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/get-started/button set-board
+idf.py --preview -C examples/get-started/button build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/storage/sdmmc set-board
+idf.py --preview -C examples/storage/sdmmc build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/usb/device_cdc set-board
+idf.py --preview -C examples/usb/device_cdc build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/camera/usb_device_uvc set-board
+idf.py --preview -C examples/camera/usb_device_uvc build
+WT_BSP_BOARD=WT9932S31-TINY idf.py --preview -C examples/wt_factory/wt9932s31-tiny set-board
+idf.py --preview -C examples/wt_factory/wt9932s31-tiny build
 ```
 
 也可在相应示例目录执行 `idf.py --preview set-board` 交互选择。
@@ -43,7 +53,7 @@ SD 卡仅在示例调用 `wt_bsp_sdmmc_mount()` 时挂载，BSP 不自动格式�
 
 ## 摄像头
 
-| menuconfig 型号 | 采集与编码 | USB 配置 |
+| menuconfig 型号 | 采集与编码 | 示例应用的 USB profile |
 | --- | --- | --- |
 | GC2145 / CKS-K210-GC3.1 (默认) | UYVY 1600×1200，S31 硬件 JPEG，质量 80 | MJPEG，标称 8 FPS，Bulk，512 字节端点、16 KiB payload |
 | OV3660 | 传感器原生 JPEG 640×480 | MJPEG，标称 25 FPS；独立示例用 Isochronous 1023 字节端点，工厂复合设备用 Bulk 512 字节端点、16 KiB payload |
@@ -56,8 +66,16 @@ idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 
 在 **WT BSP → Camera sensor** 选择型号。对应配置项为
 `CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145` 或
-`CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660`。切换型号会同时调整 UVC 分辨率、帧率
-和实际端点配置，随后重新构建和烧录。
+`CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660`。板级选项只决定相机硬件模式。
+板级仅通过统一 `wt_bsp_camera_info_t` 传入 `sensor_name = "gc2145"` 或 `"ov3660"`，
+interface 自动查找已注册驱动，由其 factory 返回统一相机操作表。
+GC2145 不需要额外属性；OV3660 通过 `wt_bsp_camera_property_t` 数组提供
+`ae_level`、`jpeg_quality`、`saturation`、`sharpness`、`denoise` 五项整数属性。
+名称、属性数组和属性名使用静态数据，直到相机反初始化成功前保持有效。
+现有两份传感器 Kconfig 设置所需驱动和模式，feature 自动收集传感器实现。
+后续新增型号实现模块自己的 `.c/.h` 并自行注册 factory，板级填写名称、属性和硬件参数即可接入，
+无需包含传感器私有头文件或扩展 camera 的中央型号表。详见[新增传感器模块](../../features/camera/README.md#新增传感器模块)。
+UVC 示例的应用组件再将该模式映射到 USB 分辨率、帧率和端点 profile，随后重新构建和烧录。
 
 两款传感器都使用 SCCB 地址 `0x3c`，因此仅注册所选型号的探测函数，并核对
 传感器 PID。保持组件的两项 `*_AUTO_DETECT_DVP_INTERFACE_SENSOR` 关闭。
@@ -65,9 +83,14 @@ idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 
 GC2145 沿用参考工程的完整 UXGA 时序表、输出二分频 `0xfa=0x10`、200 ms JPEG
 编码时限、开流丢弃前两帧和固定缓冲复用；开停流及取帧/归还由递归互斥锁串行化。
+采集管线位于 `features/camera/backends/wt_bsp_camera_dvp.c`，GC2145 的 UYVY 模式扩展和
+OV3660 的图像调节分别位于 `features/camera/sensors/gc2145/` 与 `sensors/ov3660/`。
+传感器底层驱动继续由 `esp_cam_sensor` 提供；feature 不依赖本板的私有头文件或配置符号。
 UVC 示例启用 PSRAM，缓冲容量按 16 MB PSRAM 预算设置。
+GC2145 使用一个 DVP 用户缓冲和驱动备用缓冲，为应用层独立 JPEG 快照留出空间；
+OV3660 保留两个用户缓冲。这次缓冲调整尚未进行实机吞吐验证。
 
-S31 的 Bulk 路径通过 `board_tinyusb_video.c` 补充末包结束处理：当最后一个
+S31 示例的 Bulk 路径通过应用组件中的 `usb/camera_uvc_tinyusb_video.c` 补充末包结束处理：当最后一个
 UVC payload 小于协商的最大长度、但恰好是 USB 端点包长的整数倍时，先发送
 零长度包 (ZLP)，再通知当前帧发送完成。否则主机会把下一帧的头部拼入当前
 JPEG。这是实机测试发现的间歇性问题；强制触发包边界后可以稳定复现。
@@ -75,27 +98,26 @@ CMake 在 S31 GC2145 或工厂复合 USB 配置下用该适配文件编译 TinyU
 不修改 `managed_components`；独立 OV3660 和其他板卡使用原驱动。由于适配文件
 访问驱动内部状态，S31 UVC 的 TinyUSB 依赖限定为 `0.19.*`，升级时需复核。
 
-独立 UVC 示例关闭本地 JPEG 功能，`wt_bsp_init()` 初始化摄像头并启动 USB 枚举；缺少摄像头或型号不符
-会返回错误并清理已初始化的 BSP 资源。S31 使用 DVP，`wt_bsp_get_csi()` 始终返回
-`NULL`。应用不要再自行初始化 `esp_video` 或 TinyUSB。
+相机功能独立由 `CONFIG_WT_BSP_ENABLE_CAMERA` 启用。`wt_bsp_init()` 将硬件配置传给 camera feature，准备相机对象和同步资源，
+硬件检测在 `wt_bsp_camera_prepare()` 时进行；相机缺失不会阻止其他独立外设初始化。
+`wt_bsp_camera_capture()` 在调用任务中同步借出 JPEG 帧，回调返回后自动归还。
+相机 API 不检查 USB 是否枚举，也不决定录像或推流优先级。
+S31 使用 DVP，因而 `wt_bsp_get_csi()` 始终返回 `NULL`。
 
-工厂示例启用 `CONFIG_WT_BSP_ENABLE_CAMERA`，通过 `wt_bsp_get_camera()` 获取
-板级持有的相机接口。该模式将硬件检测推迟到 `wt_bsp_camera_prepare()`，摄像头
-缺失时仍保留 RGB、CDC 等资源用于诊断。`wt_bsp_camera_capture()` 在应用任务
-中同步提供一个借用的 JPEG 帧，回调返回后自动归还；UVC 和本地采集共享互斥锁
-及缓冲池。USB 枚举后拒绝本地采集，应用不应在回调中调用相机或 BSP 生命周期 API。
+UVC 示例和工厂应用在 BSP 初始化后显式调用 `camera_uvc_start()`，由应用层连接 JPEG
+相机和 UVC，并管理转交缓冲及本地录像/USB 推流的互斥。
+应用应先成功停止桥接，再调用 `wt_bsp_deinit()` 释放相机和其他板级资源。
+相机释放失败时保留尚被驱动借用的资源和对象，应用应保留相关上下文并重试释放。
+不要在帧回调中调用相机或 BSP 生命周期 API。
 
-`wt_bsp_deinit()` 先退出 USB 任务，再关闭视频设备、释放传感器寄存器表和 JPEG
-编码器，最后释放其他板级资源。应用使用句柄期间不能并发反初始化 BSP。
-
-GC2145 右侧细彩点竖线在本次实机取帧中仍可见。OV3660 的传输已经通过
-Windows DirectShow 验证，当前场景画面明显模糊；本轮按用户要求跳过清晰度问题。
-传输和 JPEG 解码通过不代表画质问题已经解决。
+历史固件取帧中仍可见 GC2145 右侧细彩点竖线；OV3660 的传输曾通过
+Windows DirectShow 验证，但当时场景画面明显模糊。传输和 JPEG 解码通过不代表画质问题已经解决。
+本轮架构迁移未重新验证这些画质和传输结果。
 
 ## CDC
 
 `CONFIG_WT_BSP_ENABLE_USB_DEVICE_CDC` 启用独立 CDC ACM 串口，使用 J1。
-默认与 UVC 互斥；启用 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 后，两者共用
+默认与 UVC 互斥；示例应用提供复合 USB profile 后，启用 `CONFIG_WT_BSP_USB_DEVICE_COMPOSITE` 可让两者共用
 TinyUSB、PHY 和复合描述符，不安装第二个 USB 栈。J2 的 USB Serial/JTAG 不受此
 选择影响。独立 CDC 示例见 [examples/usb/device_cdc](../../../../examples/usb/device_cdc/README_CN.md)。
 
@@ -117,11 +139,13 @@ SD 与摄像头正常、仅按键回调注册或 CDC 控制台启动失败时为
 BOOT 熄灯不代表硬件正常。完整灯色含义见
 [RGB 指示灯](../../../../examples/wt_factory/wt9932s31-tiny/README.md#rgb-指示灯)。
 健康暂停仍使用绿色基准色，取卡前查看暂停和文件收尾日志，不能只凭灯色判断。
-2026-10-20 已烧录 GC2145/录像关闭固件，用户确认本次修改无问题，细节见
+2026-10-20 用户确认的是分层调整前的 GC2145/录像关闭固件，该历史记录不作为本次迁移的实板验收，细节见
 [示例实机记录](../../../../examples/wt_factory/wt9932s31-tiny/README.md#实机验证记录)。
 从 USB 模式回到离线模式时，拔掉 J1 后按 SW1/EN 复位。
 
 ## 实机验证
+
+以下为分层调整前的历史固件记录，不代表本次分层修改已经通过实板验证。
 
 以下为 2026-09 的历史记录，不代表已完成本次所有故障灯色或 OV3660 的重新验收。
 

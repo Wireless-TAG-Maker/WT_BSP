@@ -5,3 +5,9 @@ config WT_BSP_ENABLE_BUTTON
     bool "Enable button BSP"
     depends on WT_BSP_BOARD_HAS_BUTTON
     default y
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_BUTTON
+    string
+    default "y" if WT_BSP_ENABLE_BUTTON
+    default "n"

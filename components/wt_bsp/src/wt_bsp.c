@@ -48,7 +48,9 @@ esp_err_t wt_bsp_deinit(void)
         return ESP_ERR_INVALID_ARG;
     }
     esp_err_t ret = g_bsp.interface->deinit();
-    g_bsp.interface = NULL;
+    if (ret == ESP_OK) {
+        g_bsp.interface = NULL;
+    }
     return ret;
 }
 
@@ -130,6 +132,14 @@ wt_bsp_camera_t wt_bsp_get_camera(void)
         return NULL;
     }
     return g_bsp.interface->get_camera();
+}
+
+wt_bsp_usb_device_uvc_t wt_bsp_get_usb_device_uvc(void)
+{
+    if (g_bsp.interface == NULL || g_bsp.interface->get_usb_device_uvc == NULL) {
+        return NULL;
+    }
+    return g_bsp.interface->get_usb_device_uvc();
 }
 
 /* ==================== [Static Functions] ================================== */

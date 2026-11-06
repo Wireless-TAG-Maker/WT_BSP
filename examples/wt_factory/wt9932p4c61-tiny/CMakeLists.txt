@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(EXTRA_COMPONENT_DIRS "../../../components")
+set(EXTRA_COMPONENT_DIRS "../../../components" "${CMAKE_CURRENT_LIST_DIR}/../../common_components")
 
 include("../../../components/wt_bsp/tools/wt_bsp_project.cmake")
 wt_bsp_apply_sdkconfig_defaults()

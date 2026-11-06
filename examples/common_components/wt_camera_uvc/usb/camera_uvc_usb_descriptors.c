@@ -1,5 +1,5 @@
 /**
- * @file board_usb_descriptors.c
+ * @file camera_uvc_usb_descriptors.c
  * @author Wireless-Tag
  * @brief S31 composite UVC camera and CDC ACM descriptors.
  * @version 0.1
@@ -16,17 +16,17 @@
 
 /* ==================== [Defines] =========================================== */
 
-#define BOARD_CDC_CONTROL_INTERFACE 2
-#define BOARD_CDC_NOTIFICATION_EP 0x82
-#define BOARD_CDC_OUT_EP 0x03
-#define BOARD_CDC_IN_EP 0x83
+#define CAMERA_UVC_CDC_CONTROL_INTERFACE 2
+#define CAMERA_UVC_CDC_NOTIFICATION_EP 0x82
+#define CAMERA_UVC_CDC_OUT_EP 0x03
+#define CAMERA_UVC_CDC_IN_EP 0x83
 
 #if CFG_TUD_CAM1_VIDEO_STREAMING_BULK
-#define BOARD_VIDEO_DESCRIPTOR_LENGTH TUD_VIDEO_CAPTURE_DESC_MJPEG_BULK_LEN
+#define CAMERA_UVC_VIDEO_DESCRIPTOR_LENGTH TUD_VIDEO_CAPTURE_DESC_MJPEG_BULK_LEN
 #else
-#define BOARD_VIDEO_DESCRIPTOR_LENGTH TUD_VIDEO_CAPTURE_DESC_MJPEG_LEN
+#define CAMERA_UVC_VIDEO_DESCRIPTOR_LENGTH TUD_VIDEO_CAPTURE_DESC_MJPEG_LEN
 #endif
-#define BOARD_CONFIGURATION_LENGTH (TUD_CONFIG_DESC_LEN + BOARD_VIDEO_DESCRIPTOR_LENGTH + TUD_CDC_DESC_LEN)
+#define CAMERA_UVC_CONFIGURATION_LENGTH (TUD_CONFIG_DESC_LEN + CAMERA_UVC_VIDEO_DESCRIPTOR_LENGTH + TUD_CDC_DESC_LEN)
 
 /* ==================== [Typedefs] ========================================== */
 /* ==================== [Static Prototypes] ================================= */
@@ -50,7 +50,7 @@ static const tusb_desc_device_t s_device = {
 };
 
 static const uint8_t s_configuration[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 4, 0, BOARD_CONFIGURATION_LENGTH, 0, 500),
+    TUD_CONFIG_DESCRIPTOR(1, 4, 0, CAMERA_UVC_CONFIGURATION_LENGTH, 0, 500),
 #if CFG_TUD_CAM1_VIDEO_STREAMING_BULK
     TUD_VIDEO_CAPTURE_DESCRIPTOR_MJPEG_BULK(4, ITF_NUM_VIDEO_CONTROL, EPNUM_CAM1_VIDEO_IN,
                                            UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT,
@@ -60,17 +60,17 @@ static const uint8_t s_configuration[] = {
                                       UVC_CAM1_FRAME_WIDTH, UVC_CAM1_FRAME_HEIGHT,
                                       UVC_CAM1_FRAME_RATE, CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE),
 #endif
-    TUD_CDC_DESCRIPTOR(BOARD_CDC_CONTROL_INTERFACE, 5, BOARD_CDC_NOTIFICATION_EP, 8,
-                       BOARD_CDC_OUT_EP, BOARD_CDC_IN_EP, CFG_TUD_CDC_EP_BUFSIZE),
+    TUD_CDC_DESCRIPTOR(CAMERA_UVC_CDC_CONTROL_INTERFACE, 5, CAMERA_UVC_CDC_NOTIFICATION_EP, 8,
+                       CAMERA_UVC_CDC_OUT_EP, CAMERA_UVC_CDC_IN_EP, CFG_TUD_CDC_EP_BUFSIZE),
 };
 
-/* The camera adapter sets interface string 4 to the configured product name. */
+/* The application owns the product and interface names in this profile. */
 const char *string_desc_arr[] = {
     (const char[]) {0x09, 0x04},
     CONFIG_TUSB_MANUFACTURER,
     CONFIG_TUSB_PRODUCT,
     CONFIG_TUSB_SERIAL_NUM,
-    "Wireless-Tag Camera",
+    CONFIG_TUSB_PRODUCT,
     "Wireless-Tag CDC",
 };
 static uint16_t s_string[32];

@@ -10,6 +10,7 @@ This BSP requires **ESP-IDF v6.0.0 or later** and targets a wide range of chips,
 
 -   **Unified Hardware API**: Access RGB LEDs, buttons, SD cards, displays, and cameras through a consistent set of `wt_bsp_*` functions.
 -   **Modular Architecture**: Each peripheral is implemented as a standalone module within the BSP, allowing for easy extension and maintenance.
+-   **Independent Camera and USB**: CSI/JPEG capture and USB UVC are separate features; applications own camera-to-USB bridging. Camera drivers receive common info and return common operations through a self-registering interface.
 -   **Multi-Board Support**: Native support for various "TINY" series boards selected with `idf.py set-board`.
 -   **Advanced ESP32-P4 Support**:
     -   **MIPI-DSI**: High-resolution display support with LVGL integration.
@@ -24,11 +25,11 @@ This BSP requires **ESP-IDF v6.0.0 or later** and targets a wide range of chips,
 | **WT9932C2-TINY** | ESP32-C2 | RGB LED, Button |
 | **WT9932C3-TINY** | ESP32-C3 | RGB LED, Button |
 | **WT9932C5-TINY** | ESP32-C5 | RGB LED, Button |
-| **WT9932C61-TINY** | ESP32-C6 | RGB LED, Button |
-| **WT9932P4-TINY** | ESP32-P4 v1.x | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button, USB CDC |
-| **WT9932P4X-TINY** | ESP32-P4 v3.x | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button, USB CDC |
+| **WT9932C61-TINY** | ESP32-C61 | RGB LED, Button |
+| **WT9932P4-TINY** | ESP32-P4 v1.x | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button, USB CDC/UVC |
+| **WT9932P4X-TINY** | ESP32-P4 v3.x | MIPI-DSI, MIPI-CSI, SDMMC, Touch, RGB, Button, USB CDC/UVC |
 | **WT9932P4C61-TINY** | ESP32-P4 + ESP32-C61 | Same as P4-TINY, adds ESP32-C61 for low-power/wireless tasks |
-| **WT9932S31-TINY** | ESP32-S31 | RGB, Button, SDMMC, USB CDC, DVP camera UVC (GC2145/OV3660) |
+| **WT9932S31-TINY** | ESP32-S31 | RGB, Button, SDMMC, USB CDC/UVC, DVP JPEG camera (GC2145/OV3660) |
 
 WT9932P4-TINY and WT9932P4X-TINY share peripherals, but v1.x/v3.x firmware is not interchangeable. Select the matching board and rebuild; see the [P4X board notes](components/wt_bsp/boards/WT9932P4X-TINY/README.md).
 
@@ -43,11 +44,16 @@ For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_fla
 -   **Git**: To clone the repository and submodules.
 
 ### Installation
-1.  Clone this repository into your project's `components` directory or add it as a submodule.
-2.  In your project's `idf_component.yml`, ensure dependencies are met.
+1.  Clone this repository to run its examples. To reuse the BSP, copy `components/wt_bsp` into your project's `components` directory, or reference that component directory through `EXTRA_COMPONENT_DIRS`.
+2.  The component manifest resolves its managed dependencies. Follow the [component guide](components/wt_bsp/README.md) to add the project CMake helper for `set-board`, or select a matching board through Kconfig.
 
 ### Basic Usage
 1.  **Select your board**: Run `idf.py set-board` in an example directory and choose a supported board. The command generates board defaults used by the next configure/build, and automatically runs `idf.py fullclean` when switching to a board with a different target chip. After selecting the development board, run `idf.py build` to compile.
+
+    ```shell
+    WT_BSP_BOARD=WT9932C3-TINY idf.py -C examples/get-started/blink set-board
+    idf.py -C examples/get-started/blink build
+    ```
 
 2.  **Initialize the BSP**:
     ```c
@@ -69,11 +75,12 @@ For WT9932P4C61-TINY, connect FUSB (Full-Speed USB) first and run `idf.py p4_fla
 
 -   `components/wt_bsp`: The core BSP component.
     -   `boards`: Hardware-specific configurations, Kconfig, and board resource lifecycles.
-    -   `features`: Reusable peripheral implementations such as RGB, button, SDMMC, DSI, CSI, and touch.
+    -   `features`: Reusable peripheral implementations, including independent CSI, JPEG camera, USB UVC and USB CDC features.
     -   `include`: Public API headers.
     -   `src`: Implementation of the common BSP interface.
     -   `tools`: `set-board` and project CMake helper scripts.
 -   `examples`: Usage demonstrations for various features.
+    -   `common_components/wt_camera_uvc`: Application-owned frame bridging, JPEG delivery and USB profiles.
 
 The [USB CDC echo example](examples/usb/device_cdc/README.md) supports
 WT9932P4-TINY, WT9932P4X-TINY, WT9932P4C61-TINY, and WT9932S31-TINY through their USB OTG connectors.
@@ -92,15 +99,26 @@ This also works in USB mode and with recording disabled; reset turns the LED on.
 Pausing no longer has a separate blue indication; check
 the pause and file-finalization logs before powering off to remove the card.
 See the [RGB indicator reference](examples/wt_factory/wt9932s31-tiny/README.md#rgb-指示灯).
-The GC2145 firmware with recording disabled was flashed on 2026-10-20, and the user
-confirmed the changes work as expected; see the example's test records for details.
+The user confirmed the pre-refactor GC2145 firmware with recording disabled on
+2026-10-20; that historical hardware result does not validate the current camera/UVC migration.
 
 ## ⚙️ How it Works
 
 The WT_BSP uses a **Board Interface Pattern** to decouple application logic from hardware specifics:
 1.  **Interface Definition**: `wt_bsp_interface_t` defines a table of function pointers for all board resources.
 2.  **Board Implementation**: Each board in `components/wt_bsp/boards/` implements these functions and registers them.
-3.  **Unified Access**: The application calls `wt_bsp_init()`, which automatically selects the correct board implementation from the Kconfig values written by `set-board`, and subsequently uses generic `wt_bsp_get_*()` functions.
+3.  **Unified Access**: The application calls `wt_bsp_init()`, which selects the board from Kconfig, and subsequently uses generic `wt_bsp_get_*()` functions. `set-board` supplies board presets; ordinary reconfiguration preserves native menuconfig selections.
+
+New boards contribute their own Kconfig choice member, defaults and CMake files
+inside a new board directory. Shared collectors discover them automatically; see
+the [board extension guide](components/wt_bsp/README.md#新增板卡步骤).
+Camera boards provide `wt_bsp_camera_info_t`; registered sensor factories return
+`wt_bsp_camera_ops_t`, so additional sensor modules need no central driver list.
+See the [camera guide](components/wt_bsp/features/camera/README.md) and
+[application bridge](examples/common_components/wt_camera_uvc/README.md).
+
+The [2026-11-04 validation record](docs/bsp-validation.md) documents the complete
+build matrix, minimum-SDK checks, emulator coverage and remaining hardware checks.
 
 ## 🤝 Contributing
 Contributions are welcome! Please follow the existing coding style and ensure all changes are tested against supported hardware.

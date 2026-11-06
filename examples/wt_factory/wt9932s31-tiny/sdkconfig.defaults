@@ -13,7 +13,7 @@ CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC=y
 CONFIG_WT_BSP_USB_DEVICE_COMPOSITE=y
 CONFIG_WT_BSP_ENABLE_USB_DEVICE_CDC=y
 
-# Select the fitted sensor in menuconfig. Board Kconfig derives its USB profile.
+# Select the fitted sensor in menuconfig. The application component derives the USB profile.
 CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145=y
 CONFIG_CAMERA_GC2145_DVP_DEFAULT_FMT_RGB565_BE_1600X1200_13FPS=y
 CONFIG_CAMERA_XCLK_USE_LEDC=y

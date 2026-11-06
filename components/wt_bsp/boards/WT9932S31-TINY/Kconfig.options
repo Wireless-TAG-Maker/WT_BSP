@@ -1,0 +1,102 @@
+if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
+
+    choice WT_BSP_S31_CAMERA_SENSOR
+        prompt "Camera sensor"
+        default WT_BSP_S31_CAMERA_SENSOR_GC2145
+        help
+            Select the camera module fitted to the DVP connector. This also
+            selects the matching sensor format and XCLK.
+
+        config WT_BSP_S31_CAMERA_SENSOR_GC2145
+            bool "GC2145 / CKS-K210-GC3.1 (default)"
+            select WT_BSP_CAMERA_SENSOR_GC2145
+            help
+                Use GC2145 DVP UYVY 1600x1200 at a nominal 8 fps with
+                a 20 MHz XCLK and an output-clock divider of two, derived
+                from the driver's full-resolution mode. Frames are encoded
+                by the ESP32-S31 hardware JPEG encoder.
+
+        config WT_BSP_S31_CAMERA_SENSOR_OV3660
+            bool "OV3660 (legacy supported module)"
+            select WT_BSP_CAMERA_SENSOR_OV3660
+            help
+                Keep the verified OV3660 sensor-native JPEG path at 640x480
+                and 25 fps with a 20 MHz XCLK.
+    endchoice
+
+    config WT_BSP_S31_OV3660_AE_LEVEL
+        int "OV3660 automatic-exposure target level"
+        default -4
+        range -5 5
+        depends on WT_BSP_S31_CAMERA_SENSOR_OV3660
+        help
+            Set the OV3660 sensor's automatic-exposure target after selecting
+            the video format. Lower values preserve highlights and produce a
+            darker image; higher values brighten shadows. The -4 default is
+            tuned for the verified bright, backlit office scene.
+
+    config WT_BSP_S31_OV3660_JPEG_QUALITY
+        int "OV3660 native JPEG quality"
+        default 34
+        range 1 40
+        depends on WT_BSP_S31_CAMERA_SENSOR_OV3660
+        help
+            Set the quality of JPEG frames encoded inside the OV3660 sensor.
+            Higher values improve detail and increase frame size. The sensor's
+            VGA format table is approximately quality 31; 34 is the board default.
+
+    config WT_BSP_S31_OV3660_SATURATION
+        int "OV3660 saturation level"
+        default 0
+        range -2 2
+        depends on WT_BSP_S31_CAMERA_SENSOR_OV3660
+        help
+            Override the VGA format table's low-saturation (-2) color matrix
+            after selecting the format. Zero restores the neutral OV3660 matrix.
+
+    config WT_BSP_S31_OV3660_SHARPNESS
+        int "OV3660 sharpness level"
+        default 2
+        range -3 3
+        depends on WT_BSP_S31_CAMERA_SENSOR_OV3660
+        help
+            Set the OV3660 manual sharpness level after selecting the format.
+            The +2 default adds moderate edge definition without using the
+            strongest and most artifact-prone +3 setting.
+
+    config WT_BSP_S31_OV3660_DENOISE
+        int "OV3660 denoise level"
+        default 4
+        range 0 8
+        depends on WT_BSP_S31_CAMERA_SENSOR_OV3660
+        help
+            Set the OV3660 spatial denoise level. Zero disables denoise. The
+            common sensor table uses the maximum offset associated with level 8;
+            level 4 preserves more fine detail while retaining useful denoise.
+
+    config WT_BSP_S31_JPEG_QUALITY
+        int "Hardware JPEG fallback quality"
+        default 80
+        range 1 100
+        help
+            Quality for the ESP32-S31 hardware JPEG path used by GC2145 and by
+            future compatible non-JPEG sensors. This does not affect the
+            OV3660 sensor-native JPEG path.
+
+    config WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
+        int "Hardware JPEG encoding timeout (ms)"
+        depends on WT_BSP_S31_CAMERA_SENSOR_GC2145
+        default 200
+        range 40 1000
+        help
+            Internal JPEG engine deadline, separate from the V4L2 dequeue
+            timeout. Override esp_video 2.3's fixed 40 ms deadline for UXGA
+            encoding without changing the managed component. This does not
+            affect OV3660 sensor-native JPEG.
+
+    config WT_BSP_S31_DQBUF_TIMEOUT_MS
+        int "Camera/JPEG dequeue timeout (ms)"
+        default 2000
+        range 100 10000
+
+endif

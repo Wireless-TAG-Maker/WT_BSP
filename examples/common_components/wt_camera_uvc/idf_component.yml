@@ -1,0 +1,6 @@
+dependencies:
+  espressif/esp_video:
+    version: "2.3.*"
+    require: private
+    matches:
+      - if: 'target == esp32p4 && ($CONFIG{WT_BSP_DEP_USB_DEVICE_UVC} == "y" && $CONFIG{WT_BSP_DEP_CSI} == "y")'

@@ -5,4 +5,4 @@ endif()
 
 idf_component_register(SRCS ${factory_srcs}
                        INCLUDE_DIRS "."
-                       REQUIRES wt_bsp esp_timer fatfs)
+                       REQUIRES wt_bsp wt_camera_uvc esp_timer fatfs)

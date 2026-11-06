@@ -27,8 +27,9 @@ static wt_bsp_button_t board_get_button(void);
 static wt_bsp_rgb_t board_get_rgb(void);
 static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void);
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void);
 static wt_bsp_camera_t board_get_camera(void);
-#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED
+#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED || WT_BSP_CAMERA_ENABLED
 static void board_record_cleanup_error(esp_err_t ret, const char *resource, esp_err_t *result);
 #endif
 
@@ -51,6 +52,18 @@ static wt_bsp_usb_device_cdc_obj_t s_bsp_usb_device_cdc;
 #endif
 #if WT_BSP_CAMERA_ENABLED
 static wt_bsp_camera_obj_t s_bsp_camera;
+#if CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+static const wt_bsp_camera_property_t s_camera_properties[] = {
+    {.key = "ae_level", .value = CONFIG_WT_BSP_S31_OV3660_AE_LEVEL},
+    {.key = "jpeg_quality", .value = CONFIG_WT_BSP_S31_OV3660_JPEG_QUALITY},
+    {.key = "saturation", .value = CONFIG_WT_BSP_S31_OV3660_SATURATION},
+    {.key = "sharpness", .value = CONFIG_WT_BSP_S31_OV3660_SHARPNESS},
+    {.key = "denoise", .value = CONFIG_WT_BSP_S31_OV3660_DENOISE},
+};
+#endif
+#endif
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+static wt_bsp_usb_device_uvc_obj_t s_bsp_usb_device_uvc;
 #endif
 
 static wt_bsp_interface_t s_bsp_interface = {
@@ -64,6 +77,7 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_csi = NULL,
     .get_touch = NULL,
     .get_usb_device_cdc = board_get_usb_device_cdc,
+    .get_usb_device_uvc = board_get_usb_device_uvc,
     .get_camera = board_get_camera,
 };
 
@@ -145,16 +159,52 @@ static esp_err_t board_init(void)
 #endif
 #if WT_BSP_CAMERA_ENABLED
     ret = wt_bsp_camera_init(&s_bsp_camera, &(wt_bsp_camera_info_t) {
-        .prepare = board_camera_prepare,
-        .capture = board_camera_capture,
-        .get_status = board_camera_get_status,
+        .sensor_name = BOARD_CAMERA_SENSOR_NAME,
+#if CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+        .properties = s_camera_properties,
+        .property_count = sizeof(s_camera_properties) / sizeof(s_camera_properties[0]),
+#endif
+        .format = {
+            .width = BOARD_CAMERA_FRAME_WIDTH,
+            .height = BOARD_CAMERA_FRAME_HEIGHT,
+            .fps = BOARD_CAMERA_FRAME_RATE,
+        },
+        .dvp = {
+            .sccb_port = BOARD_DVP_SCCB_PORT,
+            .sccb_freq_hz = BOARD_DVP_SCCB_FREQ_HZ,
+            .sccb_scl_gpio = BOARD_DVP_SCCB_SCL_GPIO,
+            .sccb_sda_gpio = BOARD_DVP_SCCB_SDA_GPIO,
+            .reset_gpio = BOARD_DVP_RESET_GPIO,
+            .pwdn_gpio = BOARD_DVP_PWDN_GPIO,
+            .data_gpio = {
+                BOARD_DVP_D0_GPIO,
+                BOARD_DVP_D1_GPIO,
+                BOARD_DVP_D2_GPIO,
+                BOARD_DVP_D3_GPIO,
+                BOARD_DVP_D4_GPIO,
+                BOARD_DVP_D5_GPIO,
+                BOARD_DVP_D6_GPIO,
+                BOARD_DVP_D7_GPIO,
+            },
+            .vsync_gpio = BOARD_DVP_VSYNC_GPIO,
+            .de_gpio = BOARD_DVP_DE_GPIO,
+            .pclk_gpio = BOARD_DVP_PCLK_GPIO,
+            .xclk_gpio = BOARD_DVP_XCLK_GPIO,
+            .xclk_freq_hz = BOARD_DVP_XCLK_FREQ_HZ,
+        },
+        .capture_buffer_count = BOARD_CAMERA_CAPTURE_BUFFER_COUNT,
+        .jpeg_buffer_capacity = BOARD_CAMERA_JPEG_BUFFER_CAPACITY,
+        .startup_frames_to_discard = BOARD_CAMERA_STARTUP_DISCARD_COUNT,
+        .dequeue_timeout_ms = CONFIG_WT_BSP_S31_DQBUF_TIMEOUT_MS,
+        .jpeg_quality = CONFIG_WT_BSP_S31_JPEG_QUALITY,
+        .jpeg_encode_timeout_ms = BOARD_CAMERA_JPEG_ENCODE_TIMEOUT_MS,
     });
     if (ret != ESP_OK) {
         goto fail;
     }
 #endif
 #if WT_BSP_USB_DEVICE_UVC_ENABLED
-    ret = board_usb_device_uvc_init();
+    ret = wt_bsp_usb_device_uvc_init(&s_bsp_usb_device_uvc);
     if (ret != ESP_OK) {
         goto fail;
     }
@@ -175,7 +225,11 @@ static esp_err_t board_deinit(void)
     /* Cleanup also accepts partially initialized objects. Keep releasing
      * independent resources when a previous cleanup reports an error. */
 #if WT_BSP_USB_DEVICE_UVC_ENABLED
-    board_record_cleanup_error(board_usb_device_uvc_deinit(), "UVC", &result);
+    board_record_cleanup_error(wt_bsp_usb_device_uvc_deinit(&s_bsp_usb_device_uvc), "UVC", &result);
+    if (result != ESP_OK) {
+        // Application callbacks may still reference any of the board's resources.
+        return result;
+    }
 #endif
 #if WT_BSP_CAMERA_ENABLED
     board_record_cleanup_error(wt_bsp_camera_deinit(&s_bsp_camera), "camera", &result);
@@ -198,11 +252,16 @@ static esp_err_t board_deinit(void)
         board_record_cleanup_error(wt_bsp_button_deinit(&s_bsp_button), "button", &result);
     }
 #endif
+#if WT_BSP_CAMERA_ENABLED
+    // Preserve access to camera resources when their teardown needs a retry.
+    s_board_is_init = s_bsp_camera.is_initialized;
+#else
     s_board_is_init = false;
+#endif
     return result;
 }
 
-#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED
+#if WT_BSP_BUTTON_ENABLED || WT_BSP_RGB_ENABLED || WT_BSP_SDMMC_ENABLED || WT_BSP_USB_DEVICE_CDC_ENABLED || WT_BSP_USB_DEVICE_UVC_ENABLED || WT_BSP_CAMERA_ENABLED
 static void board_record_cleanup_error(esp_err_t ret, const char *resource, esp_err_t *result)
 {
     if (ret != ESP_OK) {
@@ -260,6 +319,15 @@ static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void)
 {
 #if WT_BSP_USB_DEVICE_CDC_ENABLED
     return s_board_is_init && s_bsp_usb_device_cdc.is_initialized ? &s_bsp_usb_device_cdc : NULL;
+#else
+    return NULL;
+#endif
+}
+
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void)
+{
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    return s_board_is_init && s_bsp_usb_device_uvc.is_initialized ? &s_bsp_usb_device_uvc : NULL;
 #else
     return NULL;
 #endif

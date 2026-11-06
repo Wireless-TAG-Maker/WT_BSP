@@ -1,13 +1,24 @@
-config WT_BSP_BOARD_WT9932P4_TINY
+config WT_BSP_SELECTED_BOARD_WT9932P4_TINY  # ignore: multiple-definition
     bool
-    depends on IDF_TARGET_ESP32P4
-    default y if WT_BSP_SELECTED_BOARD_WT9932P4_TINY
-    default y if !WT_BSP_BOARD_SELECTED_BY_TOOL
-    select WT_BSP_BOARD_HAS_BOARD
-    select WT_BSP_BOARD_HAS_BUTTON
-    select WT_BSP_BOARD_HAS_RGB
-    select WT_BSP_BOARD_HAS_SDMMC
-    select WT_BSP_BOARD_HAS_DSI
-    select WT_BSP_BOARD_HAS_CSI
-    select WT_BSP_BOARD_HAS_TOUCH
-    select WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+
+choice WT_BSP_BOARD  # ignore: multiple-definition
+    default WT_BSP_BOARD_WT9932P4_TINY if WT_BSP_SELECTED_BOARD_WT9932P4_TINY
+    default WT_BSP_BOARD_WT9932P4_TINY if !WT_BSP_BOARD_SELECTED_BY_TOOL && IDF_TARGET_ESP32P4
+
+    config WT_BSP_BOARD_WT9932P4_TINY
+        bool "WT9932P4-TINY / WT9932P4X-TINY"
+        depends on IDF_TARGET_ESP32P4
+        select WT_BSP_BOARD_HAS_BOARD
+        select WT_BSP_BOARD_HAS_BUTTON
+        select WT_BSP_BOARD_HAS_RGB
+        select WT_BSP_BOARD_HAS_SDMMC
+        select WT_BSP_BOARD_HAS_DSI
+        select WT_BSP_BOARD_HAS_CSI
+        select WT_BSP_BOARD_HAS_TOUCH
+        select WT_BSP_BOARD_HAS_USB_DEVICE_CDC
+        select WT_BSP_BOARD_HAS_USB_DEVICE_UVC
+        help
+            The P4X variant reuses this board implementation. Configure its
+            actual silicon revision and CPU frequency separately, or use the
+            matching set-board preset.
+endchoice

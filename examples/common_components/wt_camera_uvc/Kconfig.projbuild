@@ -1,0 +1,29 @@
+menu "Camera UVC application"
+
+    config WT_CAMERA_UVC_S31_USB_PROFILE
+        bool
+        default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC
+        select WT_BSP_USB_DEVICE_COMPOSITE_AVAILABLE
+        help
+            This application supplies the S31 UVC/CDC descriptor profile.
+
+    config WT_CAMERA_UVC_S31_GC2145_PROFILE
+        bool
+        default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_S31_CAMERA_SENSOR_GC2145
+        set UVC_CAM1_FRAMERATE=8
+        set UVC_CAM1_FRAMESIZE_WIDTH=1600
+        set UVC_CAM1_FRAMESIZE_HEIGT=1200
+        help
+            Application profile connecting GC2145 JPEG capture to USB UVC.
+            The board camera's own format remains independent of USB settings.
+
+    config WT_CAMERA_UVC_S31_OV3660_PROFILE
+        bool
+        default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_S31_CAMERA_SENSOR_OV3660
+        set UVC_CAM1_FRAMERATE=25
+        set UVC_CAM1_FRAMESIZE_WIDTH=640
+        set UVC_CAM1_FRAMESIZE_HEIGT=480
+        help
+            Application profile connecting OV3660 JPEG capture to USB UVC.
+
+endmenu

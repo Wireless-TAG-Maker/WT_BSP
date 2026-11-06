@@ -12,3 +12,9 @@ config WT_BSP_ENABLE_USB_DEVICE_CDC
         The BSP owns the TinyUSB driver. This is separate from USB Serial
         JTAG. Boards with composite USB support can share the UVC stack;
         otherwise this feature owns a separate TinyUSB driver.
+
+# Keep a value in sdkconfig.json even when the capability hides the bool.
+config WT_BSP_DEP_USB_DEVICE_CDC
+    string
+    default "y" if WT_BSP_ENABLE_USB_DEVICE_CDC
+    default "n"

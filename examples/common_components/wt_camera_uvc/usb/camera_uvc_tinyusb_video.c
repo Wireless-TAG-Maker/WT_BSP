@@ -1,7 +1,7 @@
 /**
- * @file board_tinyusb_video.c
+ * @file camera_uvc_tinyusb_video.c
  * @author Wireless-Tag
- * @brief Terminate packet-aligned UVC bulk payloads on WT9932S31-TINY.
+ * @brief Terminate packet-aligned UVC bulk payloads on the application USB profile.
  * @version 0.1
  * @date 2026-09-20
  *
@@ -14,7 +14,7 @@
  * keeps its private stream state accessible without copying the driver or
  * changing files maintained by the component manager. CMake substitutes this
  * translation unit for S31 bulk profiles, including the factory composite. */
-#define videod_xfer_cb board_tinyusb_video_xfer_cb
+#define videod_xfer_cb camera_uvc_tinyusb_video_xfer_cb
 #include "class/video/video_device.c"
 #undef videod_xfer_cb
 
@@ -68,7 +68,7 @@ bool videod_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result,
         }
     }
 
-    return board_tinyusb_video_xfer_cb(rhport, ep_addr, result, xferred_bytes);
+    return camera_uvc_tinyusb_video_xfer_cb(rhport, ep_addr, result, xferred_bytes);
 }
 
 /* ==================== [Static Functions] ================================== */

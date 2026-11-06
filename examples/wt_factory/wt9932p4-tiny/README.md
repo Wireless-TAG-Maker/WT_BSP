@@ -7,6 +7,12 @@ WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share periphera
 
 This factory firmware integrates Wireless-Tag BSP peripherals including MIPI DSI display, MIPI CSI camera, touch, SD card, and RGB LED control.
 
+When USB UVC is enabled, the application explicitly starts the shared
+`wt_camera_uvc` application component after BSP initialization. That component
+owns camera/JPEG-to-USB bridging; the factory application skips the competing
+CSI display-preview consumer in this mode. With UVC disabled, the original
+independent CSI preview remains available.
+
 ## Getting Started
 
 1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:

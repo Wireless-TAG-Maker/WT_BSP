@@ -12,6 +12,7 @@
 /* ==================== [Includes] ========================================== */
 
 #include "wt_bsp.h"
+#include "camera_uvc.h"
 
 #include "esp_log.h"
 
@@ -54,7 +55,18 @@ void app_main(void)
     }
 #endif
 
-    ESP_LOGI(TAG, "USB Device UVC is ready. Connect the board USB OTG port to the host.");
+    ret = camera_uvc_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Camera-to-UVC bridge failed: %s", esp_err_to_name(ret));
+        esp_err_t stop_ret = camera_uvc_stop();
+        if (stop_ret == ESP_OK) {
+            wt_bsp_deinit();
+        } else {
+            ESP_LOGE(TAG, "Bridge cleanup failed; retaining BSP resources: %s", esp_err_to_name(stop_ret));
+        }
+        return;
+    }
+    ESP_LOGI(TAG, "Application camera-to-UVC bridge is ready. Connect USB OTG to the host.");
 }
 
 /* ==================== [Static Functions] ================================== */

@@ -13,10 +13,6 @@
 
 #include "board.h"
 
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
-#include "board_usb_device_uvc.h"
-#endif
-
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -127,12 +123,10 @@ static wt_bsp_sdmmc_t board_get_sdmmc(void);
 static wt_bsp_dsi_t board_get_dsi(void);
 static wt_bsp_csi_t board_get_csi(void);
 static wt_bsp_touch_t board_get_touch(void);
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void);
 static wt_bsp_usb_device_cdc_t board_get_usb_device_cdc(void);
 #if BOARD_I2C_FEATURE_ENABLED
 static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status);
-#endif
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
-static void board_indicate_camera_failure(void);
 #endif
 
 /* ==================== [Static Variables] ================================== */
@@ -154,6 +148,7 @@ static wt_bsp_interface_t s_bsp_interface = {
     .get_dsi = board_get_dsi,
     .get_csi = board_get_csi,
     .get_touch = board_get_touch,
+    .get_usb_device_uvc = board_get_usb_device_uvc,
     .get_usb_device_cdc = board_get_usb_device_cdc,
     .get_camera = NULL,
 };
@@ -177,6 +172,9 @@ static wt_bsp_csi_obj_t s_bsp_csi = {0};
 #if WT_BSP_TOUCH_ENABLED
 static wt_bsp_touch_obj_t s_bsp_touch = {0};
 #endif
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+static wt_bsp_usb_device_uvc_obj_t s_bsp_usb_device_uvc = {0};
+#endif
 #if WT_BSP_USB_DEVICE_CDC_ENABLED
 static wt_bsp_usb_device_cdc_obj_t s_bsp_usb_device_cdc = {0};
 #endif
@@ -192,19 +190,6 @@ wt_bsp_interface_t *board_get_bsp_interface(void)
 
 /* ==================== [Static Functions] ================================== */
 
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
-static void board_indicate_camera_failure(void)
-{
-    esp_err_t ret = wt_bsp_rgb_set_color(&s_bsp_rgb, (wt_bsp_rgb_color_t) {
-        .r = 255,
-        .g = 0,
-        .b = 0,
-    });
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set camera failure indicator: %s", esp_err_to_name(ret));
-    }
-}
-#endif
 
 /**
  * @brief 扫描 I2C 总线上的指定设备
@@ -252,9 +237,6 @@ static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, boar
         ESP_LOGI(TAG, "Found camera device at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
     } else {
         ESP_LOGW(TAG, "Camera device not found at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
-        board_indicate_camera_failure();
-#endif
     }
 
     ESP_LOGI(TAG, "I2C scan complete. Display: %s, Touch: %s, Camera: %s",
@@ -376,9 +358,6 @@ static esp_err_t board_init(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize shared I2C bus: %s", esp_err_to_name(ret));
         s_shared_i2c_bus = NULL;
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
-        board_indicate_camera_failure();
-#endif
 #if WT_BSP_SDMMC_ENABLED
         wt_bsp_sdmmc_deinit(&s_bsp_sdmmc);
 #endif
@@ -447,9 +426,6 @@ static esp_err_t board_init(void)
         });
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "CSI initialization failed: %s", esp_err_to_name(ret));
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_RGB_ENABLED
-            board_indicate_camera_failure();
-#endif
         } else {
             ESP_LOGI(TAG, "CSI initialized successfully");
         }
@@ -481,23 +457,16 @@ static esp_err_t board_init(void)
     }
 
 #endif
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
-    if (!s_bsp_csi.is_initialized) {
-        ESP_LOGE(TAG, "USB Device UVC requires an initialized CSI camera");
-        ret = ESP_ERR_NOT_FOUND;
-        s_board_is_init = true;
-        board_deinit();
-        return ret;
-    }
-
-    ret = board_usb_device_uvc_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "USB Device UVC initialization failed: %s", esp_err_to_name(ret));
-        s_board_is_init = true;
-        board_deinit();
-        return ret;
-    }
 #endif
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    // Prepare the USB endpoint object; the application supplies and starts its stream.
+    ret = wt_bsp_usb_device_uvc_init(&s_bsp_usb_device_uvc);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "USB Device UVC object initialization failed: %s", esp_err_to_name(ret));
+        s_board_is_init = true;
+        board_deinit();
+        return ret;
+    }
 #endif
 #if WT_BSP_USB_DEVICE_CDC_ENABLED
     ret = wt_bsp_usb_device_cdc_init(&s_bsp_usb_device_cdc, &(wt_bsp_usb_device_cdc_info_t) {
@@ -530,10 +499,12 @@ static esp_err_t board_deinit(void)
     }
 #endif
 
-#if CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_CSI_ENABLED
-    ret = board_usb_device_uvc_deinit();
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    ret = wt_bsp_usb_device_uvc_deinit(&s_bsp_usb_device_uvc);
     if (ret != ESP_OK) {
+        // Keep application frame sources valid until USB callbacks have stopped.
         ESP_LOGE(TAG, "Failed to deinitialize USB Device UVC: %s", esp_err_to_name(ret));
+        return ret;
     }
 #endif
 
@@ -549,7 +520,9 @@ static esp_err_t board_deinit(void)
     // Deinitialize CSI
     ret = wt_bsp_csi_deinit(&s_bsp_csi);
     if (ret != ESP_OK) {
+        // A live capture task still owns the camera and its shared SCCB bus.
         ESP_LOGE(TAG, "Failed to deinitialize CSI: %s", esp_err_to_name(ret));
+        return ret;
     }
 #endif
 
@@ -656,6 +629,15 @@ static wt_bsp_touch_t board_get_touch(void)
 {
 #if WT_BSP_TOUCH_ENABLED
     return s_bsp_touch.is_initialized ? &s_bsp_touch : NULL;
+#else
+    return NULL;
+#endif
+}
+
+static wt_bsp_usb_device_uvc_t board_get_usb_device_uvc(void)
+{
+#if WT_BSP_USB_DEVICE_UVC_ENABLED
+    return s_board_is_init && s_bsp_usb_device_uvc.is_initialized ? &s_bsp_usb_device_uvc : NULL;
 #else
     return NULL;
 #endif

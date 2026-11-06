@@ -7,6 +7,7 @@
 这是 Wireless-Tag 的 ESP-IDF Board Support Package 仓库。核心组件位于 `components/wt_bsp`，用于给多块 Wireless-Tag TINY 系列 ESP32 开发板提供统一的 `wt_bsp_*` API。示例工程位于 `examples`。
 
 项目仅支持 ESP-IDF `v6.0.0` 及以上版本，组件声明为 `idf >=6.0.0`。
+WT9932S31-TINY 需要 ESP-IDF `v6.1` 及以上版本；v6.1 中的选板、配置和构建命令需加 `--preview`。
 
 ## 目录职责
 
@@ -32,6 +33,8 @@
 ```
 
 常用验证命令：
+
+交互使用保留 `idf.py set-board` 再 `idf.py build` 的流程。下面的显式环境变量形式由项目 CMake 辅助工具支持，不依赖 `idf_ext.py`。
 
 ```bash
 WT_BSP_BOARD=WT9932C2-TINY idf.py -C examples/get-started/blink -B build-wt9932c2-tiny build
@@ -130,6 +133,8 @@ PY
 - 应用层只能通过 `#include "wt_bsp.h"` 使用 BSP，不直接 include `boards/<BOARD>/board.h` 或 `board_config.h`。
 - 板级引脚、硬件资源数量、屏幕/摄像头型号等硬件差异只放在 `components/wt_bsp/boards/<BOARD>/`。
 - 可被多块板复用的外设能力应沉淀到 `features/<FEATURE>/`，不要复制到多个板级目录。
+- CSI、JPEG camera 和 USB UVC 独立启用；摄像头到 UVC 的桥接、USB profile 和消费者仲裁放在应用层。
+- camera 板级只提供统一 `wt_bsp_camera_info_t`、sensor 名称、属性及静态对象；interface 自动路由到自注册 factory，公共调用经统一 `wt_bsp_camera_ops_t` 分发。新增 sensor 的 `.c/.h` 不应要求修改公共 camera 源文件或板级引用驱动符号。
 - `wt_bsp_init()` 获取当前 Kconfig 选中的 `board_get_bsp_interface()` 并调用板级 `init()`；板级 `init()` 只初始化当前工程有效启用的 feature。
 - `wt_bsp_get_*()` 可能返回 `NULL`。示例和应用必须处理功能未启用、初始化失败或硬件缺失的情况。
 - `wt_bsp_interface_t` 字段保持固定，不按功能宏裁剪；不支持的功能由板级接口表显式填 `NULL`。
@@ -141,12 +146,12 @@ PY
 
 1. 新建 `components/wt_bsp/boards/<BOARD>/`。
 2. 添加 `board.c`、`board.h`、`board_config.h`、`CMakeLists.txt`、`Kconfig.projbuild`。
-3. 在 `components/wt_bsp/boards/Kconfig.projbuild` 中添加 `rsource`，并在合适的 `IDF_TARGET` 下设置默认选择。
+3. 在本板 `Kconfig.projbuild` 中定义隐藏的 `WT_BSP_SELECTED_BOARD_*`，向命名 `choice WT_BSP_BOARD` 贡献成员、目标依赖和选板工具默认值。同一目标仅默认板提供目标回退默认值。公共 Kconfig/CMake 通过通配符收集目录，无需修改公共文件；额外板级菜单放入可选 `Kconfig.options`，并依赖本板选择。
 4. 在板级 `CMakeLists.txt` 中仅当对应 `CONFIG_WT_BSP_BOARD_*` 启用时追加源文件、include 目录和 `WT_BSP_BOARD_FEATURES` 能力名。
 5. 在 `board_config.h` 中声明该板硬件具备的能力，命名使用 `WT_BSP_BOARD_HAS_<FEATURE>`，例如 RGB、button、SDMMC、DSI、CSI、touch。
 6. 在板级 `Kconfig.projbuild` 中为该板 `select WT_BSP_BOARD_HAS_<FEATURE>`，让 menuconfig 只能在板卡能力边界内裁剪。
 7. 在 `board.c` 中实现板卡信息、资源初始化/释放、`get_*` 函数和 `board_get_bsp_interface()`。
-8. 在需要支持该板的示例目录下添加 `sdkconfig.<board_id>`，例如 `sdkconfig.wt9932p4_tiny`。
+8. BSP 板卡接入只需新增本板目录；若还需让已有示例的 `set-board` 菜单提供该板，在该示例新增 `sdkconfig.<board_id>`，例如 `sdkconfig.wt9932p4_tiny`。示例预设用于限定已适配的组合。
 9. 编译至少一个该板对应的示例，并确认 `idf.py set-board`、`WT_BSP_BOARD=<BOARD> idf.py set-board` 或 `WT_BSP_BOARD=<BOARD> idf.py build` 会生成正确的 `sdkconfig.board`、`sdkconfig.board.Kconfig` 和目标芯片配置；跨目标芯片切板时应自动触发 `fullclean`。
 
 ## 新增公共外设能力
@@ -154,7 +159,7 @@ PY
 1. 新建 `components/wt_bsp/features/<FEATURE>/`。
 2. 添加 `CMakeLists.txt`、`include/wt_bsp_<feature>.h`、`include/wt_bsp_<feature>_port.h` 和 `wt_bsp_<feature>.c`。
 3. 在 feature 的 `CMakeLists.txt` 中始终追加自身 include 目录，并仅当能力名存在于 `WT_BSP_BOARD_FEATURES` 且 `CONFIG_WT_BSP_ENABLE_<FEATURE>` 启用时追加 `WT_BSP_FEATURE_SRCS`、`WT_BSP_FEATURE_REQUIRES` 和 `WT_BSP_FEATURE_PRIV_REQUIRES`；不要调用 `idf_component_register()`。
-4. 添加 `Kconfig.projbuild`，定义隐藏的 `WT_BSP_BOARD_HAS_<FEATURE>` 和用户可见的 `CONFIG_WT_BSP_ENABLE_<FEATURE>`；后者必须 `depends on WT_BSP_BOARD_HAS_<FEATURE>` 并默认 `y`。
+4. 添加 `Kconfig.projbuild`，定义隐藏的 `WT_BSP_BOARD_HAS_<FEATURE>` 和用户可见的 `CONFIG_WT_BSP_ENABLE_<FEATURE>`；后者必须 `depends on WT_BSP_BOARD_HAS_<FEATURE>` 并默认 `y`，共享 USB 控制器等需要应用显式启动的功能可默认 `n`。如需用该开关控制托管依赖，增加始终导出的隐藏字符串 `WT_BSP_DEP_<FEATURE>`，按有效开关取 `"y"`/`"n"`；清单用 `matches` 判断它。沿用现有双引号比较值和括号分组，并用真实 Kconfig JSON/Component Manager 解析器验证，避免不可见 bool 缺失或条件误解析。
 5. 在 `include/wt_bsp.h` 中包含公共头，在 `include/wt_bsp_port.h` 中包含 port 头。
 6. 如需新的默认资源获取函数，在固定结构的 `wt_bsp_interface_t` 中添加对应 `get_<feature>` 指针，并在不支持的板级接口表中显式填 `NULL`。
 7. 在 `src/wt_bsp.c` 中添加 `wt_bsp_get_<feature>()`，并保持未初始化或不可用时返回 `NULL`。
@@ -246,8 +251,8 @@ PY
 - 返回 `esp_err_t` 的函数先检查参数，参数无效返回 `ESP_ERR_INVALID_ARG` 并记录 `ESP_LOGE`。
 - 初始化函数使用 `esp_err_t ret = ESP_OK;` 承接每一步结果；失败时释放已经成功初始化的资源，再返回原始错误码。
 - `board_init()` 可重复调用；已经初始化时记录 warning 并返回 `ESP_OK`。
-- `board_deinit()` 按初始化的反向顺序释放资源；即使某一步释放失败，也应继续尝试释放后续资源，并最终让板级状态回到未初始化。
-- 清理函数应允许部分初始化状态，释放前检查句柄是否为 `NULL`，释放后将句柄清为 `NULL`。
+- `board_deinit()` 按初始化的反向顺序释放资源。无依赖关系的资源尽力清理；任务或驱动停止失败且仍借用资源时，保留该对象及其依赖和 BSP 所有权，返回错误供应用重试。全部释放成功后才清除初始化状态。
+- 清理函数应允许部分初始化状态，释放前检查句柄是否为 `NULL`，成功释放后将句柄清为 `NULL`；失败时保留重试所需状态。应用须先成功停止消费者和 camera-to-UVC 桥接，再释放 BSP，不能从帧回调重入生命周期 API。
 - `wt_bsp_get_*()`、`board_get_*()` 不转移对象所有权；返回板级静态对象地址或 `NULL`。
 - 外设缺失、功能未启用或初始化失败时，示例和应用必须处理 `NULL` 句柄，不假设硬件一定存在。
 

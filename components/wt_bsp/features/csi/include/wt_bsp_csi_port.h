@@ -39,7 +39,7 @@ typedef struct {
     uint32_t height;         /*!< 采集高度。 */
     uint32_t fps;            /*!< 帧率。 */
     uint32_t pixel_format;   /*!< 采集像素格式 (如 V4L2_PIX_FMT_RGB565)。为 0 则默认 V4L2_PIX_FMT_RGB24。 */
-    uint8_t buffer_count;    /*!< 缓冲区数量，建议 2 或 3。 */
+    uint8_t buffer_count;    /*!< 缓冲区数量, 范围为 1 到 3。 */
 } wt_bsp_csi_info_t;
 
 /**
@@ -50,11 +50,13 @@ typedef struct wt_bsp_csi_obj_t {
     int v4l2_fd;
     wt_bsp_csi_frame_cb_t frame_cb;
     void *user_data;
-    void *video_stream_task_handle;
+    void *video_stream_task_handle; /*!< 采集任务句柄; 生命周期调用由同一应用任务串行执行。 */
+    void *stream_stop_semaphore; /*!< 对象持有的二值停止信号量, 仅在任务 join 后释放。 */
     uint8_t *buffers[3];
     size_t buffer_size;
     bool is_initialized;
-    bool is_streaming;
+    volatile bool is_streaming; /*!< 采集任务读取的停止请求状态。 */
+    bool stream_task_active; /*!< 生命周期任务尚未 join 采集任务, 即使任务已自然退出。 */
 } wt_bsp_csi_obj_t;
 
 /* ==================== [Global Prototypes] ================================= */
@@ -64,7 +66,8 @@ typedef struct wt_bsp_csi_obj_t {
  *
  * @param[in,out] csi CSI 对象句柄。
  * @param[in] info 硬件配置信息。
- * @return esp_err_t
+ * 对象必须由板级静态存储持有, 生命周期调用必须串行。
+ * @return ESP_OK, ESP_ERR_INVALID_ARG, ESP_ERR_NO_MEM 或摄像头初始化错误。
  */
 esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info);
 
@@ -72,7 +75,9 @@ esp_err_t wt_bsp_csi_init(wt_bsp_csi_t csi, const wt_bsp_csi_info_t *info);
  * @brief 反初始化 CSI 摄像头并释放资源。
  *
  * @param[in] csi CSI 对象句柄。
- * @return esp_err_t
+ * 必须在帧回调之外调用。只有采集任务已经停止且不再使用回调上下文后才释放对象资源。
+ * @return ESP_OK, ESP_ERR_INVALID_ARG, ESP_ERR_INVALID_STATE 或 ESP_ERR_TIMEOUT。
+ *         停止失败时保留对象和资源, 调用方应重试而非释放对象。
  */
 esp_err_t wt_bsp_csi_deinit(wt_bsp_csi_t csi);
 

@@ -1,5 +1,5 @@
 /**
- * @file board_tusb_config.h
+ * @file camera_uvc_tusb_config.h
  * @author Wireless-Tag
  * @brief Sensor-dependent TinyUSB endpoint configuration.
  * @version 0.1
@@ -14,8 +14,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BOARD_TUSB_CONFIG_H__
-#define __BOARD_TUSB_CONFIG_H__
+#ifndef __CAMERA_UVC_TUSB_CONFIG_H__
+#define __CAMERA_UVC_TUSB_CONFIG_H__
 
 /* ==================== [Includes] ========================================== */
 
@@ -69,4 +69,4 @@
 
 /* ==================== [Global Prototypes] ================================= */
 
-#endif // __BOARD_TUSB_CONFIG_H__
+#endif // __CAMERA_UVC_TUSB_CONFIG_H__

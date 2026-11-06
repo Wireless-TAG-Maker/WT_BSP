@@ -1,21 +1,17 @@
+config WT_BSP_BOARD_SELECTED_BY_TOOL  # ignore: multiple-definition
+    bool
+
 orsource "$WT_BSP_BOARD_KCONFIG"
 
-rsource "WT9932C2-TINY/Kconfig.projbuild"
-rsource "WT9932C3-TINY/Kconfig.projbuild"
-rsource "WT9932C5-TINY/Kconfig.projbuild"
-rsource "WT9932C61-TINY/Kconfig.projbuild"
-rsource "WT9932P4-TINY/Kconfig.projbuild"
-rsource "WT9932P4C61-TINY/Kconfig.projbuild"
-rsource "WT9932S31-TINY/Kconfig.projbuild"
-
-config WT_BSP_ENABLE_USB_DEVICE_UVC
-    bool "Enable USB Device UVC"
-    depends on WT_BSP_BOARD_WT9932P4_TINY || WT_BSP_BOARD_WT9932P4C61_TINY || WT_BSP_BOARD_WT9932S31_TINY
-    select WT_BSP_ENABLE_CSI if IDF_TARGET_ESP32P4
-    select WT_BSP_ENABLE_RGB if IDF_TARGET_ESP32P4
-    default n
+choice WT_BSP_BOARD  # ignore: multiple-definition
+    prompt "Wireless-Tag board"
     help
-        Expose the board camera to a USB host as a High-Speed UVC MJPEG
-        camera. Uses CSI on ESP32-P4 and DVP on ESP32-S31. UVC owns the
-        USB device stack. Boards with composite USB support may expose CDC
-        on the same stack; a second independent USB driver cannot coexist.
+        Select the board matching the configured ESP-IDF target. Projects
+        can set this choice in sdkconfig.defaults without the set-board tool.
+endchoice
+
+# Each board contributes its own choice member, defaults and target dependency.
+rsource "*/Kconfig.projbuild"
+
+# Additional board settings stay outside the board-selection choice.
+orsource "*/Kconfig.options"
