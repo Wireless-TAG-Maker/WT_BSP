@@ -3,7 +3,7 @@
  * @author cangyu (sky.kirto@qq.com)
  * @brief Wireless-Tag BSP 组件的 MIPI DSI 显示接口。
  *
- * 该模块负责完成 MIPI DSI、面板驱动、背光 PWM 和 LVGL8 显示端口的初始化。
+ * 该模块负责完成 MIPI DSI、面板驱动、背光 PWM 和 LVGL 显示端口的初始化。
  * 普通应用不需要也不建议直接操作底层 panel 画点、画线或刷 bitmap；推荐通过
  * @ref wt_bsp_dsi_lvgl_start 获取 LVGL display 后，直接使用 LVGL API 构建界面。
  * @version 0.1
@@ -69,7 +69,7 @@ extern "C" {
  */
 typedef struct {
     lvgl_port_cfg_t lvgl_port_cfg;           /*!< LVGL port 任务、tick 和调度配置。 */
-    uint32_t buffer_size;                    /*!< LVGL draw buffer 大小，单位为像素；设为 0 时默认 hres * 50。 */
+    uint32_t buffer_size;                    /*!< LVGL draw buffer 大小，单位为像素；设为 0 时默认 hres * 64。 */
     bool double_buffer;                      /*!< 是否使用双 draw buffer，可提升刷新流畅度但会增加内存占用。 */
     struct {
         unsigned int buff_dma: 1;            /*!< draw buffer 是否分配为 DMA capable 内存。 */

@@ -20,6 +20,7 @@
 
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_ldo_regulator.h"
+#include "driver/i2c_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +38,7 @@ typedef enum {
     WT_BSP_DSI_PANEL_EK79007_1024_600,     /*!< 1024x600 EK79007 MIPI DSI 面板。 */
     WT_BSP_DSI_PANEL_ILI9881C_800_1280,    /*!< 800x1280 ILI9881C MIPI DSI 面板。 */
     WT_BSP_DSI_PANEL_ST7102_480_640,       /*!< 480x640 ST7102 MIPI DSI 面板 (2.8寸)。 */
+    WT_BSP_DSI_PANEL_JD9165BA_1024_600,    /*!< 1024x600 JD9165BA MIPI DSI 面板。 */
 } wt_bsp_dsi_panel_t;
 
 /**
@@ -64,6 +66,8 @@ typedef struct {
     int phy_ldo_voltage_mv;                 /*!< DSI PHY 供电电压，单位 mV，设为 0 时默认 2500 mV。 */
     int ledc_channel;                       /*!< 背光 LEDC 通道，设为 -1 时默认使用通道 1。 */
     int ledc_timer;                         /*!< 背光 LEDC 定时器，设为 -1 时默认使用定时器 1。 */
+    uint32_t backlight_pwm_freq_hz;          /*!< 背光 PWM 频率，设为 0 时默认 2000 Hz。 */
+    bool disable_dma2d;                     /*!< 禁用 DPI DMA2D 拷贝，默认 false 保持原有行为。 */
 } wt_bsp_dsi_info_t;
 
 /**
@@ -76,12 +80,36 @@ typedef struct wt_bsp_dsi_obj_t {
     esp_lcd_panel_handle_t panel;           /*!< ESP LCD panel handle。 */
     esp_ldo_channel_handle_t phy_pwr_chan;  /*!< DSI PHY 供电 LDO handle。 */
     bool brightness_initialized;            /*!< 背光 PWM 是否已初始化。 */
+    bool dma2d_enabled;                     /*!< DPI DMA2D hook 是否已由本对象启用。 */
     bool lvgl_port_initialized;             /*!< LVGL port 是否已由本对象初始化。 */
     lv_display_t *lvgl_display;             /*!< LVGL display handle。 */
     bool is_initialized;                    /*!< DSI 对象是否已初始化。 */
 } wt_bsp_dsi_obj_t;
 
 /* ==================== [Global Prototypes] ================================= */
+
+/**
+ * @brief 获取当前 LCD adapter 预设，板级随后仅填写 IO 和资源描述。
+ *
+ * GPIO 默认未连接，面板、颜色、缓冲和传输参数由 feature 预设提供。
+ *
+ * @param[out] info 接收配置的结构体，不转移任何资源所有权。
+ * @return ESP_OK 成功；ESP_ERR_INVALID_ARG 输出指针为空。
+ */
+esp_err_t wt_bsp_dsi_get_default_info(wt_bsp_dsi_info_t *info);
+
+/**
+ * @brief 判断当前显示配置是否允许初始化。
+ *
+ * 默认配置探测板级提供的旧显示 I2C 地址。外接 DSI adapter 没有该 I2C
+ * 识别接口，直接允许初始化；ESP_OK 不证明 LCD 实物已连接或正在显示。
+ *
+ * @param[in] i2c_bus 板级借用的共享 I2C 总线，外接 DSI adapter 忽略此参数。
+ * @param[in] legacy_address 默认显示设备的 7 位 I2C 地址。
+ * @return ESP_OK 配置允许初始化或旧设备探测成功；ESP_ERR_INVALID_ARG
+ *         默认配置参数无效；其他错误为 I2C 探测结果。
+ */
+esp_err_t wt_bsp_dsi_probe(i2c_master_bus_handle_t i2c_bus, uint8_t legacy_address);
 
 /**
  * @brief 初始化 DSI 显示对象。

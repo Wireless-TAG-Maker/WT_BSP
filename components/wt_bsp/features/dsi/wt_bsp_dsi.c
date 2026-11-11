@@ -23,11 +23,15 @@
 #include "esp_log.h"
 #include "esp_lcd_panel_commands.h"
 #include "esp_lcd_panel_dev.h"
+#include "esp_lcd_panel_interface.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_ek79007.h"
 #include "esp_lcd_ili9881c.h"
 #include "esp_lcd_st7102.h"
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+#include "panels/wt_bsp_dsi_jd9165ba.h"
+#endif
 
 /* ==================== [Defines] =========================================== */
 
@@ -41,6 +45,7 @@
 #define WT_BSP_DSI_BACKLIGHT_PWM_FREQ_HZ        2000U
 #define WT_BSP_DSI_BACKLIGHT_DUTY_RES           LEDC_TIMER_10_BIT
 #define WT_BSP_DSI_BACKLIGHT_DUTY_MAX           1023U
+#define WT_BSP_DSI_I2C_PROBE_TIMEOUT_MS        200
 
 #define ALIGN_UP(num, align)    (((num) + ((align) - 1)) & ~((align) - 1))
 #define ALIGN_DOWN(num, align)  ((num) & ~((align) - 1))
@@ -55,6 +60,9 @@ static esp_err_t wt_bsp_dsi_init_backlight(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_enable_phy_power(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi);
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+static esp_err_t wt_bsp_dsi_new_jd9165ba_panel(wt_bsp_dsi_t dsi);
+#endif
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_enable_dma2d(wt_bsp_dsi_t dsi);
@@ -65,6 +73,8 @@ static void wt_bsp_dsi_get_default_lvgl_config(wt_bsp_dsi_t dsi, wt_bsp_dsi_lvgl
 static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e);
 static lcd_color_format_t wt_bsp_dsi_get_lcd_color_format(wt_bsp_dsi_color_format_t color_format);
 static uint32_t wt_bsp_dsi_get_color_format_bits_per_pixel(wt_bsp_dsi_color_format_t color_format);
+static bool wt_bsp_dsi_uses_lcd_adapter(void);
+static esp_err_t wt_bsp_dsi_panel_swap_xy(esp_lcd_panel_t *panel, bool swap_axes);
 
 /* ==================== [Static Variables] ================================== */
 
@@ -75,6 +85,69 @@ static bool s_lvgl_port_ready = false;
 
 /* ==================== [Global Functions] ================================== */
 
+esp_err_t wt_bsp_dsi_get_default_info(wt_bsp_dsi_info_t *info)
+{
+    if (info == NULL) {
+        ESP_LOGE(TAG, "Default display configuration output is NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *info = (wt_bsp_dsi_info_t) {
+        .backlight_gpio_num = WT_BSP_DSI_GPIO_NUM_NC,
+        .reset_gpio_num = WT_BSP_DSI_GPIO_NUM_NC,
+        .width = 480,
+        .height = 640,
+        .dsi_lane_num = WT_BSP_DSI_DEFAULT_LANE_NUM,
+        .panel_type = WT_BSP_DSI_PANEL_ST7102_480_640,
+        .color_format = WT_BSP_DSI_COLOR_FORMAT_RGB888,
+        .dpi_frame_buffer_num = 2,
+        .lane_bit_rate_mbps = WT_BSP_DSI_DEFAULT_LANE_BITRATE_MBPS,
+        .phy_ldo_channel = WT_BSP_DSI_DEFAULT_PHY_LDO_CHANNEL,
+        .phy_ldo_voltage_mv = WT_BSP_DSI_DEFAULT_PHY_LDO_VOLTAGE_MV,
+        .ledc_channel = WT_BSP_DSI_DEFAULT_LEDC_CHANNEL,
+        .ledc_timer = WT_BSP_DSI_DEFAULT_LEDC_TIMER,
+        .backlight_pwm_freq_hz = WT_BSP_DSI_BACKLIGHT_PWM_FREQ_HZ,
+        .disable_dma2d = false,
+    };
+
+    if (wt_bsp_dsi_uses_lcd_adapter()) {
+        info->width = 1024;
+        info->height = 600;
+        info->color_format = WT_BSP_DSI_COLOR_FORMAT_RGB565;
+        info->dpi_frame_buffer_num = 1;
+        info->disable_dma2d = true;
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+        info->panel_type = WT_BSP_DSI_PANEL_JD9165BA_1024_600;
+        info->lane_bit_rate_mbps = 500;
+#else
+        info->panel_type = WT_BSP_DSI_PANEL_EK79007_1024_600;
+        info->backlight_pwm_freq_hz = 5000;
+#endif
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t wt_bsp_dsi_probe(i2c_master_bus_handle_t i2c_bus, uint8_t legacy_address)
+{
+    if (wt_bsp_dsi_uses_lcd_adapter()) {
+        ESP_LOGI(TAG, "External DSI adapter configured; legacy I2C display probe skipped");
+        return ESP_OK;
+    }
+    if (i2c_bus == NULL || legacy_address == 0 || legacy_address > 0x7f) {
+        ESP_LOGE(TAG, "Invalid display I2C probe configuration");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t ret = i2c_master_probe(i2c_bus, legacy_address, WT_BSP_DSI_I2C_PROBE_TIMEOUT_MS);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Found display device at address: 0x%02x", legacy_address);
+    } else {
+        ESP_LOGW(TAG, "Display device not found at address: 0x%02x", legacy_address);
+    }
+    return ret;
+}
+
 esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
 {
     esp_err_t ret = ESP_OK;
@@ -83,6 +156,15 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
     if (dsi == NULL || info == NULL) {
         ESP_LOGE(TAG, "Invalid argument: dsi=%p, info=%p", dsi, info);
         return ESP_ERR_INVALID_ARG;
+    }
+    if (dsi->is_initialized) {
+        ESP_LOGW(TAG, "DSI display is already initialized");
+        return ESP_OK;
+    }
+    if (dsi->panel != NULL || dsi->io != NULL || dsi->mipi_dsi_bus != NULL ||
+        dsi->phy_pwr_chan != NULL || dsi->brightness_initialized) {
+        ESP_LOGE(TAG, "DSI cleanup must finish before initialization");
+        return ESP_ERR_INVALID_STATE;
     }
 
     ret = wt_bsp_dsi_resolve_info(&resolved, info);
@@ -170,7 +252,12 @@ esp_err_t wt_bsp_dsi_init(wt_bsp_dsi_t dsi, const wt_bsp_dsi_info_t *info)
     return ESP_OK;
 
 err:
-    (void)wt_bsp_dsi_cleanup(dsi);
+    {
+        esp_err_t cleanup_ret = wt_bsp_dsi_cleanup(dsi);
+        if (cleanup_ret != ESP_OK) {
+            ESP_LOGE(TAG, "DSI initialization cleanup failed: %s", esp_err_to_name(cleanup_ret));
+        }
+    }
     return ret;
 }
 
@@ -253,7 +340,8 @@ lv_display_t *wt_bsp_dsi_lvgl_start(wt_bsp_dsi_t dsi, const wt_bsp_dsi_lvgl_conf
         .vres = dsi->info.height,
         .rotation = { .mirror_x = false, .mirror_y = false, .swap_xy = false },
 #if LVGL_VERSION_MAJOR >= 9
-        .color_format = LV_COLOR_FORMAT_RGB888,
+        .color_format = dsi->info.color_format == WT_BSP_DSI_COLOR_FORMAT_RGB888 ?
+                        LV_COLOR_FORMAT_RGB888 : LV_COLOR_FORMAT_RGB565,
 #endif
         .flags = {
             .buff_dma = false,
@@ -266,10 +354,15 @@ lv_display_t *wt_bsp_dsi_lvgl_start(wt_bsp_dsi_t dsi, const wt_bsp_dsi_lvgl_conf
         .flags = { .avoid_tearing = resolved.flags.avoid_tearing },
     };
 
+    if (!lvgl_port_lock(0)) {
+        ESP_LOGE(TAG, "LVGL display registration lock failed");
+        return NULL;
+    }
     dsi->lvgl_display = lvgl_port_add_disp_dsi(&disp_cfg, &dsi_cfg);
     if (dsi->lvgl_display) {
         lv_display_add_event_cb(dsi->lvgl_display, wt_bsp_dsi_lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA, NULL);
     }
+    lvgl_port_unlock();
 
     return dsi->lvgl_display;
 }
@@ -301,6 +394,7 @@ static esp_err_t wt_bsp_dsi_resolve_info(wt_bsp_dsi_info_t *resolved, const wt_b
     if (resolved->phy_ldo_voltage_mv == 0) resolved->phy_ldo_voltage_mv = WT_BSP_DSI_DEFAULT_PHY_LDO_VOLTAGE_MV;
     if (resolved->ledc_channel < 0) resolved->ledc_channel = WT_BSP_DSI_DEFAULT_LEDC_CHANNEL;
     if (resolved->ledc_timer < 0) resolved->ledc_timer = WT_BSP_DSI_DEFAULT_LEDC_TIMER;
+    if (resolved->backlight_pwm_freq_hz == 0U) resolved->backlight_pwm_freq_hz = WT_BSP_DSI_BACKLIGHT_PWM_FREQ_HZ;
 
     if (resolved->panel_type == WT_BSP_DSI_PANEL_AUTO) {
         if (resolved->width == 480U && resolved->height == 640U) resolved->panel_type = WT_BSP_DSI_PANEL_ST7102_480_640;
@@ -324,7 +418,7 @@ static esp_err_t wt_bsp_dsi_validate_info(const wt_bsp_dsi_info_t *info)
 static esp_err_t wt_bsp_dsi_init_backlight(wt_bsp_dsi_t dsi)
 {
     if (dsi->info.backlight_gpio_num < 0) return ESP_OK;
-    ledc_timer_config_t t_cfg = { .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = WT_BSP_DSI_BACKLIGHT_DUTY_RES, .timer_num = (ledc_timer_t)dsi->info.ledc_timer, .freq_hz = WT_BSP_DSI_BACKLIGHT_PWM_FREQ_HZ, .clk_cfg = LEDC_AUTO_CLK };
+    ledc_timer_config_t t_cfg = { .speed_mode = LEDC_LOW_SPEED_MODE, .duty_resolution = WT_BSP_DSI_BACKLIGHT_DUTY_RES, .timer_num = (ledc_timer_t)dsi->info.ledc_timer, .freq_hz = dsi->info.backlight_pwm_freq_hz, .clk_cfg = LEDC_AUTO_CLK };
     ESP_RETURN_ON_ERROR(ledc_timer_config(&t_cfg), TAG, "LEDC timer failed");
     ledc_channel_config_t c_cfg = { .gpio_num = dsi->info.backlight_gpio_num, .speed_mode = LEDC_LOW_SPEED_MODE, .channel = (ledc_channel_t)dsi->info.ledc_channel, .timer_sel = (ledc_timer_t)dsi->info.ledc_timer, .duty = 0, .hpoint = 0 };
     ESP_RETURN_ON_ERROR(ledc_channel_config(&c_cfg), TAG, "LEDC channel failed");
@@ -341,6 +435,14 @@ static esp_err_t wt_bsp_dsi_enable_phy_power(wt_bsp_dsi_t dsi)
 
 static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi)
 {
+    if (dsi->info.panel_type == WT_BSP_DSI_PANEL_JD9165BA_1024_600) {
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+        return wt_bsp_dsi_new_jd9165ba_panel(dsi);
+#else
+        ESP_LOGE(TAG, "JD9165BA LCD adapter is not enabled");
+        return ESP_ERR_NOT_SUPPORTED;
+#endif
+    }
     if (dsi->info.panel_type == WT_BSP_DSI_PANEL_ST7102_480_640) return wt_bsp_dsi_new_st7102_panel(dsi);
     if (dsi->info.panel_type == WT_BSP_DSI_PANEL_ILI9881C_800_1280) return wt_bsp_dsi_new_ili9881c_panel(dsi);
     return wt_bsp_dsi_new_ek79007_panel(dsi);
@@ -368,8 +470,48 @@ static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi)
     };
     ek79007_vendor_config_t vendor = { .mipi_config = { .dsi_bus = dsi->mipi_dsi_bus, .dpi_config = &dpi, .lane_num = dsi->info.dsi_lane_num } };
     esp_lcd_panel_dev_config_t dev = { .reset_gpio_num = dsi->info.reset_gpio_num, .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB, .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format), .vendor_config = &vendor };
-    return esp_lcd_new_panel_ek79007(dsi->io, &dev, &dsi->panel);
+    esp_err_t ret = esp_lcd_new_panel_ek79007(dsi->io, &dev, &dsi->panel);
+    if (ret == ESP_OK && dsi->panel->swap_xy == NULL) {
+        /* Native rotation requests from the LVGL port need no axis exchange. */
+        dsi->panel->swap_xy = wt_bsp_dsi_panel_swap_xy;
+    }
+    return ret;
 }
+
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+static esp_err_t wt_bsp_dsi_new_jd9165ba_panel(wt_bsp_dsi_t dsi)
+{
+    const esp_lcd_dpi_panel_config_t dpi = {
+        .virtual_channel = 0,
+        .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+        .dpi_clock_freq_mhz = 40,
+        .in_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .out_color_format = wt_bsp_dsi_get_lcd_color_format(dsi->info.color_format),
+        .num_fbs = dsi->info.dpi_frame_buffer_num,
+        .video_timing = {
+            .h_size = 1024,
+            .v_size = 600,
+            .hsync_pulse_width = 24,
+            .hsync_back_porch = 136,
+            .hsync_front_porch = 160,
+            .vsync_pulse_width = 2,
+            .vsync_back_porch = 21,
+            .vsync_front_porch = 12,
+        },
+    };
+    const wt_bsp_dsi_jd9165ba_vendor_config_t vendor = {
+        .dsi_bus = dsi->mipi_dsi_bus,
+        .dpi_config = &dpi,
+    };
+    const esp_lcd_panel_dev_config_t device = {
+        .reset_gpio_num = dsi->info.reset_gpio_num,
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
+        .bits_per_pixel = wt_bsp_dsi_get_color_format_bits_per_pixel(dsi->info.color_format),
+        .vendor_config = (void *)&vendor,
+    };
+    return wt_bsp_dsi_new_panel_jd9165ba(dsi->io, &device, &dsi->panel);
+}
+#endif
 
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi)
 {
@@ -445,7 +587,14 @@ static esp_err_t wt_bsp_dsi_enable_dma2d(wt_bsp_dsi_t dsi)
         return ESP_ERR_INVALID_ARG;
     }
 
-    return esp_lcd_dpi_panel_enable_dma2d(dsi->panel);
+    if (dsi->info.disable_dma2d) {
+        return ESP_OK;
+    }
+    esp_err_t ret = esp_lcd_dpi_panel_enable_dma2d(dsi->panel);
+    if (ret == ESP_OK) {
+        dsi->dma2d_enabled = true;
+    }
+    return ret;
 }
 
 static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi)
@@ -456,23 +605,76 @@ static esp_err_t wt_bsp_dsi_check_ready(wt_bsp_dsi_t dsi)
 
 static esp_err_t wt_bsp_dsi_send_display_command(wt_bsp_dsi_t dsi, bool on)
 {
-    esp_err_t ret = esp_lcd_panel_disp_on_off(dsi->panel, on);
-    if (ret == ESP_ERR_NOT_SUPPORTED && dsi->io != NULL) ret = esp_lcd_panel_io_tx_param(dsi->io, on ? LCD_CMD_DISPON : LCD_CMD_DISPOFF, NULL, 0);
+    esp_err_t ret = ESP_ERR_NOT_SUPPORTED;
+
+    /* Some panel factories leave this callback unset; use DCS directly. */
+    if (dsi->panel->disp_on_off != NULL) {
+        ret = esp_lcd_panel_disp_on_off(dsi->panel, on);
+    }
+    if (ret == ESP_ERR_NOT_SUPPORTED && dsi->io != NULL) {
+        ret = esp_lcd_panel_io_tx_param(dsi->io, on ? LCD_CMD_DISPON : LCD_CMD_DISPOFF, NULL, 0);
+    }
     return ret;
 }
 
 static esp_err_t wt_bsp_dsi_cleanup(wt_bsp_dsi_t dsi)
 {
-    if (dsi->lvgl_display) {
-        if (lvgl_port_lock(0)) { lvgl_port_remove_disp(dsi->lvgl_display); lvgl_port_unlock(); }
+    esp_err_t ret = ESP_OK;
+
+    if (dsi->lvgl_display != NULL) {
+        if (!lvgl_port_lock(0)) {
+            ESP_LOGE(TAG, "LVGL display cleanup lock failed");
+            return ESP_ERR_TIMEOUT;
+        }
+        if (dsi->dma2d_enabled) {
+            /* Keep LVGL buffers and completion callbacks alive until DMA stops. */
+            ret = esp_lcd_dpi_panel_disable_dma2d(dsi->panel);
+            if (ret != ESP_OK) {
+                lvgl_port_unlock();
+                ESP_LOGE(TAG, "Disable DPI DMA2D failed: %s", esp_err_to_name(ret));
+                return ret;
+            }
+            dsi->dma2d_enabled = false;
+        }
+        const esp_lcd_dpi_panel_event_callbacks_t callbacks = {0};
+        ret = esp_lcd_dpi_panel_register_event_callbacks(dsi->panel, &callbacks, NULL);
+        if (ret == ESP_OK) {
+            ret = lvgl_port_remove_disp(dsi->lvgl_display);
+        }
+        lvgl_port_unlock();
+        ESP_RETURN_ON_ERROR(ret, TAG, "Remove LVGL display failed");
         dsi->lvgl_display = NULL;
     }
-    if (dsi->lvgl_port_initialized) { lvgl_port_deinit(); dsi->lvgl_port_initialized = false; s_lvgl_port_ready = false; }
-    if (dsi->brightness_initialized) { ledc_stop(LEDC_LOW_SPEED_MODE, (ledc_channel_t)dsi->info.ledc_channel, 0); dsi->brightness_initialized = false; }
-    if (dsi->panel) { esp_lcd_panel_del(dsi->panel); dsi->panel = NULL; }
-    if (dsi->io) { esp_lcd_panel_io_del(dsi->io); dsi->io = NULL; }
-    if (dsi->mipi_dsi_bus) { esp_lcd_del_dsi_bus(dsi->mipi_dsi_bus); dsi->mipi_dsi_bus = NULL; }
-    if (dsi->phy_pwr_chan) { esp_ldo_release_channel(dsi->phy_pwr_chan); dsi->phy_pwr_chan = NULL; }
+    if (dsi->lvgl_port_initialized) {
+        ESP_RETURN_ON_ERROR(lvgl_port_deinit(), TAG, "Stop LVGL port failed");
+        dsi->lvgl_port_initialized = false;
+        s_lvgl_port_ready = false;
+    }
+    if (dsi->dma2d_enabled) {
+        ESP_RETURN_ON_ERROR(esp_lcd_dpi_panel_disable_dma2d(dsi->panel), TAG, "Disable DPI DMA2D failed");
+        dsi->dma2d_enabled = false;
+    }
+    if (dsi->brightness_initialized) {
+        ESP_RETURN_ON_ERROR(ledc_stop(LEDC_LOW_SPEED_MODE, (ledc_channel_t)dsi->info.ledc_channel, 0),
+                            TAG, "Stop backlight PWM failed");
+        dsi->brightness_initialized = false;
+    }
+    if (dsi->panel != NULL) {
+        ESP_RETURN_ON_ERROR(esp_lcd_panel_del(dsi->panel), TAG, "Delete LCD panel failed");
+        dsi->panel = NULL;
+    }
+    if (dsi->io != NULL) {
+        ESP_RETURN_ON_ERROR(esp_lcd_panel_io_del(dsi->io), TAG, "Delete LCD IO failed");
+        dsi->io = NULL;
+    }
+    if (dsi->mipi_dsi_bus != NULL) {
+        ESP_RETURN_ON_ERROR(esp_lcd_del_dsi_bus(dsi->mipi_dsi_bus), TAG, "Delete DSI bus failed");
+        dsi->mipi_dsi_bus = NULL;
+    }
+    if (dsi->phy_pwr_chan != NULL) {
+        ESP_RETURN_ON_ERROR(esp_ldo_release_channel(dsi->phy_pwr_chan), TAG, "Release DSI PHY power failed");
+        dsi->phy_pwr_chan = NULL;
+    }
     dsi->is_initialized = false;
     return ESP_OK;
 }
@@ -488,7 +690,22 @@ static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e)
 {
     lv_area_t *area = lv_event_get_param(e);
     area->x1 = ALIGN_DOWN(area->x1, 16);
-    area->x2 = ALIGN_UP(area->x2, 16) - 1;
+    area->x2 = ALIGN_UP(area->x2 + 1, 16) - 1;
+}
+
+static bool wt_bsp_dsi_uses_lcd_adapter(void)
+{
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P || CONFIG_WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER
+    return true;
+#else
+    return false;
+#endif
+}
+
+static esp_err_t wt_bsp_dsi_panel_swap_xy(esp_lcd_panel_t *panel, bool swap_axes)
+{
+    (void)panel;
+    return swap_axes ? ESP_ERR_NOT_SUPPORTED : ESP_OK;
 }
 
 static lcd_color_format_t wt_bsp_dsi_get_lcd_color_format(wt_bsp_dsi_color_format_t color_format)

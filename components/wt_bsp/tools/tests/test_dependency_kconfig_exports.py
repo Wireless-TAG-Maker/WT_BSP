@@ -110,6 +110,8 @@ class DependencyExportTests(unittest.TestCase):
         for feature in FEATURES:
             self.assertIn("WT_BSP_DEP_" + feature, result)
             self.assertIsInstance(result["WT_BSP_DEP_" + feature], str)
+        self.assertIn("WT_BSP_DEP_TOUCH_GT911", result)
+        self.assertIsInstance(result["WT_BSP_DEP_TOUCH_GT911"], str)
         return result
 
     def assert_common_unchanged(self):
@@ -180,6 +182,31 @@ class DependencyExportTests(unittest.TestCase):
         fresh.load_config(str(sdkconfig))
         self.assertEqual(fresh.syms["WT_BSP_ENABLE_CAMERA"].str_value, "n")
         self.assertEqual(self.export(fresh)["WT_BSP_DEP_CAMERA"], "n")
+        self.assert_common_unchanged()
+
+    @unittest.skipUnless(OptionalRequirement, "run with ESP-IDF Component Manager")
+    def test_gt911_dependency_tracks_lcd_adapter_and_touch_cut(self):
+        for adapter in ("WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P",
+                        "WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER"):
+            model = self.load("WT9932P4C61-TINY")
+            self.assertTrue(model.syms[adapter].set_value("y"))
+            self.assertEqual(model.syms[adapter].str_value, "y")
+            for enabled in ("y", "n"):
+                with self.subTest(adapter=adapter, touch=enabled):
+                    model.syms["WT_BSP_ENABLE_TOUCH"].set_value(enabled)
+                    values = self.export(model)
+                    self.assertEqual(values["WT_BSP_DEP_TOUCH_GT911"], enabled)
+                    dependencies = self.selected_dependencies(values, "esp32p4", "6.1.0")
+                    if enabled == "y":
+                        self.assertEqual(dependencies["espressif/esp_lcd_touch_gt911"], "1.2.1")
+                    else:
+                        self.assertNotIn("espressif/esp_lcd_touch_gt911", dependencies)
+            model.syms["WT_BSP_ENABLE_TOUCH"].set_value("y")
+            model.syms["WT_BSP_DSI_LCD_ADAPTER_DEFAULT"].set_value("y")
+            values = self.export(model)
+            self.assertEqual(values["WT_BSP_DEP_TOUCH_GT911"], "n")
+            self.assertNotIn("espressif/esp_lcd_touch_gt911",
+                             self.selected_dependencies(values, "esp32p4", "6.1.0"))
         self.assert_common_unchanged()
 
     @unittest.skipUnless(OptionalRequirement, "run with ESP-IDF Component Manager")

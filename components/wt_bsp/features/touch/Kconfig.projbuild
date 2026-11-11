@@ -11,3 +11,8 @@ config WT_BSP_DEP_TOUCH
     string
     default "y" if WT_BSP_ENABLE_TOUCH
     default "n"
+
+config WT_BSP_DEP_TOUCH_GT911
+    string
+    default "y" if WT_BSP_ENABLE_TOUCH && (WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P || WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER)
+    default "n"
