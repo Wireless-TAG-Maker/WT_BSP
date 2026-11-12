@@ -1,0 +1,22 @@
+menu "DSI example"
+    depends on WT_BSP_ENABLE_DSI
+
+    choice EXAMPLE_DSI_DEMO
+        prompt "LVGL demo"
+        default EXAMPLE_DSI_DEMO_WIDGETS
+
+        config EXAMPLE_DSI_DEMO_WIDGETS
+            bool "Widgets"
+            select LV_BUILD_DEMOS
+            select LV_USE_DEMO_WIDGETS
+
+        config EXAMPLE_DSI_DEMO_BENCHMARK
+            bool "Benchmark"
+            select LV_BUILD_DEMOS
+            select LV_USE_DEMO_BENCHMARK
+            help
+                Run the official LVGL Benchmark. LVGL 9.5 and newer also
+                export per-scene results and leave a scrollable result table.
+    endchoice
+
+endmenu

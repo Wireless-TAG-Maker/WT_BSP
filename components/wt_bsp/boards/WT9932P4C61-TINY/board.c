@@ -65,13 +65,6 @@
 
 #define BOARD_DSI_BACKLIGHT_GPIO_NUM 26
 #define BOARD_DSI_RESET_GPIO_NUM 27
-#define BOARD_DSI_WIDTH 480
-#define BOARD_DSI_HEIGHT 640
-#define BOARD_DSI_PANEL_TYPE WT_BSP_DSI_PANEL_ST7102_480_640
-#define BOARD_DSI_LANE_NUM 2
-#define BOARD_DSI_COLOR_FORMAT WT_BSP_DSI_COLOR_FORMAT_RGB888
-#define BOARD_DSI_DPI_FB_NUM 2
-#define BOARD_DSI_LANE_BITRATE_MBPS 1000
 #define BOARD_DSI_PHY_LDO_CHANNEL 3
 #define BOARD_DSI_PHY_LDO_VOLTAGE_MV 2500
 #define BOARD_DSI_LEDC_CHANNEL 1
@@ -106,7 +99,7 @@
  */
 #if BOARD_I2C_FEATURE_ENABLED
 typedef struct {
-    bool display_detected;
+    bool display_available;
     bool touch_detected;
     bool camera_detected;
 } board_i2c_device_status_t;
@@ -192,10 +185,10 @@ wt_bsp_interface_t *board_get_bsp_interface(void)
 
 
 /**
- * @brief 扫描 I2C 总线上的指定设备
+ * @brief 检查所选显示配置及 I2C 外设是否可初始化。
  * @param bus_handle I2C 总线句柄
  * @param status 输出检测到的设备状态
- * @return ESP_OK 或 ESP_ERR_NOT_FOUND（如果没有检测到任何设备）
+ * @return ESP_OK 或 ESP_ERR_NOT_FOUND（没有可初始化的外设）。
  */
 #if BOARD_I2C_FEATURE_ENABLED
 static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, board_i2c_device_status_t *status)
@@ -205,46 +198,49 @@ static esp_err_t board_i2c_scan_devices(i2c_master_bus_handle_t bus_handle, boar
     }
 
     memset(status, 0, sizeof(board_i2c_device_status_t));
-    bool any_device_found = false;
+    bool any_device_available = false;
 
     ESP_LOGI(TAG, "Scanning I2C bus for devices...");
 
-    // 检测屏幕 (0x28)
-    esp_err_t ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_DISPLAY, BOARD_I2C_SCAN_TIMEOUT_MS);
+    esp_err_t ret;
+#if WT_BSP_DSI_ENABLED
+    ret = wt_bsp_dsi_probe(bus_handle, BOARD_I2C_ADDR_DISPLAY);
     if (ret == ESP_OK) {
-        status->display_detected = true;
-        any_device_found = true;
-        ESP_LOGI(TAG, "Found display device at address: 0x%02x", BOARD_I2C_ADDR_DISPLAY);
+        status->display_available = true;
+        any_device_available = true;
+        ESP_LOGI(TAG, "DSI initialization is available for the selected configuration");
     } else {
-        ESP_LOGW(TAG, "Display device not found at address: 0x%02x", BOARD_I2C_ADDR_DISPLAY);
+        ESP_LOGW(TAG, "DSI initialization is unavailable: %s", esp_err_to_name(ret));
     }
+#endif
 
-    // 检测触摸屏 (0x55)
-    ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_TOUCH, BOARD_I2C_SCAN_TIMEOUT_MS);
+#if WT_BSP_TOUCH_ENABLED
+    ret = wt_bsp_touch_probe(bus_handle, BOARD_I2C_ADDR_TOUCH);
     if (ret == ESP_OK) {
         status->touch_detected = true;
-        any_device_found = true;
-        ESP_LOGI(TAG, "Found touch device at address: 0x%02x", BOARD_I2C_ADDR_TOUCH);
+        any_device_available = true;
+        ESP_LOGI(TAG, "Touch device is available");
     } else {
-        ESP_LOGW(TAG, "Touch device not found at address: 0x%02x", BOARD_I2C_ADDR_TOUCH);
+        ESP_LOGW(TAG, "Touch device not found: %s", esp_err_to_name(ret));
     }
+#endif
 
     // 检测摄像头 (0x30)
     ret = i2c_master_probe(bus_handle, BOARD_I2C_ADDR_CAMERA, BOARD_I2C_SCAN_TIMEOUT_MS);
     if (ret == ESP_OK) {
         status->camera_detected = true;
-        any_device_found = true;
+        any_device_available = true;
         ESP_LOGI(TAG, "Found camera device at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
     } else {
         ESP_LOGW(TAG, "Camera device not found at address: 0x%02x", BOARD_I2C_ADDR_CAMERA);
     }
 
-    ESP_LOGI(TAG, "I2C scan complete. Display: %s, Touch: %s, Camera: %s",
-             status->display_detected ? "YES" : "NO",
+    ESP_LOGI(TAG, "Peripheral availability. DSI: %s, Touch: %s, Camera: %s",
+             status->display_available ? "YES" : "NO",
              status->touch_detected ? "YES" : "NO",
              status->camera_detected ? "YES" : "NO");
 
-    return any_device_found ? ESP_OK : ESP_ERR_NOT_FOUND;
+    return any_device_available ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 #endif
 
@@ -383,30 +379,26 @@ static esp_err_t board_init(void)
     }
 
 #if WT_BSP_DSI_ENABLED
-    // Initialize DSI only if display device was detected
-    if (device_status.display_detected) {
-        ret = wt_bsp_dsi_init(&s_bsp_dsi, &(wt_bsp_dsi_info_t) {
-            .backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM,
-            .reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM,
-            .width = BOARD_DSI_WIDTH,
-            .height = BOARD_DSI_HEIGHT,
-            .dsi_lane_num = BOARD_DSI_LANE_NUM,
-            .panel_type = BOARD_DSI_PANEL_TYPE,
-            .color_format = BOARD_DSI_COLOR_FORMAT,
-            .dpi_frame_buffer_num = BOARD_DSI_DPI_FB_NUM,
-            .lane_bit_rate_mbps = BOARD_DSI_LANE_BITRATE_MBPS,
-            .phy_ldo_channel = BOARD_DSI_PHY_LDO_CHANNEL,
-            .phy_ldo_voltage_mv = BOARD_DSI_PHY_LDO_VOLTAGE_MV,
-            .ledc_channel = BOARD_DSI_LEDC_CHANNEL,
-            .ledc_timer = BOARD_DSI_LEDC_TIMER,
-        });
+    // The feature owns panel selection and protocol-specific configuration.
+    if (device_status.display_available) {
+        wt_bsp_dsi_info_t dsi_info;
+        ret = wt_bsp_dsi_get_default_info(&dsi_info);
+        if (ret == ESP_OK) {
+            dsi_info.backlight_gpio_num = BOARD_DSI_BACKLIGHT_GPIO_NUM;
+            dsi_info.reset_gpio_num = BOARD_DSI_RESET_GPIO_NUM;
+            dsi_info.phy_ldo_channel = BOARD_DSI_PHY_LDO_CHANNEL;
+            dsi_info.phy_ldo_voltage_mv = BOARD_DSI_PHY_LDO_VOLTAGE_MV;
+            dsi_info.ledc_channel = BOARD_DSI_LEDC_CHANNEL;
+            dsi_info.ledc_timer = BOARD_DSI_LEDC_TIMER;
+            ret = wt_bsp_dsi_init(&s_bsp_dsi, &dsi_info);
+        }
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "DSI initialization failed: %s", esp_err_to_name(ret));
         } else {
             ESP_LOGI(TAG, "DSI initialized successfully");
         }
     } else {
-        ESP_LOGW(TAG, "Display device not detected, skipping DSI initialization");
+        ESP_LOGW(TAG, "DSI configuration unavailable, skipping initialization");
     }
 
 #endif
@@ -437,16 +429,17 @@ static esp_err_t board_init(void)
 #if WT_BSP_TOUCH_ENABLED
     // Initialize touch only if touch device was detected
     if (device_status.touch_detected) {
-        ret = wt_bsp_touch_init(&s_bsp_touch, &(wt_bsp_touch_info_t) {
-            .i2c_bus_handle = s_shared_i2c_bus,
-            .i2c_port = BOARD_TOUCH_I2C_PORT,
-            .scl_pin = BOARD_TOUCH_I2C_SCL_PIN,
-            .sda_pin = BOARD_TOUCH_I2C_SDA_PIN,
-            .rst_pin = BOARD_TOUCH_RST_PIN,
-            .int_pin = BOARD_TOUCH_INT_PIN,
-            .width = BOARD_DSI_WIDTH,
-            .height = BOARD_DSI_HEIGHT,
-        });
+        wt_bsp_touch_info_t touch_info;
+        ret = wt_bsp_touch_get_default_info(&touch_info);
+        if (ret == ESP_OK) {
+            touch_info.i2c_bus_handle = s_shared_i2c_bus;
+            touch_info.i2c_port = BOARD_TOUCH_I2C_PORT;
+            touch_info.scl_pin = BOARD_TOUCH_I2C_SCL_PIN;
+            touch_info.sda_pin = BOARD_TOUCH_I2C_SDA_PIN;
+            touch_info.rst_pin = BOARD_TOUCH_RST_PIN;
+            touch_info.int_pin = BOARD_TOUCH_INT_PIN;
+            ret = wt_bsp_touch_init(&s_bsp_touch, &touch_info);
+        }
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Touch initialization failed: %s", esp_err_to_name(ret));
         } else {
@@ -512,7 +505,9 @@ static esp_err_t board_deinit(void)
     // Deinitialize touch
     ret = wt_bsp_touch_deinit(&s_bsp_touch);
     if (ret != ESP_OK) {
+        // Keep the object and shared resources available for a cleanup retry.
         ESP_LOGE(TAG, "Failed to deinitialize touch: %s", esp_err_to_name(ret));
+        return ret;
     }
 #endif
 
@@ -530,7 +525,9 @@ static esp_err_t board_deinit(void)
     // Deinitialize DSI
     ret = wt_bsp_dsi_deinit(&s_bsp_dsi);
     if (ret != ESP_OK) {
+        // Keep the object and shared resources available for a cleanup retry.
         ESP_LOGE(TAG, "Failed to deinitialize DSI: %s", esp_err_to_name(ret));
+        return ret;
     }
 #endif
 
@@ -540,6 +537,7 @@ static esp_err_t board_deinit(void)
         ret = i2c_del_master_bus(s_shared_i2c_bus);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "Failed to delete I2C bus: %s", esp_err_to_name(ret));
+            return ret;
         }
         s_shared_i2c_bus = NULL;
     }

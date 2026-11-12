@@ -80,7 +80,7 @@ class KconfigModularityTests(unittest.TestCase):
         (directory / "board.c").write_text("/* Synthetic board discovery fixture. */\n")
         return board_id, directory
 
-    def load(self, target, selected=None):
+    def load(self, target, selected=None, legacy_p4=False):
         root = self.root / "Kconfig"
         boards = board_tools.discover_boards(self.root)
         targets = sorted({board.target for board in boards.values()} | {target})
@@ -88,7 +88,8 @@ class KconfigModularityTests(unittest.TestCase):
             'config IDF_TARGET_{}\n    bool\n    default {}\n'.format(
                 name.upper(), "y" if name == target else "n")
             for name in targets
-        ) + '\nsource "{}"\n'.format(self.component / "Kconfig.projbuild"))
+        ) + '\nconfig ESP32P4_SELECTS_REV_LESS_V3\n    bool\n    default {}\n'.format(
+            "y" if legacy_p4 else "n") + '\nsource "{}"\n'.format(self.component / "Kconfig.projbuild"))
         environment = dict(os.environ)
         environment.pop("WT_BSP_BOARD_KCONFIG", None)
         if selected:
@@ -107,6 +108,27 @@ class KconfigModularityTests(unittest.TestCase):
     def assert_common_files_unchanged(self):
         for relative, original in self.public_files.items():
             self.assertEqual((self.component / relative).read_bytes(), original, str(relative))
+
+    def test_lcd_adapters_are_limited_to_p4x_and_p4c61(self):
+        adapters = ("WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P",
+                    "WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER")
+        cases = (("esp32p4", "WT9932P4-TINY", True, False),
+                 ("esp32p4", "WT9932P4X-TINY", False, True),
+                 ("esp32p4", "WT9932P4C61-TINY", False, True),
+                 ("esp32c3", "WT9932C3-TINY", False, False))
+        for target, board, legacy_p4, supported in cases:
+            with self.subTest(board=board):
+                model = self.load(target, selected=board, legacy_p4=legacy_p4)
+                for name in adapters:
+                    option = model.syms[name]
+                    self.assertEqual(option.visibility, 2 if supported else 0)
+                    option.set_value("y")
+                    self.assertEqual(option.str_value, "y" if supported else "n")
+                model.syms["WT_BSP_ENABLE_DSI"].set_value("n")
+                for name in adapters:
+                    self.assertEqual(model.syms[name].visibility, 0)
+                    self.assertEqual(model.syms[name].str_value, "n")
+        self.assert_common_files_unchanged()
 
     def test_new_same_target_board_is_discovered_and_tool_selection_wins(self):
         board_id, _ = self.add_board("WTZZP4-TINY", "esp32p4")

@@ -6,6 +6,31 @@ config WT_BSP_ENABLE_DSI
     depends on WT_BSP_BOARD_HAS_DSI
     default y
 
+config WT_BSP_BOARD_HAS_DSI_LCD_ADAPTERS
+    bool
+
+choice WT_BSP_DSI_LCD_ADAPTER
+    prompt "DSI LCD adapter"
+    depends on WT_BSP_ENABLE_DSI && WT_BSP_BOARD_HAS_DSI_LCD_ADAPTERS
+    default WT_BSP_DSI_LCD_ADAPTER_DEFAULT
+
+    config WT_BSP_DSI_LCD_ADAPTER_DEFAULT
+        bool "Default ST7102 / ST7123 display"
+
+    config WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
+        bool "WLK7002-MIPI-15P / JD9165BA / GT911"
+        help
+            Use the validated 1024x600 RGB565 JD9165BA panel configuration,
+            two 500 Mbps lanes, 40 MHz DPI clock and 2 kHz backlight PWM.
+
+    config WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER
+        bool "WTDKP4-LCD-ADAPTER / EK79007 / GT911"
+        help
+            Use the validated 1024x600 RGB565 EK79007 panel configuration,
+            two 1000 Mbps lanes, a 52 MHz DPI request and 5 kHz backlight PWM.
+            ESP-IDF may round the requested pixel clock to its integer divider.
+endchoice
+
 # Keep a value in sdkconfig.json even when the capability hides the bool.
 config WT_BSP_DEP_DSI
     string
