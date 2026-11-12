@@ -15,6 +15,7 @@
 
 #if WT_BSP_USB_DEVICE_UVC_ENABLED && WT_BSP_CSI_ENABLED
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -129,8 +130,9 @@ esp_err_t camera_uvc_csi_start(void)
     }
     s_bridge.capacity = (size_t)CONFIG_UVC_CAM1_FRAMESIZE_WIDTH * CONFIG_UVC_CAM1_FRAMESIZE_HEIGT;
     s_bridge.raw_capacity = s_bridge.capacity * 3;
-    s_bridge.raw_buffer = heap_caps_aligned_alloc(64, s_bridge.raw_capacity,
-                                                  MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // JPEG USERPTR buffers must satisfy the external-memory cache alignment.
+    s_bridge.raw_buffer = heap_caps_malloc(s_bridge.raw_capacity,
+                                          MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT | MALLOC_CAP_CACHE_ALIGNED);
     s_bridge.usb_buffer = malloc(s_bridge.capacity);
     s_bridge.latest_jpeg = malloc(s_bridge.capacity);
     s_bridge.frame_buffer = malloc(s_bridge.capacity);
@@ -470,6 +472,7 @@ static void camera_uvc_csi_encode_task(void *context)
         if (ioctl(bridge->codec_fd, VIDIOC_QBUF, &input) != 0 ||
                 ioctl(bridge->codec_fd, VIDIOC_DQBUF, &output) != 0 ||
                 ioctl(bridge->codec_fd, VIDIOC_DQBUF, &input) != 0) {
+            ESP_LOGE(TAG, "Failed to encode CSI frame (errno=%d)", errno);
             camera_uvc_csi_close_codec(bridge);
             atomic_store(&bridge->streaming, false);
         } else {
