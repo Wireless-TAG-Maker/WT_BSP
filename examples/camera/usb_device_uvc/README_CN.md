@@ -23,21 +23,27 @@ idf.py --preview -C examples/camera/usb_device_uvc build
 idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 ```
 
-在 `WT BSP → Camera sensor` 切换两款摄像头，随后重新构建和烧录：
+在 `WT BSP → Camera sensor` 选择模组和采集模式，随后重新构建和烧录：
 
-| 型号 | UVC 模式 | 编码路径 |
+| 摄像头配置 | UVC 模式 | 编码路径 |
 | --- | --- | --- |
-| GC2145 / CKS-K210-GC3.1 (默认) | MJPEG 1600×1200，标称 8 FPS，Bulk | UYVY → S31 硬件 JPEG |
+| GC2145 / CKS-K210-GC3.1 720p（本示例默认） | MJPEG 1280×720，30 FPS，Isochronous | UYVY → S31 硬件 JPEG，质量 60 |
+| GC2145 / CKS-K210-GC3.1 UXGA | MJPEG 1600×1200，标称 8 FPS，Bulk | UYVY → S31 硬件 JPEG |
 | OV3660 | MJPEG 640×480，标称 25 FPS，Isochronous | 传感器原生 JPEG |
 
-两款模组地址均为 `0x3c`，仅探测菜单选择的型号。GC2145 沿用参考工程的时钟二分频、
-200 ms 编码时限和开停流互斥保护。USB 产品名为 `Wireless-Tag Camera`。
+两款模组地址均为 `0x3c`，仅探测菜单选择的型号。720p 使用传感器居中裁切和 24 MHz XCLK，
+在高速 USB 等时传输中只公布一个 30 FPS 档位。
+UXGA 使用 20 MHz XCLK 和输出时钟二分频。
+
+USB 产品名为 `Wireless-Tag Camera`。720p 实验固件在 macOS 上 180 秒收到 5,400 帧。
+验证源端帧率时，请核对主机 UVC 解码计数，采集 API 可能通过重复帧满足请求帧率。
+已有构建会保留保存的相机选项。可在 menuconfig 中选 720p，或使用新的构建目录应用默认值。
 S31 的 `wt_bsp_get_csi()` 返回 `NULL`，应用通过 `wt_bsp_get_camera()` 获取相机。
 DVP 采集、传感器模式和 JPEG 处理位于 `features/camera`；板级提供接线、型号参数和缓冲预算。
 需要分别检查 `wt_bsp_init()` 和 `camera_uvc_start()` 的返回值。
 UVC 和独立 USB CDC 不能各自占用同一个 USB 控制器；复合设备需由应用提供 USB profile。
 
-参考工程记录的 GC2145 右侧细彩点竖线、Windows 原生相机兼容性及 OV3660
+参考工程记录的 GC2145 UXGA 右侧细彩点竖线、Windows 原生相机兼容性及 OV3660
 画质微调仍需实板复验。下面的 P4 截图不是 S31 验证结果。详见
 [板卡说明](../../../components/wt_bsp/boards/WT9932S31-TINY/README.md)。
 

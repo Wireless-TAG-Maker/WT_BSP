@@ -4,17 +4,25 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
         prompt "Camera sensor"
         default WT_BSP_S31_CAMERA_SENSOR_GC2145
         help
-            Select the camera module fitted to the DVP connector. This also
-            selects the matching sensor format and XCLK.
+            Select the fitted camera module and capture mode. This also selects
+            the matching sensor format and XCLK.
 
         config WT_BSP_S31_CAMERA_SENSOR_GC2145
-            bool "GC2145 / CKS-K210-GC3.1 (default)"
+            bool "GC2145 / CKS-K210-GC3.1 (UXGA, 8 fps)"
             select WT_BSP_CAMERA_SENSOR_GC2145
             help
                 Use GC2145 DVP UYVY 1600x1200 at a nominal 8 fps with
                 a 20 MHz XCLK and an output-clock divider of two, derived
                 from the driver's full-resolution mode. Frames are encoded
                 by the ESP32-S31 hardware JPEG encoder.
+
+        config WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
+            bool "GC2145 / CKS-K210-GC3.1 (720p, 30 fps)"
+            select WT_BSP_CAMERA_SENSOR_GC2145_720P
+            help
+                Use the sensor's centered 1280x720 window with a 24 MHz XCLK.
+                Native DVP capture supplies UYVY directly to the hardware JPEG
+                encoder on the ESP32-S31.
 
         config WT_BSP_S31_CAMERA_SENSOR_OV3660
             bool "OV3660 (legacy supported module)"
@@ -76,6 +84,7 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
     config WT_BSP_S31_JPEG_QUALITY
         int "Hardware JPEG fallback quality"
+        default 60 if WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 80
         range 1 100
         help
@@ -85,17 +94,17 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
     config WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
         int "Hardware JPEG encoding timeout (ms)"
-        depends on WT_BSP_S31_CAMERA_SENSOR_GC2145
+        depends on WT_BSP_S31_CAMERA_SENSOR_GC2145 || WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 200
         range 40 1000
         help
-            Internal JPEG engine deadline, separate from the V4L2 dequeue
-            timeout. Override esp_video 2.3's fixed 40 ms deadline for UXGA
-            encoding without changing the managed component. This does not
-            affect OV3660 sensor-native JPEG.
+            Internal JPEG engine deadline, separate from the frame dequeue
+            timeout. The UXGA backend uses it to override esp_video 2.3's
+            fixed 40 ms deadline. This does not affect OV3660 native JPEG.
 
     config WT_BSP_S31_DQBUF_TIMEOUT_MS
         int "Camera/JPEG dequeue timeout (ms)"
+        default 500 if WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 2000
         range 100 10000
 

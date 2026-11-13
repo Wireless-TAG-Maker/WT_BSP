@@ -28,8 +28,8 @@
 #error "The project camera profiles require one High-Speed UVC camera"
 #endif
 
-/* The project sensor choice owns the transport. A saved component-level USB
- * choice otherwise survives a GC2145/OV3660 switch in Kconfig. Derive the
+/* The project camera profile owns the transport. A saved component-level USB
+ * choice otherwise survives a camera mode switch in Kconfig. Derive the
  * effective macros here so changing only Camera sensor remains sufficient. */
 #undef CFG_TUD_CAM1_VIDEO_STREAMING_BULK
 #undef CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE
@@ -54,8 +54,8 @@
 #define CFG_TUD_CAM1_VIDEO_STREAMING_BULK 1
 #define CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE 512
 #define CFG_TUD_VIDEO_STREAMING_EP_BUFSIZE 16384
-#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
-/* Preserve OV3660's historically verified isochronous transport. */
+#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_720P || CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+/* Standalone isochronous profiles use one HS transaction per microframe. */
 #define CFG_TUD_CAM1_VIDEO_STREAMING_BULK 0
 #define CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE 1023
 #define CFG_TUD_VIDEO_STREAMING_EP_BUFSIZE 1023

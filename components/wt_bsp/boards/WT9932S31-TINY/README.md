@@ -43,7 +43,7 @@ idf.py --preview -C examples/wt_factory/wt9932s31-tiny build
 | SD 电源 | 卡由板上 3.3 V 供电；SD pad 使用片上 LDO 1，1.8 V |
 | 摄像头 SCCB | I2C0，SCL/SDA=1/0，100 kHz |
 | 摄像头数据 | D0..D7=46..53 |
-| 摄像头时序 | XCLK=55 (20 MHz)，PCLK=54，VSYNC=56，HREF/DE=57 |
+| 摄像头时序 | XCLK=55（GC2145 720p 为 24 MHz，其余为 20 MHz），PCLK=54，VSYNC=56，HREF/DE=57 |
 | 摄像头 RESET/PWDN | 板上固定偏置，软件 GPIO 配置为 -1 |
 | J1 USB | USB1 High-Speed OTG，供 UVC、CDC 或两者的复合设备使用 |
 | J2 USB | USB Serial/JTAG，供烧录和日志使用 |
@@ -55,7 +55,8 @@ SD 卡仅在示例调用 `wt_bsp_sdmmc_mount()` 时挂载，BSP 不自动格式�
 
 | menuconfig 型号 | 采集与编码 | 示例应用的 USB profile |
 | --- | --- | --- |
-| GC2145 / CKS-K210-GC3.1 (默认) | UYVY 1600×1200，S31 硬件 JPEG，质量 80 | MJPEG，标称 8 FPS，Bulk，512 字节端点、16 KiB payload |
+| GC2145 / CKS-K210-GC3.1 UXGA（板级及工厂示例默认） | UYVY 1600×1200，S31 硬件 JPEG，质量 80 | MJPEG，标称 8 FPS，Bulk，512 字节端点、16 KiB payload |
+| GC2145 / CKS-K210-GC3.1 720p（独立 UVC 示例默认） | 居中裁切 UYVY 1280×720，S31 硬件 JPEG，质量 60 | MJPEG，30 FPS，独立示例使用 Isochronous 1023 字节端点 |
 | OV3660 | 传感器原生 JPEG 640×480 | MJPEG，标称 25 FPS；独立示例用 Isochronous 1023 字节端点，工厂复合设备用 Bulk 512 字节端点、16 KiB payload |
 
 先为 UVC 示例选板，然后运行：
@@ -64,10 +65,10 @@ SD 卡仅在示例调用 `wt_bsp_sdmmc_mount()` 时挂载，BSP 不自动格式�
 idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 ```
 
-在 **WT BSP → Camera sensor** 选择型号。对应配置项为
-`CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145` 或
-`CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660`。板级选项只决定相机硬件模式。
-板级仅通过统一 `wt_bsp_camera_info_t` 传入 `sensor_name = "gc2145"` 或 `"ov3660"`，
+在 **WT BSP → Camera sensor** 选择型号和模式。对应配置项为
+`CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145`、`CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_720P`
+或 `CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660`。板级选项决定相机硬件模式。
+板级通过统一 `wt_bsp_camera_info_t` 传入 `sensor_name = "gc2145"`、`"gc2145_720p"` 或 `"ov3660"`，
 interface 自动查找已注册驱动，由其 factory 返回统一相机操作表。
 GC2145 不需要额外属性；OV3660 通过 `wt_bsp_camera_property_t` 数组提供
 `ae_level`、`jpeg_quality`、`saturation`、`sharpness`、`denoise` 五项整数属性。
@@ -77,25 +78,26 @@ GC2145 不需要额外属性；OV3660 通过 `wt_bsp_camera_property_t` 数组�
 无需包含传感器私有头文件或扩展 camera 的中央型号表。详见[新增传感器模块](../../features/camera/README.md#新增传感器模块)。
 UVC 示例的应用组件再将该模式映射到 USB 分辨率、帧率和端点 profile，随后重新构建和烧录。
 
-两款传感器都使用 SCCB 地址 `0x3c`，因此仅注册所选型号的探测函数，并核对
-传感器 PID。保持组件的两项 `*_AUTO_DETECT_DVP_INTERFACE_SENSOR` 关闭。
+两款传感器都使用 SCCB 地址 `0x3c`，因此只探测所选型号并核对传感器 PID。
+使用 `esp_cam_sensor` 的模式保持组件的两项 `*_AUTO_DETECT_DVP_INTERFACE_SENSOR` 关闭。
 这里的兼容方式是编译时选择型号，不支持运行时热插拔或自动切换型号。
 
-GC2145 沿用参考工程的完整 UXGA 时序表、输出二分频 `0xfa=0x10`、200 ms JPEG
+GC2145 UXGA 沿用参考工程的完整时序表、输出二分频 `0xfa=0x10`、200 ms JPEG
 编码时限、开流丢弃前两帧和固定缓冲复用；开停流及取帧/归还由递归互斥锁串行化。
 采集管线位于 `features/camera/backends/wt_bsp_camera_dvp.c`，GC2145 的 UYVY 模式扩展和
 OV3660 的图像调节分别位于 `features/camera/sensors/gc2145/` 与 `sensors/ov3660/`。
-传感器底层驱动继续由 `esp_cam_sensor` 提供；feature 不依赖本板的私有头文件或配置符号。
+GC2145 UXGA 和 OV3660 使用 `esp_cam_sensor`。GC2145 720p 通过原生 DVP 采集，
+将 UYVY 直接送入硬件 JPEG 编码器。相机 feature 不依赖本板的私有头文件或配置符号。
 UVC 示例启用 PSRAM，缓冲容量按 16 MB PSRAM 预算设置。
-GC2145 使用一个 DVP 用户缓冲和驱动备用缓冲，为应用层独立 JPEG 快照留出空间；
-OV3660 保留两个用户缓冲。这次缓冲调整尚未进行实机吞吐验证。
+GC2145 UXGA 使用一个 DVP 用户缓冲和驱动备用缓冲，为应用层独立 JPEG 快照留出空间。
+GC2145 720p 和 OV3660 使用两个 DVP 用户缓冲。
 
 S31 示例的 Bulk 路径通过应用组件中的 `usb/camera_uvc_tinyusb_video.c` 补充末包结束处理：当最后一个
 UVC payload 小于协商的最大长度、但恰好是 USB 端点包长的整数倍时，先发送
 零长度包 (ZLP)，再通知当前帧发送完成。否则主机会把下一帧的头部拼入当前
 JPEG。这是实机测试发现的间歇性问题；强制触发包边界后可以稳定复现。
-CMake 在 S31 GC2145 或工厂复合 USB 配置下用该适配文件编译 TinyUSB 的原有视频驱动，
-不修改 `managed_components`；独立 OV3660 和其他板卡使用原驱动。由于适配文件
+CMake 在 S31 GC2145 UXGA 或工厂复合 USB 配置下使用该适配文件。
+独立 720p、OV3660 和其他板卡使用原 TinyUSB 视频驱动。由于适配文件
 访问驱动内部状态，S31 UVC 的 TinyUSB 依赖限定为 `0.19.*`，升级时需复核。
 
 相机功能独立由 `CONFIG_WT_BSP_ENABLE_CAMERA` 启用。`wt_bsp_init()` 将硬件配置传给 camera feature，准备相机对象和同步资源，

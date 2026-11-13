@@ -15,13 +15,14 @@
 | `interface/wt_bsp_camera_interface.c` | 按传感器名称查找注册驱动，取得统一相机操作表 |
 | `backends/wt_bsp_camera_dvp.c` | DVP/V4L2 采集、JPEG 后端、缓冲、互斥和健康状态 |
 | `include/wt_bsp_camera_sensor.h` | 传感器模块与 DVP 后端之间的内部模式操作接口 |
-| `sensors/gc2145/` | GC2145 UXGA UYVY 模式扩展及寄存器表生命周期 |
+| `sensors/gc2145/` | GC2145 UXGA UYVY 模式扩展及 720p 原生 DVP 采集 |
 | `sensors/ov3660/` | OV3660 原生 JPEG 和曝光、色彩、细节参数调节 |
 | `boards/<BOARD>/` | 传感器型号、物理接线、工作格式、资源预算和静态对象持有 |
 
-现有传感器底层驱动由 `esp_cam_sensor` 依赖提供。camera feature 收集自身的源文件和依赖，
+GC2145 UXGA 和 OV3660 使用 `esp_cam_sensor`。GC2145 720p 使用原生 DVP 采集和硬件 JPEG。
+camera feature 收集自身的源文件和依赖，
 通用实现不读取板级私有头文件、板名或板级 menuconfig 符号。
-GC2145 的扩展基于驱动提供的 UXGA 表，选择 UYVY 输出与时钟分频，保留其他寄存器设置。
+GC2145 UXGA 基于驱动提供的时序表，选择 UYVY 输出与时钟分频，保留其他寄存器设置。
 调用链为板级传入统一 `wt_bsp_camera_info_t`，公共初始化入口交给 interface 按
 `sensor_name` 查找注册项，再由驱动 factory 返回统一的 `wt_bsp_camera_ops_t`。
 公共相机 API 通过该操作表调用 `deinit`、`prepare`、`capture` 和 `get_status`，
@@ -148,8 +149,8 @@ camera 的 CMake 通过 `GLOB_RECURSE CONFIGURE_DEPENDS` 自动收集 `sensors/`
 GC2145 模式描述和寄存器表被驱动借用，必须等视频设备和传感器成功销毁后才可释放。
 清理失败时保留尚在使用的资源和相机对象，以便应用重试。
 
-S31 的板级配置按 16 MB PSRAM 预算设置：GC2145 使用一个 DVP 用户缓冲，
-另保留驱动备用缓冲，为应用 JPEG 快照留出空间；OV3660 使用两个用户缓冲。
+S31 的板级配置按 16 MB PSRAM 预算设置：GC2145 UXGA 使用一个 DVP 用户缓冲，
+另保留驱动备用缓冲，为应用 JPEG 快照留出空间。GC2145 720p 和 OV3660 使用两个用户缓冲。
 缓冲调整后的吞吐仍需实机确认。模拟器可覆盖初始化和接口路由，采集、编码及 USB
 视频传输仍需连接实际硬件验证。
 
