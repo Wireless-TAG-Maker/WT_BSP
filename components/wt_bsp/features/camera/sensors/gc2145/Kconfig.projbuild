@@ -15,3 +15,15 @@ choice CAMERA_GC2145_DVP_DEFAULT_FMT  # ignore: multiple-definition
 endchoice
 
 endif
+
+config WT_BSP_CAMERA_SENSOR_GC2145_VGA
+    bool
+    depends on IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA
+    help
+        Build the native ESP32-S31 capture path for the GC2145 VGA profile.
+
+config WT_BSP_CAMERA_SENSOR_GC2145_720P
+    bool
+    depends on IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA
+    help
+        Build the native ESP32-S31 capture path for the GC2145 720p profile.

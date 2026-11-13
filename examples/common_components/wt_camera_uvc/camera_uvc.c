@@ -76,7 +76,12 @@ esp_err_t camera_uvc_start(void)
         return ESP_ERR_INVALID_STATE;
     }
 
+#if CONFIG_WT_CAMERA_UVC_S31_GC2145_720P_PROFILE
+    /* Bound both MJPEG staging buffers to the PSRAM budget used by the 720p profile. */
+    s_bridge.capacity = 512 * 1024;
+#else
     s_bridge.capacity = (size_t)CONFIG_UVC_CAM1_FRAMESIZE_WIDTH * CONFIG_UVC_CAM1_FRAMESIZE_HEIGT;
+#endif
     s_bridge.usb_buffer = heap_caps_malloc(s_bridge.capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     s_bridge.jpeg_buffer = heap_caps_malloc(s_bridge.capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (s_bridge.usb_buffer == NULL || s_bridge.jpeg_buffer == NULL) {
