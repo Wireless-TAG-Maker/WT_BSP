@@ -28,12 +28,11 @@ idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 | 摄像头配置 | UVC 模式 | 编码路径 |
 | --- | --- | --- |
 | GC2145 / CKS-K210-GC3.1 720p（本示例默认） | MJPEG 1280×720，30 FPS，Isochronous | UYVY → S31 硬件 JPEG，质量 60 |
-| GC2145 / CKS-K210-GC3.1 VGA | MJPEG 640×480，标称 30 FPS，Isochronous | RGB565 → S31 硬件 JPEG，质量 60 |
 | GC2145 / CKS-K210-GC3.1 UXGA | MJPEG 1600×1200，标称 8 FPS，Bulk | UYVY → S31 硬件 JPEG |
 | OV3660 | MJPEG 640×480，标称 25 FPS，Isochronous | 传感器原生 JPEG |
 
 两款模组地址均为 `0x3c`，仅探测菜单选择的型号。720p 使用传感器居中裁切和 24 MHz XCLK，
-在高速 USB 等时传输中只公布一个 30 FPS 档位。VGA 使用 25 MHz XCLK 和全视野传感器时序。
+在高速 USB 等时传输中只公布一个 30 FPS 档位。
 UXGA 使用 20 MHz XCLK 和输出时钟二分频。
 
 USB 产品名为 `Wireless-Tag Camera`。720p 实验固件在 macOS 上 180 秒收到 5,400 帧。

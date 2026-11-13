@@ -16,13 +16,6 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
                 from the driver's full-resolution mode. Frames are encoded
                 by the ESP32-S31 hardware JPEG encoder.
 
-        config WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA
-            bool "GC2145 / CKS-K210-GC3.1 (VGA, 30 fps)"
-            select WT_BSP_CAMERA_SENSOR_GC2145_VGA
-            help
-                Use the full-field 640x480 RGB565 capture mode with a 25 MHz
-                XCLK and the ESP32-S31 hardware JPEG encoder.
-
         config WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
             bool "GC2145 / CKS-K210-GC3.1 (720p, 30 fps)"
             select WT_BSP_CAMERA_SENSOR_GC2145_720P
@@ -91,7 +84,7 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
     config WT_BSP_S31_JPEG_QUALITY
         int "Hardware JPEG fallback quality"
-        default 60 if WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA || WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
+        default 60 if WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 80
         range 1 100
         help
@@ -101,7 +94,7 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
     config WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
         int "Hardware JPEG encoding timeout (ms)"
-        depends on WT_BSP_S31_CAMERA_SENSOR_GC2145 || WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA || WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
+        depends on WT_BSP_S31_CAMERA_SENSOR_GC2145 || WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 200
         range 40 1000
         help
@@ -111,7 +104,7 @@ if WT_BSP_BOARD_WT9932S31_TINY && WT_BSP_ENABLE_CAMERA
 
     config WT_BSP_S31_DQBUF_TIMEOUT_MS
         int "Camera/JPEG dequeue timeout (ms)"
-        default 500 if WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA || WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
+        default 500 if WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
         default 2000
         range 100 10000
 

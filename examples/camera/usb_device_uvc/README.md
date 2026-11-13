@@ -31,14 +31,13 @@ Select the module and capture mode under `WT BSP → Camera sensor`, then rebuil
 | Camera profile | UVC mode | Encoding |
 | --- | --- | --- |
 | GC2145 / CKS-K210-GC3.1 720p (example default) | MJPEG 1280×720 at 30 FPS, Isochronous | UYVY → S31 hardware JPEG, quality 60 |
-| GC2145 / CKS-K210-GC3.1 VGA | MJPEG 640×480, nominal 30 FPS, Isochronous | RGB565 → S31 hardware JPEG, quality 60 |
 | GC2145 / CKS-K210-GC3.1 UXGA | MJPEG 1600×1200, nominal 8 FPS, Bulk | UYVY → S31 hardware JPEG |
 | OV3660 | MJPEG 640×480, nominal 25 FPS, Isochronous | Sensor-native JPEG |
 
 Both modules use SCCB address `0x3c`. The driver probes only the selected
 sensor. The 720p mode uses a centered sensor window and a 24 MHz XCLK. It
 advertises a single 30 FPS interval over High-Speed USB isochronous transfers.
-VGA uses a 25 MHz XCLK and full-field sensor timing. UXGA uses a 20 MHz XCLK
+UXGA uses a 20 MHz XCLK
 and divides the sensor output clock by two.
 
 The USB product name is `Wireless-Tag Camera`. The 720p prototype delivered

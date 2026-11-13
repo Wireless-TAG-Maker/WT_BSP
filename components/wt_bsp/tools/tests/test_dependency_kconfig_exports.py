@@ -252,10 +252,11 @@ class DependencyExportTests(unittest.TestCase):
         self.kconfig_file.write_text(text)
         model = self.load("WT9932S31-TINY")
         model.syms["WT_BSP_ENABLE_USB_DEVICE_UVC"].set_value("y")
-        for sensor, width, height, rate in (("GC2145", 1600, 1200, 8),
-                                             ("GC2145_VGA", 640, 480, 30),
-                                             ("GC2145_720P", 1280, 720, 30),
-                                             ("OV3660", 640, 480, 25)):
+        for sensor, width, height, rate in (
+            ("GC2145", 1600, 1200, 8),
+            ("GC2145_720P", 1280, 720, 30),
+            ("OV3660", 640, 480, 25),
+        ):
             with self.subTest(sensor=sensor):
                 model.syms["WT_BSP_S31_CAMERA_SENSOR_" + sensor].set_value("y")
                 values = self.export(model)

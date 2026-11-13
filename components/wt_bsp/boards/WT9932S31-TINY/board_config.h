@@ -53,23 +53,6 @@
 #define BOARD_CAMERA_STARTUP_DISCARD_COUNT 2
 /** @brief Hardware JPEG deadline selected for UXGA capture. */
 #define BOARD_CAMERA_JPEG_ENCODE_TIMEOUT_MS CONFIG_WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
-#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA
-/** @brief Driver identifier resolved by the camera interface. */
-#define BOARD_CAMERA_SENSOR_NAME "gc2145_vga"
-/** @brief Full-field VGA capture width in pixels. */
-#define BOARD_CAMERA_FRAME_WIDTH 640
-/** @brief Full-field VGA capture height in pixels. */
-#define BOARD_CAMERA_FRAME_HEIGHT 480
-/** @brief GC2145 nominal rate for the VGA timing. */
-#define BOARD_CAMERA_FRAME_RATE 30
-/** @brief Two DVP user buffers let DMA continue while a frame is encoded. */
-#define BOARD_CAMERA_CAPTURE_BUFFER_COUNT 2
-/** @brief Hardware JPEG output capacity in bytes, including header space. */
-#define BOARD_CAMERA_JPEG_BUFFER_CAPACITY (BOARD_CAMERA_FRAME_WIDTH * BOARD_CAMERA_FRAME_HEIGHT * 3 + 4096)
-/** @brief Drain the first two VGA frames after enabling the sensor output. */
-#define BOARD_CAMERA_STARTUP_DISCARD_COUNT 2
-/** @brief Hardware JPEG deadline for VGA capture. */
-#define BOARD_CAMERA_JPEG_ENCODE_TIMEOUT_MS CONFIG_WT_BSP_S31_JPEG_ENCODE_TIMEOUT_MS
 #elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
 /** @brief Driver identifier resolved by the camera interface. */
 #define BOARD_CAMERA_SENSOR_NAME "gc2145_720p"

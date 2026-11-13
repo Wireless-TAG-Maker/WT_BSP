@@ -47,14 +47,14 @@
 /* A UVC bulk payload may span multiple USB packets. Keep the descriptor's
  * CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE at 512 bytes (HS wMaxPacketSize),
  * but negotiate and stage 16 KiB payloads. The factory composite device uses
- * bulk: CDC/SD readback can cause ISO packet loss on OV3660.
+ * bulk for both sensors: CDC/SD readback can cause ISO packet loss on OV3660.
  * Besides reducing transfer overhead,
  * this avoids the Linux UVC allocation failure for a one-packet payload. */
 #define UVC_CAM1_BULK_MODE
 #define CFG_TUD_CAM1_VIDEO_STREAMING_BULK 1
 #define CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE 512
 #define CFG_TUD_VIDEO_STREAMING_EP_BUFSIZE 16384
-#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_VGA || CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_720P || CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
+#elif CONFIG_WT_BSP_S31_CAMERA_SENSOR_GC2145_720P || CONFIG_WT_BSP_S31_CAMERA_SENSOR_OV3660
 /* Standalone isochronous profiles use one HS transaction per microframe. */
 #define CFG_TUD_CAM1_VIDEO_STREAMING_BULK 0
 #define CFG_TUD_CAM1_VIDEO_STREAMING_EP_BUFSIZE 1023

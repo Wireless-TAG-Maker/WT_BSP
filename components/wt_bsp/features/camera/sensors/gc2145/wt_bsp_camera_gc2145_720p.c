@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "wt_bsp_camera_port.h"
+#include "wt_bsp_camera_interface.h"
 
-#if WT_BSP_CAMERA_ENABLED && CONFIG_IDF_TARGET_ESP32S31
-
-#include "wt_bsp_gc2145_capture.h"
+#if WT_BSP_CAMERA_ENABLED && CONFIG_WT_BSP_CAMERA_SENSOR_GC2145_720P
 
 #include <inttypes.h>
+#include <stdlib.h>
 
 #include "driver/gpio.h"
+#include "driver/jpeg_encode.h"
 #include "esp_attr.h"
 #include "esp_cache.h"
 #include "esp_cam_ctlr.h"
@@ -27,6 +27,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "gc2145_sensor.h"
 #include "soc/gpio_sig_map.h"
@@ -35,8 +36,10 @@
 #include "soc/lcd_cam_reg.h"
 #include "soc/soc.h"
 
-#define CAMERA_MAX_BUFFERS 3
-#define CAMERA_VGA_APLL_HZ 100000000U
+#define GC2145_720P_WIDTH 1280
+#define GC2145_720P_HEIGHT 720
+#define GC2145_720P_XCLK_HZ 24000000U
+#define CAMERA_BUFFER_COUNT 2
 #define CAMERA_720P_APLL_HZ 120000000U
 #define CAMERA_DMA_BURST_BYTES 64
 #define CAMERA_CORE_DIVIDER_MASK (HP_SYS_CLKRST_REG_LCDCAM_CLK_DIV_NUM_M | \
@@ -48,18 +51,17 @@ typedef struct {
     int64_t timestamp_us;
 } completed_frame_t;
 
-struct wt_bsp_gc2145_capture {
+typedef struct {
     esp_cam_ctlr_handle_t controller;
     i2c_master_bus_handle_t i2c_bus;
     gc2145_sensor_t sensor;
     QueueHandle_t free_queue;
     QueueHandle_t ready_queue;
-    uint8_t *buffers[CAMERA_MAX_BUFFERS];
+    uint8_t *buffers[CAMERA_BUFFER_COUNT];
     uint32_t buffer_count;
     uint32_t width;
     uint32_t height;
     size_t frame_bytes;
-    gc2145_sensor_mode_t mode;
     uint32_t startup_discard;
     uint32_t saved_core_divider;
     uint32_t held_index;
@@ -79,24 +81,25 @@ struct wt_bsp_gc2145_capture {
     esp_pm_lock_handle_t no_sleep_lock;
     bool no_sleep_lock_held;
 #endif
-};
+} gc2145_capture_t;
 
-static const char *TAG = "gc2145_dvp";
+typedef struct {
+    uint8_t *data;
+    size_t size;
+    int64_t timestamp_us;
+    uint32_t index;
+} gc2145_frame_t;
 
-/* Full-field VGA timing from the WT9932S31-TINY capture validation. */
-static const gc2145_sensor_timing_t s_vga_timing = {
-    .pll_mode2 = 0x86,
-    .hblank = 304,
-    .vblank = 12,
-    .anti_flicker_step = 376,
-    .exposure_levels = {376, 752, 1128, 1128},
-};
+static const char *TAG = "gc2145_720p";
 
+static esp_err_t camera_capture_stop(gc2145_capture_t **capture);
+
+/* DVP DMA and frame ownership */
 static bool IRAM_ATTR camera_get_buffer(esp_cam_ctlr_handle_t handle,
                                         esp_cam_ctlr_trans_t *trans, void *user_data)
 {
     (void)handle;
-    wt_bsp_gc2145_capture_t *camera = user_data;
+    gc2145_capture_t *camera = user_data;
     trans->buffer = NULL;
     trans->buflen = 0;
     if (camera->stopping) {
@@ -132,7 +135,7 @@ static bool IRAM_ATTR camera_frame_done(esp_cam_ctlr_handle_t handle,
                                         esp_cam_ctlr_trans_t *trans, void *user_data)
 {
     (void)handle;
-    wt_bsp_gc2145_capture_t *camera = user_data;
+    gc2145_capture_t *camera = user_data;
     if (camera->stopping) {
         return false;
     }
@@ -159,7 +162,7 @@ static bool IRAM_ATTR camera_frame_done(esp_cam_ctlr_handle_t handle,
     return false;
 }
 
-static esp_err_t camera_return_buffer(wt_bsp_gc2145_capture_t *camera, uint32_t index)
+static esp_err_t camera_return_buffer(gc2145_capture_t *camera, uint32_t index)
 {
     if (index >= camera->buffer_count || xQueueSend(camera->free_queue, &index, 0) != pdTRUE) {
         return ESP_ERR_INVALID_STATE;
@@ -167,7 +170,7 @@ static esp_err_t camera_return_buffer(wt_bsp_gc2145_capture_t *camera, uint32_t 
     return ESP_OK;
 }
 
-static esp_err_t camera_wait_buffer(wt_bsp_gc2145_capture_t *camera, completed_frame_t *frame)
+static esp_err_t camera_wait_buffer(gc2145_capture_t *camera, completed_frame_t *frame)
 {
     for (;;) {
         if (xQueueReceive(camera->ready_queue, frame, camera->wait_ticks) != pdTRUE) {
@@ -185,7 +188,7 @@ static esp_err_t camera_wait_buffer(wt_bsp_gc2145_capture_t *camera, completed_f
     }
 }
 
-static esp_err_t camera_change_core_divider(wt_bsp_gc2145_capture_t *camera, bool restore)
+static esp_err_t camera_change_core_divider(gc2145_capture_t *camera, bool restore)
 {
     if (restore && !camera->owns_core_divider) {
         return ESP_OK;
@@ -273,7 +276,7 @@ static esp_err_t camera_route_native_inputs(const wt_bsp_camera_dvp_info_t *dvp)
     return ESP_OK;
 }
 
-static esp_err_t camera_create_controller(wt_bsp_gc2145_capture_t *camera,
+static esp_err_t camera_create_controller(gc2145_capture_t *camera,
                                           const wt_bsp_camera_dvp_info_t *dvp)
 {
     /* XCLK remains live through sensor teardown as well as stream setup. */
@@ -285,10 +288,9 @@ static esp_err_t camera_create_controller(wt_bsp_gc2145_capture_t *camera,
 #endif
     ESP_RETURN_ON_ERROR(camera_change_core_divider(camera, false), TAG, "configure LCD_CAM core clock");
 
-    /* Generate 24 MHz as 120 MHz / 5, or 25 MHz as 100 MHz / 4.
+    /* Generate 24 MHz as 120 MHz / 5.
      * Retain our APLL reference through DVP deletion to prevent retuning. */
-    const uint32_t apll_hz = camera->mode == GC2145_SENSOR_MODE_720P ?
-                            CAMERA_720P_APLL_HZ : CAMERA_VGA_APLL_HZ;
+    const uint32_t apll_hz = CAMERA_720P_APLL_HZ;
     ESP_RETURN_ON_ERROR(esp_clk_tree_enable_src(SOC_MOD_CLK_APLL, true), TAG, "acquire camera APLL");
     camera->owns_apll = true;
     uint32_t actual_hz = 0;
@@ -309,27 +311,25 @@ static esp_err_t camera_create_controller(wt_bsp_gc2145_capture_t *camera,
     for (size_t i = 0; i < 8; i++) {
         pins.data_io[i] = dvp->data_gpio[i];
     }
-    const cam_ctlr_color_t color = camera->mode == GC2145_SENSOR_MODE_720P ?
-                                  CAM_CTLR_COLOR_YUV422_UYVY : CAM_CTLR_COLOR_RGB565;
     const esp_cam_ctlr_dvp_config_t config = {
         .ctlr_id = 0,
         .clk_src = CAM_CLK_SRC_APLL,
         .h_res = camera->width,
         .v_res = camera->height,
-        .input_data_color_type = color,
-        .output_data_color_type = color,
+        .input_data_color_type = CAM_CTLR_COLOR_YUV422_UYVY,
+        .output_data_color_type = CAM_CTLR_COLOR_YUV422_UYVY,
         .cam_data_width = 8,
         .dma_burst_size = CAMERA_DMA_BURST_BYTES,
         .xclk_freq = dvp->xclk_freq_hz,
         .pin = &pins,
-        .byte_swap_en = false, /* S31 8-bit DVP cannot swap the sensor's RGB565-BE bytes. */
+        .byte_swap_en = false,
         .bk_buffer_dis = false,
     };
     ESP_RETURN_ON_ERROR(esp_cam_new_dvp_ctlr(&config, &camera->controller), TAG, "create DVP controller");
     return camera_route_native_inputs(dvp);
 }
 
-static esp_err_t camera_init_sensor(wt_bsp_gc2145_capture_t *camera,
+static esp_err_t camera_init_sensor(gc2145_capture_t *camera,
                                     const wt_bsp_camera_dvp_info_t *dvp)
 {
     const i2c_master_bus_config_t bus = {
@@ -343,22 +343,18 @@ static esp_err_t camera_init_sensor(wt_bsp_gc2145_capture_t *camera,
     ESP_RETURN_ON_ERROR(i2c_new_master_bus(&bus, &camera->i2c_bus), TAG, "create SCCB bus");
     /* The controller has already enabled XCLK. */
     vTaskDelay(pdMS_TO_TICKS(10));
-    ESP_RETURN_ON_ERROR(gc2145_sensor_init(&camera->sensor, camera->i2c_bus, camera->mode),
+    ESP_RETURN_ON_ERROR(gc2145_sensor_init(&camera->sensor, camera->i2c_bus),
                         TAG, "initialize GC2145");
-    if (camera->mode == GC2145_SENSOR_MODE_STOCK_VGA) {
-        ESP_RETURN_ON_ERROR(gc2145_sensor_set_timing(&camera->sensor, &s_vga_timing), TAG, "apply VGA timing");
-    }
     gc2145_sensor_readback_t sensor;
     ESP_RETURN_ON_ERROR(gc2145_sensor_readback(&camera->sensor, &sensor), TAG, "read sensor configuration");
     ESP_RETURN_ON_FALSE(sensor.width == camera->width && sensor.height == camera->height,
                         ESP_ERR_INVALID_SIZE, TAG, "unexpected sensor dimensions");
-    ESP_LOGI(TAG, "GC2145 PID=0x%04x, DVP %ux%u %s, XCLK=%" PRIu32 " Hz",
-             (unsigned)sensor.pid, (unsigned)sensor.width, (unsigned)sensor.height,
-             camera->mode == GC2145_SENSOR_MODE_720P ? "UYVY" : "RGB565-BE", dvp->xclk_freq_hz);
+    ESP_LOGI(TAG, "GC2145 PID=0x%04x, DVP %ux%u UYVY, XCLK=%" PRIu32 " Hz",
+             (unsigned)sensor.pid, (unsigned)sensor.width, (unsigned)sensor.height, dvp->xclk_freq_hz);
     return ESP_OK;
 }
 
-static esp_err_t camera_init_buffers(wt_bsp_gc2145_capture_t *camera, uint32_t count)
+static esp_err_t camera_init_buffers(gc2145_capture_t *camera, uint32_t count)
 {
     camera->free_queue = xQueueCreateWithCaps(count, sizeof(uint32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     camera->ready_queue = xQueueCreateWithCaps(count, sizeof(completed_frame_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -382,14 +378,14 @@ static esp_err_t camera_init_buffers(wt_bsp_gc2145_capture_t *camera, uint32_t c
     return esp_cam_ctlr_register_event_callbacks(camera->controller, &callbacks, camera);
 }
 
-static esp_err_t camera_prepare(wt_bsp_gc2145_capture_t *camera, const wt_bsp_camera_info_t *info)
+static esp_err_t camera_prepare(gc2145_capture_t *camera, const wt_bsp_camera_info_t *info)
 {
     ESP_RETURN_ON_ERROR(camera_create_controller(camera, &info->dvp), TAG, "configure DVP and XCLK");
     ESP_RETURN_ON_ERROR(camera_init_sensor(camera, &info->dvp), TAG, "configure GC2145 sensor");
     return camera_init_buffers(camera, info->capture_buffer_count);
 }
 
-esp_err_t wt_bsp_gc2145_capture_start(wt_bsp_gc2145_capture_t *camera)
+static esp_err_t camera_capture_start(gc2145_capture_t *camera)
 {
     if (camera == NULL || camera->stopping || camera->controller == NULL) {
         return ESP_ERR_INVALID_STATE;
@@ -417,19 +413,15 @@ esp_err_t wt_bsp_gc2145_capture_start(wt_bsp_gc2145_capture_t *camera)
     return ESP_OK;
 }
 
-esp_err_t wt_bsp_gc2145_capture_prepare(wt_bsp_gc2145_capture_t **capture, const wt_bsp_camera_info_t *info)
+static esp_err_t camera_capture_prepare(gc2145_capture_t **capture, const wt_bsp_camera_info_t *info)
 {
     if (capture == NULL || info == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    const bool vga = info->format.width == WT_BSP_GC2145_VGA_WIDTH &&
-                     info->format.height == WT_BSP_GC2145_VGA_HEIGHT &&
-                     info->dvp.xclk_freq_hz == WT_BSP_GC2145_VGA_XCLK_HZ;
-    const bool hd = info->format.width == WT_BSP_GC2145_720P_WIDTH &&
-                    info->format.height == WT_BSP_GC2145_720P_HEIGHT &&
-                    info->dvp.xclk_freq_hz == WT_BSP_GC2145_720P_XCLK_HZ;
-    if ((!vga && !hd) || info->dvp.sccb_freq_hz != 100000 || info->dvp.reset_gpio >= 0 || info->dvp.pwdn_gpio >= 0 ||
-            info->capture_buffer_count < 2 || info->capture_buffer_count > CAMERA_MAX_BUFFERS ||
+    if (info->format.width != GC2145_720P_WIDTH || info->format.height != GC2145_720P_HEIGHT ||
+            info->dvp.xclk_freq_hz != GC2145_720P_XCLK_HZ || info->dvp.sccb_freq_hz != 100000 ||
+            info->dvp.reset_gpio >= 0 || info->dvp.pwdn_gpio >= 0 ||
+            info->capture_buffer_count != CAMERA_BUFFER_COUNT ||
             info->dequeue_timeout_ms <= 0) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -437,12 +429,11 @@ esp_err_t wt_bsp_gc2145_capture_prepare(wt_bsp_gc2145_capture_t **capture, const
         return ESP_ERR_INVALID_STATE;
     }
 
-    wt_bsp_gc2145_capture_t *camera = heap_caps_calloc(1, sizeof(*camera),
+    gc2145_capture_t *camera = heap_caps_calloc(1, sizeof(*camera),
                                                        MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (camera == NULL) {
         return ESP_ERR_NO_MEM;
     }
-    camera->mode = hd ? GC2145_SENSOR_MODE_720P : GC2145_SENSOR_MODE_STOCK_VGA;
     camera->width = info->format.width;
     camera->height = info->format.height;
     camera->frame_bytes = (size_t)camera->width * camera->height * 2;
@@ -455,7 +446,7 @@ esp_err_t wt_bsp_gc2145_capture_prepare(wt_bsp_gc2145_capture_t **capture, const
 
     esp_err_t ret = camera_prepare(camera, info);
     if (ret != ESP_OK) {
-        esp_err_t cleanup = wt_bsp_gc2145_capture_stop(capture);
+        esp_err_t cleanup = camera_capture_stop(capture);
         if (cleanup != ESP_OK) {
             ESP_LOGE(TAG, "failed to clean up DVP after %s: %s", esp_err_to_name(ret), esp_err_to_name(cleanup));
         }
@@ -463,12 +454,12 @@ esp_err_t wt_bsp_gc2145_capture_prepare(wt_bsp_gc2145_capture_t **capture, const
     return ret;
 }
 
-esp_err_t wt_bsp_gc2145_capture_stop(wt_bsp_gc2145_capture_t **capture)
+static esp_err_t camera_capture_stop(gc2145_capture_t **capture)
 {
     if (capture == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    wt_bsp_gc2145_capture_t *camera = *capture;
+    gc2145_capture_t *camera = *capture;
     if (camera == NULL) {
         return ESP_OK;
     }
@@ -524,7 +515,7 @@ esp_err_t wt_bsp_gc2145_capture_stop(wt_bsp_gc2145_capture_t **capture)
     return ESP_OK;
 }
 
-esp_err_t wt_bsp_gc2145_capture_acquire(wt_bsp_gc2145_capture_t *capture, wt_bsp_gc2145_frame_t *frame)
+static esp_err_t camera_capture_acquire(gc2145_capture_t *capture, gc2145_frame_t *frame)
 {
     if (capture == NULL || frame == NULL) {
         return ESP_ERR_INVALID_ARG;
@@ -544,7 +535,7 @@ esp_err_t wt_bsp_gc2145_capture_acquire(wt_bsp_gc2145_capture_t *capture, wt_bsp
 
     capture->held_index = completed.index;
     capture->frame_held = true;
-    *frame = (wt_bsp_gc2145_frame_t) {
+    *frame = (gc2145_frame_t) {
         .data = buffer,
         .size = capture->frame_bytes,
         .timestamp_us = completed.timestamp_us,
@@ -553,7 +544,7 @@ esp_err_t wt_bsp_gc2145_capture_acquire(wt_bsp_gc2145_capture_t *capture, wt_bsp
     return ESP_OK;
 }
 
-void wt_bsp_gc2145_capture_release(wt_bsp_gc2145_capture_t *capture, const wt_bsp_gc2145_frame_t *frame)
+static void camera_capture_release(gc2145_capture_t *capture, const gc2145_frame_t *frame)
 {
     if (capture == NULL || frame == NULL || !capture->frame_held ||
             capture->held_index != frame->index) {
@@ -565,5 +556,215 @@ void wt_bsp_gc2145_capture_release(wt_bsp_gc2145_capture_t *capture, const wt_bs
     }
     capture->frame_held = false;
 }
+
+/* Camera interface and hardware JPEG encoding */
+typedef struct {
+    SemaphoreHandle_t mutex;
+    gc2145_capture_t *capture;
+    jpeg_encoder_handle_t encoder;
+    uint8_t *jpeg;
+    size_t jpeg_capacity;
+    bool prepared;
+    bool streaming;
+    bool frame_borrowed;
+    wt_bsp_camera_status_t health;
+} gc2145_720p_context_t;
+
+static esp_err_t gc2145_720p_prepare_locked(wt_bsp_camera_t camera)
+{
+    gc2145_720p_context_t *ctx = camera->backend;
+    const wt_bsp_camera_info_t *info = &camera->info;
+    if (ctx->jpeg == NULL) {
+        const jpeg_encode_memory_alloc_cfg_t memory = {
+            .buffer_direction = JPEG_ENC_ALLOC_OUTPUT_BUFFER,
+        };
+        ctx->jpeg = jpeg_alloc_encoder_mem(info->jpeg_buffer_capacity, &memory, &ctx->jpeg_capacity);
+        ESP_RETURN_ON_FALSE(ctx->jpeg, ESP_ERR_NO_MEM, TAG, "allocate JPEG buffer");
+    }
+    if (ctx->encoder == NULL) {
+        const jpeg_encode_engine_cfg_t config = {
+            .timeout_ms = info->jpeg_encode_timeout_ms,
+        };
+        ESP_RETURN_ON_ERROR(jpeg_new_encoder_engine(&config, &ctx->encoder), TAG, "create JPEG engine");
+    }
+    if (!ctx->prepared) {
+        ESP_RETURN_ON_ERROR(camera_capture_stop(&ctx->capture), TAG, "finish DVP cleanup");
+        ESP_RETURN_ON_ERROR(camera_capture_prepare(&ctx->capture, info), TAG, "prepare DVP capture");
+        ctx->prepared = true;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t gc2145_720p_prepare(wt_bsp_camera_t camera, wt_bsp_camera_format_t *format)
+{
+    gc2145_720p_context_t *ctx = camera->backend;
+    xSemaphoreTakeRecursive(ctx->mutex, portMAX_DELAY);
+    esp_err_t ret = ctx->frame_borrowed ? ESP_ERR_INVALID_STATE : gc2145_720p_prepare_locked(camera);
+    if (ret == ESP_OK) {
+        *format = camera->info.format;
+    }
+    if (!ctx->frame_borrowed) {
+        ctx->health.ready = ret == ESP_OK;
+        ctx->health.last_error = ret;
+    }
+    xSemaphoreGiveRecursive(ctx->mutex);
+    return ret;
+}
+
+static esp_err_t gc2145_720p_encode(const wt_bsp_camera_info_t *info, gc2145_720p_context_t *ctx,
+                                      const gc2145_frame_t *raw, uint32_t *jpeg_size)
+{
+    esp_err_t ret = esp_cache_msync(ctx->jpeg, ctx->jpeg_capacity,
+                                  ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_INVALIDATE);
+    if (ret == ESP_OK) {
+        const jpeg_encode_cfg_t config = {
+            .height = info->format.height,
+            .width = info->format.width,
+            .src_type = JPEG_ENCODE_IN_FORMAT_YUV422,
+            .sub_sample = JPEG_DOWN_SAMPLING_YUV422,
+            .image_quality = info->jpeg_quality,
+        };
+        ret = jpeg_encoder_process(ctx->encoder, &config, raw->data, raw->size,
+                                   ctx->jpeg, ctx->jpeg_capacity, jpeg_size);
+    }
+    /* JPEG DMA borrows the captured UYVY buffer until encoding returns. */
+    camera_capture_release(ctx->capture, raw);
+    ESP_RETURN_ON_ERROR(ret, TAG, "encode JPEG");
+    if (*jpeg_size < 4 || *jpeg_size > ctx->jpeg_capacity ||
+            ctx->jpeg[0] != 0xff || ctx->jpeg[1] != 0xd8 ||
+            ctx->jpeg[*jpeg_size - 2] != 0xff || ctx->jpeg[*jpeg_size - 1] != 0xd9) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    return ESP_OK;
+}
+
+static esp_err_t gc2145_720p_capture(wt_bsp_camera_t camera, wt_bsp_camera_frame_cb_t callback,
+                                   void *user_data)
+{
+    gc2145_720p_context_t *ctx = camera->backend;
+    xSemaphoreTakeRecursive(ctx->mutex, portMAX_DELAY);
+    if (ctx->frame_borrowed) {
+        xSemaphoreGiveRecursive(ctx->mutex);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t ret = gc2145_720p_prepare_locked(camera);
+    if (ret == ESP_OK && !ctx->streaming) {
+        ret = camera_capture_start(ctx->capture);
+        ctx->streaming = ret == ESP_OK;
+    }
+    gc2145_frame_t raw;
+    if (ret == ESP_OK) {
+        ret = camera_capture_acquire(ctx->capture, &raw);
+    }
+    if (ret != ESP_OK) {
+        /* Rebuild the DMA state after a lost capture on the next request. */
+        const esp_err_t cleanup = camera_capture_stop(&ctx->capture);
+        if (cleanup != ESP_OK) {
+            ESP_LOGE(TAG, "Capture cleanup failed: %s", esp_err_to_name(cleanup));
+        }
+        ctx->prepared = false;
+        ctx->streaming = false;
+        ctx->health.ready = false;
+        ctx->health.last_error = ret;
+        xSemaphoreGiveRecursive(ctx->mutex);
+        return ret;
+    }
+
+    uint32_t jpeg_size = 0;
+    ret = gc2145_720p_encode(&camera->info, ctx, &raw, &jpeg_size);
+    ctx->health.ready = true;
+    ctx->health.last_error = ret;
+    if (ret == ESP_OK) {
+        const wt_bsp_camera_frame_t frame = {
+            .data = ctx->jpeg,
+            .length = jpeg_size,
+            .width = camera->info.format.width,
+            .height = camera->info.format.height,
+            .timestamp_us = raw.timestamp_us,
+        };
+        ctx->health.frames++;
+        ctx->health.last_frame_us = raw.timestamp_us;
+        ctx->frame_borrowed = true;
+        ret = callback(&frame, user_data);
+        ctx->frame_borrowed = false;
+    }
+    xSemaphoreGiveRecursive(ctx->mutex);
+    return ret;
+}
+
+static esp_err_t gc2145_720p_get_status(wt_bsp_camera_t camera, wt_bsp_camera_status_t *status)
+{
+    gc2145_720p_context_t *ctx = camera->backend;
+    xSemaphoreTakeRecursive(ctx->mutex, portMAX_DELAY);
+    *status = ctx->health;
+    xSemaphoreGiveRecursive(ctx->mutex);
+    return ESP_OK;
+}
+
+static esp_err_t gc2145_720p_deinit(wt_bsp_camera_t camera)
+{
+    gc2145_720p_context_t *ctx = camera->backend;
+    xSemaphoreTakeRecursive(ctx->mutex, portMAX_DELAY);
+    if (ctx->frame_borrowed) {
+        xSemaphoreGiveRecursive(ctx->mutex);
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    esp_err_t ret = camera_capture_stop(&ctx->capture);
+    ctx->health.ready = false;
+    ctx->prepared = false;
+    ctx->streaming = false;
+    if (ret == ESP_OK && ctx->encoder != NULL) {
+        ret = jpeg_del_encoder_engine(ctx->encoder);
+        if (ret == ESP_OK) {
+            ctx->encoder = NULL;
+        }
+    }
+    ctx->health.last_error = ret;
+    xSemaphoreGiveRecursive(ctx->mutex);
+    if (ret == ESP_OK) {
+        free(ctx->jpeg);
+        vSemaphoreDelete(ctx->mutex);
+        free(ctx);
+        camera->backend = NULL;
+    }
+    return ret;
+}
+
+static esp_err_t gc2145_720p_init(wt_bsp_camera_t camera, const wt_bsp_camera_info_t *info,
+                                    const wt_bsp_camera_ops_t **ops)
+{
+    static const wt_bsp_camera_ops_t driver_ops = {
+        .deinit = gc2145_720p_deinit,
+        .prepare = gc2145_720p_prepare,
+        .capture = gc2145_720p_capture,
+        .get_status = gc2145_720p_get_status,
+    };
+
+    if (info->format.width != GC2145_720P_WIDTH || info->format.height != GC2145_720P_HEIGHT ||
+            info->format.fps != 30 || info->dvp.xclk_freq_hz != GC2145_720P_XCLK_HZ ||
+            info->capture_buffer_count != CAMERA_BUFFER_COUNT ||
+            info->property_count != 0 || info->dequeue_timeout_ms <= 0 ||
+            info->jpeg_buffer_capacity == 0 || info->jpeg_buffer_capacity > UINT32_MAX ||
+            info->jpeg_quality < 1 || info->jpeg_quality > 100 || info->jpeg_encode_timeout_ms <= 0) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+    gc2145_720p_context_t *ctx = calloc(1, sizeof(*ctx));
+    if (ctx == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+    ctx->mutex = xSemaphoreCreateRecursiveMutex();
+    if (ctx->mutex == NULL) {
+        free(ctx);
+        return ESP_ERR_NO_MEM;
+    }
+    ctx->health.last_error = ESP_ERR_INVALID_STATE;
+    camera->backend = ctx;
+    *ops = &driver_ops;
+    return ESP_OK;
+}
+
+WT_BSP_CAMERA_DRIVER_REGISTER(gc2145_720p, "gc2145_720p", gc2145_720p_init);
 
 #endif

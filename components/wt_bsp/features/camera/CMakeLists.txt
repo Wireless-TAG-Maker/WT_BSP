@@ -19,13 +19,13 @@ endforeach()
 
 # ESP-IDF discovers component requirements before loading Kconfig.
 if(IDF_TARGET STREQUAL "esp32s31")
-    list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_driver_cam esp_driver_ppa esp_mm esp_pm)
+    list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_driver_cam esp_mm esp_pm)
 endif()
 
 if("camera" IN_LIST WT_BSP_BOARD_FEATURES AND CONFIG_WT_BSP_ENABLE_CAMERA)
-    if(NOT CONFIG_WT_BSP_CAMERA_SENSOR_GC2145_VGA AND NOT CONFIG_WT_BSP_CAMERA_SENSOR_GC2145_720P)
+    if(NOT CONFIG_WT_BSP_CAMERA_SENSOR_GC2145_720P)
         list(FILTER wt_bsp_camera_sensor_sources EXCLUDE REGEX
-             "/(gc2145_sensor|wt_bsp_gc2145_capture|wt_bsp_camera_gc2145_native)[.]c$")
+             "/(gc2145_sensor|wt_bsp_camera_gc2145_720p)[.]c$")
     endif()
     list(APPEND WT_BSP_FEATURE_SRCS
          "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_camera.c"
