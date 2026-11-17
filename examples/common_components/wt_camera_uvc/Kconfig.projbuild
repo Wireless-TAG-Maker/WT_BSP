@@ -28,6 +28,15 @@ menu "Camera UVC application"
             Application profile connecting GC2145 JPEG capture to USB UVC.
             The board camera's own format remains independent of USB settings.
 
+    config WT_CAMERA_UVC_S31_GC2145_720P_PROFILE
+        bool
+        default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_S31_CAMERA_SENSOR_GC2145_720P
+        set UVC_CAM1_FRAMERATE=30
+        set UVC_CAM1_FRAMESIZE_WIDTH=1280
+        set UVC_CAM1_FRAMESIZE_HEIGT=720
+        help
+            Application profile connecting GC2145 720p JPEG capture to USB UVC.
+
     config WT_CAMERA_UVC_S31_OV3660_PROFILE
         bool
         default y if IDF_TARGET_ESP32S31 && WT_BSP_ENABLE_CAMERA && WT_BSP_ENABLE_USB_DEVICE_UVC && WT_BSP_S31_CAMERA_SENSOR_OV3660

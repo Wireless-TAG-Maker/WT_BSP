@@ -20,7 +20,7 @@ if(CONFIG_IDF_TARGET_ESP32S31 AND CONFIG_WT_BSP_ENABLE_USB_DEVICE_UVC AND CONFIG
     target_include_directories(${camera_uvc_tinyusb_lib} PUBLIC "${camera_uvc_usb_dir}")
     target_compile_definitions(${camera_uvc_tinyusb_lib} PUBLIC CFG_TUSB_CONFIG_FILE="camera_uvc_tusb_config.h")
 
-    if(CONFIG_WT_BSP_USB_DEVICE_COMPOSITE)
+    if(CONFIG_WT_BSP_USB_DEVICE_COMPOSITE OR CONFIG_WT_CAMERA_UVC_S31_GC2145_720P_PROFILE)
         foreach(camera_uvc_source_property SOURCES INTERFACE_SOURCES)
             get_target_property(camera_uvc_tinyusb_sources ${camera_uvc_tinyusb_lib} ${camera_uvc_source_property})
             if(camera_uvc_tinyusb_sources)

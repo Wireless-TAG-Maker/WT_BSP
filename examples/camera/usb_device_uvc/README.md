@@ -26,16 +26,27 @@ idf.py --preview -C examples/camera/usb_device_uvc build
 idf.py --preview -C examples/camera/usb_device_uvc menuconfig
 ```
 
-Select the sensor under `WT BSP → Camera sensor`, then rebuild and flash:
+Select the module and capture mode under `WT BSP → Camera sensor`, then rebuild and flash:
 
-| Sensor | UVC mode | Encoding |
+| Camera profile | UVC mode | Encoding |
 | --- | --- | --- |
-| GC2145 / CKS-K210-GC3.1 (default) | MJPEG 1600×1200, nominal 8 FPS, Bulk | UYVY → S31 hardware JPEG |
+| GC2145 / CKS-K210-GC3.1 720p (example default) | MJPEG 1280×720 at 30 FPS, Isochronous | UYVY → S31 hardware JPEG, quality 60 |
+| GC2145 / CKS-K210-GC3.1 UXGA | MJPEG 1600×1200, nominal 8 FPS, Bulk | UYVY → S31 hardware JPEG |
 | OV3660 | MJPEG 640×480, nominal 25 FPS, Isochronous | Sensor-native JPEG |
 
-Both modules use SCCB address `0x3c`; only the selected sensor is probed. The
-GC2145 path retains the reference clock divider, 200 ms JPEG deadline and stream
-mutex. The USB product name is `Wireless-Tag Camera`. On S31,
+Both modules use SCCB address `0x3c`. The driver probes only the selected
+sensor. The 720p mode uses a centered sensor window and a 24 MHz XCLK. It
+advertises a single 30 FPS interval over High-Speed USB isochronous transfers.
+UXGA uses a 20 MHz XCLK
+and divides the sensor output clock by two.
+
+The USB product name is `Wireless-Tag Camera`. The 720p prototype delivered
+5,400 frames to macOS over 180 seconds. Check the host's UVC decode count when
+measuring source FPS because the capture API can repeat frames to meet the
+requested rate. Existing builds keep their saved camera selection. Choose 720p
+in menuconfig or use a fresh build directory to apply the new default.
+
+On S31,
 `wt_bsp_get_csi()` returns `NULL`; the application uses `wt_bsp_get_camera()`
 instead. DVP acquisition and sensor/JPEG handling live in `features/camera`;
 the board supplies wiring, selected sensor settings and buffer budgets.
@@ -43,7 +54,7 @@ Check both BSP initialization and `camera_uvc_start()` results. Standalone
 CDC and UVC cannot independently own the same USB controller; a composite device
 requires the application-provided USB profile.
 
-The reference project's GC2145 right-edge colored line, Windows Camera support
+The reference project's GC2145 UXGA right-edge colored line, Windows Camera support
 and OV3660 image tuning still require hardware checks. The P4 screenshot below
 is not S31 validation. See the [board notes](../../../components/wt_bsp/boards/WT9932S31-TINY/README.md).
 
