@@ -55,8 +55,8 @@ SD 卡仅在示例调用 `wt_bsp_sdmmc_mount()` 时挂载，BSP 不自动格式�
 
 | menuconfig 型号 | 采集与编码 | 示例应用的 USB profile |
 | --- | --- | --- |
-| GC2145 / CKS-K210-GC3.1 UXGA（板级及工厂示例默认） | UYVY 1600×1200，S31 硬件 JPEG，质量 80 | MJPEG，标称 8 FPS，Bulk，512 字节端点、16 KiB payload |
-| GC2145 / CKS-K210-GC3.1 720p（独立 UVC 示例默认） | 居中裁切 UYVY 1280×720，S31 硬件 JPEG，质量 60 | MJPEG，30 FPS，独立示例使用 Isochronous 1023 字节端点 |
+| GC2145 / CKS-K210-GC3.1 UXGA（板级默认） | UYVY 1600×1200，S31 硬件 JPEG，质量 80 | MJPEG，标称 8 FPS，Bulk，512 字节端点、16 KiB payload |
+| GC2145 / CKS-K210-GC3.1 720p（独立 UVC 和工厂示例默认） | 居中裁切 UYVY 1280×720，S31 硬件 JPEG，质量 60 | MJPEG，30 FPS，独立示例使用 Isochronous 1023 字节端点，工厂复合设备使用 Bulk 512 字节端点、16 KiB payload |
 | OV3660 | 传感器原生 JPEG 640×480 | MJPEG，标称 25 FPS；独立示例用 Isochronous 1023 字节端点，工厂复合设备用 Bulk 512 字节端点、16 KiB payload |
 
 先为 UVC 示例选板，然后运行：

@@ -11,7 +11,7 @@ BSP 相机和 UVC 各自独立；JPEG 转交、USB profile、录像与推流的�
 
 ## 构建与接线
 
-使用 ESP-IDF v6.1 及以上版本，默认摄像头为 GC2145。
+使用 ESP-IDF v6.1 及以上版本，新构建默认使用 GC2145 的 1280×720 MJPEG 模式，标称 30 FPS。
 
 ```sh
 WT_BSP_BOARD=WT9932S31-TINY idf.py --preview set-board
@@ -20,7 +20,8 @@ idf.py --preview build
 idf.py --preview -p /dev/ttyACM0 flash monitor
 ```
 
-在 `WT BSP -> Camera sensor` 选择实际接入的 GC2145 或 OV3660。
+在 `WT BSP -> Camera sensor` 可选 GC2145 720p、GC2145 UXGA 或 OV3660。
+升级已有工程时，`sdkconfig` 会保留原来的模式。要启用新模式，请在此菜单选择 GC2145 720p 后重新构建。
 两款传感器共用 SCCB 地址，采用编译时选择，换型号后重新构建、烧录。
 更换摄像头或 SD 卡前断开两根 USB 线，彻底断电。
 型号配置不匹配也会导致探测失败；SD 正常时基准灯色为蓝色。正常识别日志中的芯片 ID 应为
@@ -100,7 +101,8 @@ SD 卡或摄像头故障时，优先显示对应故障色；只有两者均正�
   日志表示收尾成功，再断电取卡。灯色不能代替日志确认。示例不修复断电留下的 `.part` 文件。
 - 空间不足或 I/O 失败保留已有文件并报告 SD 故障，不自动删除历史录像。
 
-GC2145 为 1600×1200、标称 8 FPS；OV3660 为 640×480、标称 25 FPS。
+默认 GC2145 720p 模式使用 24 MHz XCLK，居中裁切的 UYVY 直接送入 S31 硬件 JPEG 编码器，默认质量为 60。
+离线采集、AVI 录像和 J1 推流共用所选模式。GC2145 UXGA 为 1600×1200、标称 8 FPS；OV3660 为 640×480、标称 25 FPS。
 AVI 根据采集时间计算实际平均帧率，SD 写入速度会影响帧率。
 工厂复合设备的两款摄像头均使用 UVC Bulk。实测 OV3660 原等时配置在 CDC/SD
 大文件读取并发时出现不完整 JPEG 帧，切换 Bulk 后通过并发回归；独立 UVC 示例
