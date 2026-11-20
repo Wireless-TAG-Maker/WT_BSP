@@ -326,6 +326,9 @@ static esp_err_t camera_create_controller(gc2145_capture_t *camera,
         .bk_buffer_dis = false,
     };
     ESP_RETURN_ON_ERROR(esp_cam_new_dvp_ctlr(&config, &camera->controller), TAG, "create DVP controller");
+    /* The 720p sensor table sets sync mode 0x02 (page 0, register 0x86).
+     * Invert the S31 sampling edge to prevent DVP FIFO overflows at this pixel clock. */
+    REG_SET_BIT(LCDCAM_CAM_CTRL1_REG, LCDCAM_CAM_CLK_INV);
     return camera_route_native_inputs(dvp);
 }
 
