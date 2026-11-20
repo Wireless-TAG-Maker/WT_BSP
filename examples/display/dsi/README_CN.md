@@ -4,7 +4,7 @@
 # DSI 显示示例
 
 本示例通过 `wt_bsp.h` 初始化显示与触摸，运行 LVGL Widgets（默认）或官方 Benchmark。
-默认保留原板载 ST7102 配置；新增两种外接屏幕组合只对 **WT9932P4X-TINY** 和
+默认保留原板载 ST7102 配置；三种外接屏幕组合只对 **WT9932P4X-TINY** 和
 **WT9932P4C61-TINY** 开放。
 
 WT9932P4-TINY 使用 P4 v1.x，WT9932P4X-TINY 使用 P4 v3.x，共用外设实现但固件不能混用。
@@ -23,7 +23,7 @@ idf.py menuconfig
 2. 在 `WT BSP -> DSI LCD adapter` 选择屏幕组合；默认项保持原板载屏幕。
 3. 在 `DSI example -> LVGL demo` 选择 `Widgets` 或 `Benchmark`。
 
-P4X 使用其独立 v3.x 预设；旧 P4 v1.x 不提供两项新增适配板选项。
+P4X 使用其独立 v3.x 预设；旧 P4 v1.x 不提供外接适配板选项。
 驱动、时序、颜色格式与触摸方向由 feature 配置处理，示例不复制板级 GPIO 或面板初始化。
 
 | 屏幕组合 | 面板配置 | 分辨率 / 格式 | DSI 速率 | DPI 请求 / 实际时钟 | 背光 PWM |
@@ -31,16 +31,17 @@ P4X 使用其独立 v3.x 预设；旧 P4 v1.x 不提供两项新增适配板选�
 | 默认板载配置 | ST7102 | 480×640 / RGB888 | 2 × 1000 Mbps | 沿用原面板配置 | 沿用原配置 |
 | WLK7002-MIPI-15P | JD9165BA | 1024×600 / RGB565 | 2 × 500 Mbps | 40 / 40 MHz | 2 kHz |
 | WTDKP4-LCD-ADAPTER | EK79007 | 1024×600 / RGB565 | 2 × 1000 Mbps | 52 / 48 MHz | 5 kHz |
+| EQT350XJI718P | ILI9488 | 320×480 / RGB565 | 1 × 500 Mbps | 12 MHz 请求 | 2 kHz |
 
 EK79007 的 52 MHz 请求在 IDF v6.1 默认时钟源下整数分频为 48 MHz，日志中的取整提示是预期行为。
 两种组合使用不同初始化和时序，不能只按 1024×600 分辨率互换驱动。
-新增组合默认使用单 framebuffer、64 行 partial draw buffer 和 CPU copy；原板载配置保持原行为。
-选择任一新增组合时，还需在 `LVGL configuration -> Color settings` 选择 16 bit（`CONFIG_LV_COLOR_DEPTH_16=y`），
+两种 1024×600 组合使用单 framebuffer、64 行 partial draw buffer 和 CPU copy；原板载配置保持原行为。
+选择 RGB565 组合时，还需在 `LVGL configuration -> Color settings` 选择 16 bit（`CONFIG_LV_COLOR_DEPTH_16=y`），
 与 RGB565 一致；默认板载屏幕保留本示例原有的 24 bit 配置。
 
 ## 接线
 
-以下为两种新增外接组合的主板 GPIO 编号，不是排针位置编号：
+以下为两种 1024×600 外接组合的主板 GPIO 编号，不是排针位置编号：
 
 | 功能 | 主板连接 |
 | --- | --- |
@@ -55,6 +56,18 @@ WTDKP4-LCD-ADAPTER 按其案例还需外接 `5V -> 5V`、`GND -> GND`、
 底板供电与排线接触面按各自硬件核对，断电接线；GPIO26 只接背光驱动控制输入。
 GT911 自动探测 0x5D / 0x14，保留工厂配置并按读取的范围缩放坐标。
 WLK7002 默认不镜像，WTDKP4 默认同时镜像 X/Y；最终方向以实物点按、拖动和滚动验收。
+
+### EQT350XJI718P 转接板
+
+断电接线，使用与 30 pin 模组配套的转接板。DSI 只接 D0 和 CLK，D1 空置。
+GPIO27 接低有效 LCD reset，GPIO26 接背光驱动 PWM 输入。CHSC6540 的 SDA/SCL
+分别接 GPIO7/GPIO8，使用 7 位地址 `0x2e`，以 100 kHz 轮询。冷启动探测未应答时，BSP 会在 LCD 复位后重试。
+LCD 使用 DCS 初始化，触摸缺失时仍可显示。请根据转接板核对供电、背光驱动和排线方向。
+
+水平和垂直的 sync/back/front 均为 10/20/20。两个 RGB565 帧缓冲共占 600 KiB。
+与其他双缓冲 P4 屏相同，LVGL 在后台缓冲中绘制整帧，提交后等 DPI 刷新回调再复用上一页。MADCTL 设为
+`0x98`，行寻址和垂直刷新均自下而上。实机横向滑动时，观察竖直边缘在屏幕中部是否错开，
+并检查四角、红蓝色块和触摸拖动。原始触点 (0, 0) 应映射到 (319, 479)。
 
 ## 编译、烧录与 Benchmark
 

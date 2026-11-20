@@ -32,6 +32,9 @@
 #if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
 #include "panels/wt_bsp_dsi_jd9165ba.h"
 #endif
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+#include "panels/wt_bsp_dsi_ili9488.h"
+#endif
 
 /* ==================== [Defines] =========================================== */
 
@@ -62,6 +65,9 @@ static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi);
 #if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
 static esp_err_t wt_bsp_dsi_new_jd9165ba_panel(wt_bsp_dsi_t dsi);
+#endif
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+static esp_err_t wt_bsp_dsi_new_ili9488_panel(wt_bsp_dsi_t dsi);
 #endif
 static esp_err_t wt_bsp_dsi_new_ili9881c_panel(wt_bsp_dsi_t dsi);
 static esp_err_t wt_bsp_dsi_new_st7102_panel(wt_bsp_dsi_t dsi);
@@ -111,17 +117,25 @@ esp_err_t wt_bsp_dsi_get_default_info(wt_bsp_dsi_info_t *info)
     };
 
     if (wt_bsp_dsi_uses_lcd_adapter()) {
+        info->color_format = WT_BSP_DSI_COLOR_FORMAT_RGB565;
+        info->disable_dma2d = true;
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+        info->panel_type = WT_BSP_DSI_PANEL_ILI9488_320_480;
+        info->width = 320;
+        info->height = 480;
+        info->dsi_lane_num = 1;
+        info->lane_bit_rate_mbps = 500;
+#else
         info->width = 1024;
         info->height = 600;
-        info->color_format = WT_BSP_DSI_COLOR_FORMAT_RGB565;
         info->dpi_frame_buffer_num = 1;
-        info->disable_dma2d = true;
 #if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
         info->panel_type = WT_BSP_DSI_PANEL_JD9165BA_1024_600;
         info->lane_bit_rate_mbps = 500;
 #else
         info->panel_type = WT_BSP_DSI_PANEL_EK79007_1024_600;
         info->backlight_pwm_freq_hz = 5000;
+#endif
 #endif
     }
 
@@ -304,6 +318,19 @@ esp_err_t wt_bsp_dsi_get_resolution(wt_bsp_dsi_t dsi, uint16_t *width, uint16_t 
     return ESP_OK;
 }
 
+esp_err_t wt_bsp_dsi_get_color_format(wt_bsp_dsi_t dsi, wt_bsp_dsi_color_format_t *format)
+{
+    if (dsi == NULL || format == NULL) {
+        ESP_LOGE(TAG, "Invalid display color format arguments");
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!dsi->is_initialized) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    *format = dsi->info.color_format;
+    return ESP_OK;
+}
+
 esp_lcd_panel_handle_t wt_bsp_dsi_get_panel_handle(wt_bsp_dsi_t dsi)
 {
     return (dsi == NULL) ? NULL : dsi->panel;
@@ -387,8 +414,6 @@ void wt_bsp_dsi_lvgl_unlock(void)
 static esp_err_t wt_bsp_dsi_resolve_info(wt_bsp_dsi_info_t *resolved, const wt_bsp_dsi_info_t *info)
 {
     *resolved = *info;
-    if (resolved->dsi_lane_num == 0U) resolved->dsi_lane_num = WT_BSP_DSI_DEFAULT_LANE_NUM;
-    if (resolved->lane_bit_rate_mbps == 0U) resolved->lane_bit_rate_mbps = WT_BSP_DSI_DEFAULT_LANE_BITRATE_MBPS;
     if (resolved->dpi_frame_buffer_num == 0U) resolved->dpi_frame_buffer_num = WT_BSP_DSI_DEFAULT_DPI_FB_NUM;
     if (resolved->phy_ldo_channel == 0) resolved->phy_ldo_channel = WT_BSP_DSI_DEFAULT_PHY_LDO_CHANNEL;
     if (resolved->phy_ldo_voltage_mv == 0) resolved->phy_ldo_voltage_mv = WT_BSP_DSI_DEFAULT_PHY_LDO_VOLTAGE_MV;
@@ -397,20 +422,60 @@ static esp_err_t wt_bsp_dsi_resolve_info(wt_bsp_dsi_info_t *resolved, const wt_b
     if (resolved->backlight_pwm_freq_hz == 0U) resolved->backlight_pwm_freq_hz = WT_BSP_DSI_BACKLIGHT_PWM_FREQ_HZ;
 
     if (resolved->panel_type == WT_BSP_DSI_PANEL_AUTO) {
-        if (resolved->width == 480U && resolved->height == 640U) resolved->panel_type = WT_BSP_DSI_PANEL_ST7102_480_640;
-        else if (resolved->width == 800U && resolved->height == 1280U) resolved->panel_type = WT_BSP_DSI_PANEL_ILI9881C_800_1280;
-        else resolved->panel_type = WT_BSP_DSI_PANEL_EK79007_1024_600;
+        if (resolved->width == 480U && resolved->height == 640U) {
+            resolved->panel_type = WT_BSP_DSI_PANEL_ST7102_480_640;
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+        } else if (resolved->width == 320U && resolved->height == 480U) {
+            resolved->panel_type = WT_BSP_DSI_PANEL_ILI9488_320_480;
+#endif
+        } else if (resolved->width == 800U && resolved->height == 1280U) {
+            resolved->panel_type = WT_BSP_DSI_PANEL_ILI9881C_800_1280;
+        } else {
+            resolved->panel_type = WT_BSP_DSI_PANEL_EK79007_1024_600;
+        }
+    }
+    bool ili9488 = resolved->panel_type == WT_BSP_DSI_PANEL_ILI9488_320_480;
+    if (resolved->dsi_lane_num == 0U) {
+        resolved->dsi_lane_num = ili9488 ? 1 : WT_BSP_DSI_DEFAULT_LANE_NUM;
+    }
+    if (resolved->lane_bit_rate_mbps == 0U) {
+        resolved->lane_bit_rate_mbps = ili9488 ? 500 : WT_BSP_DSI_DEFAULT_LANE_BITRATE_MBPS;
     }
     if (resolved->width == 0U || resolved->height == 0U) {
-        if (resolved->panel_type == WT_BSP_DSI_PANEL_ST7102_480_640) { resolved->width = 480; resolved->height = 640; }
-        else if (resolved->panel_type == WT_BSP_DSI_PANEL_ILI9881C_800_1280) { resolved->width = 800; resolved->height = 1280; }
-        else { resolved->width = 1024; resolved->height = 600; }
+        switch (resolved->panel_type) {
+        case WT_BSP_DSI_PANEL_ILI9488_320_480:
+            resolved->width = 320;
+            resolved->height = 480;
+            break;
+        case WT_BSP_DSI_PANEL_ST7102_480_640:
+            resolved->width = 480;
+            resolved->height = 640;
+            break;
+        case WT_BSP_DSI_PANEL_ILI9881C_800_1280:
+            resolved->width = 800;
+            resolved->height = 1280;
+            break;
+        default:
+            resolved->width = 1024;
+            resolved->height = 600;
+            break;
+        }
     }
     return ESP_OK;
 }
 
 static esp_err_t wt_bsp_dsi_validate_info(const wt_bsp_dsi_info_t *info)
 {
+    if (info->panel_type == WT_BSP_DSI_PANEL_ILI9488_320_480) {
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+        ESP_RETURN_ON_FALSE(info->width == 320 && info->height == 480 && info->dsi_lane_num == 1 &&
+                            info->color_format == WT_BSP_DSI_COLOR_FORMAT_RGB565,
+                            ESP_ERR_INVALID_ARG, TAG, "ILI9488 requires 320x480 RGB565 and one lane");
+        return ESP_OK;
+#else
+        return ESP_ERR_NOT_SUPPORTED;
+#endif
+    }
     if (info->dsi_lane_num != 2U) return ESP_ERR_INVALID_ARG;
     return ESP_OK;
 }
@@ -435,6 +500,11 @@ static esp_err_t wt_bsp_dsi_enable_phy_power(wt_bsp_dsi_t dsi)
 
 static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi)
 {
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    if (dsi->info.panel_type == WT_BSP_DSI_PANEL_ILI9488_320_480) {
+        return wt_bsp_dsi_new_ili9488_panel(dsi);
+    }
+#endif
     if (dsi->info.panel_type == WT_BSP_DSI_PANEL_JD9165BA_1024_600) {
 #if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P
         return wt_bsp_dsi_new_jd9165ba_panel(dsi);
@@ -447,6 +517,31 @@ static esp_err_t wt_bsp_dsi_new_panel(wt_bsp_dsi_t dsi)
     if (dsi->info.panel_type == WT_BSP_DSI_PANEL_ILI9881C_800_1280) return wt_bsp_dsi_new_ili9881c_panel(dsi);
     return wt_bsp_dsi_new_ek79007_panel(dsi);
 }
+
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+static esp_err_t wt_bsp_dsi_new_ili9488_panel(wt_bsp_dsi_t dsi)
+{
+    const esp_lcd_dpi_panel_config_t dpi = {
+        .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+        .dpi_clock_freq_mhz = 12,
+        .in_color_format = LCD_COLOR_FMT_RGB565,
+        .out_color_format = LCD_COLOR_FMT_RGB565,
+        .num_fbs = dsi->info.dpi_frame_buffer_num,
+        .video_timing = {
+            .h_size = 320,
+            .v_size = 480,
+            .hsync_pulse_width = 10,
+            .hsync_back_porch = 20,
+            .hsync_front_porch = 20,
+            .vsync_pulse_width = 10,
+            .vsync_back_porch = 20,
+            .vsync_front_porch = 20,
+        },
+    };
+    return wt_bsp_dsi_new_panel_ili9488(dsi->mipi_dsi_bus, dsi->io, &dpi, dsi->info.reset_gpio_num,
+                                        &dsi->panel);
+}
+#endif
 
 static esp_err_t wt_bsp_dsi_new_ek79007_panel(wt_bsp_dsi_t dsi)
 {
@@ -684,6 +779,11 @@ static void wt_bsp_dsi_get_default_lvgl_config(wt_bsp_dsi_t dsi, wt_bsp_dsi_lvgl
     lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     port_cfg.task_stack = 16384;
     *config = (wt_bsp_dsi_lvgl_config_t) { .lvgl_port_cfg = port_cfg, .buffer_size = (uint32_t)dsi->info.width * WT_BSP_DSI_LVGL_DRAW_BUFF_LINES_DEFAULT, .double_buffer = false, .flags = { .buff_dma = true, .buff_spiram = true, .sw_rotate = false, .avoid_tearing = false } };
+    if (dsi->info.panel_type == WT_BSP_DSI_PANEL_ILI9488_320_480 && dsi->info.dpi_frame_buffer_num >= 2) {
+        config->buffer_size = (uint32_t)dsi->info.width * dsi->info.height;
+        config->double_buffer = true;
+        config->flags.avoid_tearing = true;
+    }
 }
 
 static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e)
@@ -695,7 +795,7 @@ static void wt_bsp_dsi_lvgl_rounder_cb(lv_event_t *e)
 
 static bool wt_bsp_dsi_uses_lcd_adapter(void)
 {
-#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P || CONFIG_WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P || CONFIG_WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER || CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
     return true;
 #else
     return false;

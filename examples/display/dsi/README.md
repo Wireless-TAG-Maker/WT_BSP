@@ -5,7 +5,7 @@
 
 This example uses `wt_bsp.h` to initialize the display and touch, then runs LVGL Widgets
 (the default) or the official Benchmark. The default retains the original ST7102 board
-configuration. The two additional LCD adapter configurations are available only on
+configuration. The three external LCD adapter configurations are available only on
 **WT9932P4X-TINY** and **WT9932P4C61-TINY**.
 
 WT9932P4-TINY uses P4 v1.x; WT9932P4X-TINY uses P4 v3.x. They share peripheral wiring
@@ -25,7 +25,7 @@ idf.py menuconfig
 2. Select the LCD configuration under `WT BSP -> DSI LCD adapter`; the default retains the original onboard panel.
 3. Select `Widgets` or `Benchmark` under `DSI example -> LVGL demo`.
 
-P4X uses its separate v3.x preset. The two new adapter choices are unavailable for the
+P4X uses its separate v3.x preset. The external adapter choices are unavailable for the
 original P4 v1.x configuration. Features own panel initialization, timings, color format
 and touch orientation; the example does not copy GPIO definitions or panel commands.
 
@@ -34,18 +34,19 @@ and touch orientation; the example does not copy GPIO definitions or panel comma
 | Board default | ST7102 | 480×640 / RGB888 | 2 × 1000 Mbps | Original panel configuration | Original configuration |
 | WLK7002-MIPI-15P | JD9165BA | 1024×600 / RGB565 | 2 × 500 Mbps | 40 / 40 MHz | 2 kHz |
 | WTDKP4-LCD-ADAPTER | EK79007 | 1024×600 / RGB565 | 2 × 1000 Mbps | 52 / 48 MHz | 5 kHz |
+| EQT350XJI718P | ILI9488 | 320×480 / RGB565 | 1 × 500 Mbps | 12 MHz requested | 2 kHz |
 
 IDF v6.1 rounds the EK79007 52 MHz request to 48 MHz with its default integer divider;
 that startup message is expected. Equal resolution does not make the initialization or
-timings interchangeable. The new configurations use one framebuffer, a 64-line partial
+timings interchangeable. The two 1024×600 configurations use one framebuffer, a 64-line partial
 draw buffer and CPU copy; the original board configuration retains its existing behavior.
-For either new configuration, select 16 bit under `LVGL configuration -> Color settings`
+For an RGB565 configuration, select 16 bit under `LVGL configuration -> Color settings`
 (`CONFIG_LV_COLOR_DEPTH_16=y`) to match RGB565. Keep the original 24 bit example setting
 for the default onboard panel.
 
 ## Wiring
 
-These are host GPIO numbers, not header positions, for the two external LCD configurations:
+These are host GPIO numbers, not header positions, for the two 1024×600 LCD configurations:
 
 | Signal | Host connection |
 | --- | --- |
@@ -61,6 +62,23 @@ Check each adapter's supply and FPC contact orientation with power disconnected.
 GPIO26 connects to the backlight driver's control input, not bare LED terminals.
 GT911 probes 0x5D / 0x14, retains its factory configuration and scales the reported range.
 WLK7002 defaults to no mirroring; WTDKP4 mirrors both axes. Verify orientation on the actual assembly.
+
+### EQT350XJI718P adapter wiring
+
+Power down and use the matching 30-pin module adapter. Connect DSI D0 and CLK and
+leave D1 unused. GPIO27 drives active-low LCD reset and GPIO26 drives backlight PWM.
+CHSC6540 uses SDA on GPIO7 and SCL on GPIO8. The BSP polls 7-bit address `0x2e` at 100 kHz.
+If the cold probe misses the controller, the BSP retries after LCD reset. The display uses DCS and can run without touch.
+Check the adapter supply, backlight driver and FPC orientation before powering up.
+
+The horizontal and vertical sync/back/front intervals are both 10/20/20.
+The BSP uses two native RGB565 framebuffers (600 KiB total). LVGL renders a full
+frame into the back buffer and waits for the DPI refresh callback before reusing
+the previous one, following the same refresh path as the other double-buffered P4 panels.
+MADCTL `0x98` selects bottom-to-top row addressing and refresh. During a horizontal
+scroll, watch for a break in a vertical edge near the middle of the screen.
+Check all four corners, red/blue colors and dragging on the actual screen.
+Raw touch (0, 0) maps to display (319, 479).
 
 ## Build, Flash and Run Benchmark
 

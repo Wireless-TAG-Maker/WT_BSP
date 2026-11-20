@@ -7,6 +7,8 @@ WT9932P4-TINY uses ESP32-P4 v1.x; WT9932P4X-TINY uses v3.x. They share periphera
 
 This example uses the Wireless-Tag BSP MIPI CSI interface to capture camera frames and displays the live image on the MIPI DSI LCD through the PPA hardware accelerator.
 
+For EQT350XJI718P on WT9932P4X-TINY and WT9932P4C61-TINY, select the board, open `idf.py menuconfig`, and choose the module under `WT BSP -> DSI LCD adapter`. The PPA converts each camera frame directly into a 320×480 RGB565 display buffer. The example alternates between the two buffers after the DPI refresh callback. [Wiring and framebuffer configuration](../../display/dsi/README.md)
+
 ## Getting Started
 
 1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:

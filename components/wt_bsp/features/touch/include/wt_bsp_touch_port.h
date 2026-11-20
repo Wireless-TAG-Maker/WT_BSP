@@ -35,6 +35,7 @@ typedef enum {
     WT_BSP_TOUCH_MODEL_AUTO = 0, /*!< 使用当前显示适配配置的触摸型号。 */
     WT_BSP_TOUCH_MODEL_ST7123,   /*!< 原板载 ST7123 触摸控制器。 */
     WT_BSP_TOUCH_MODEL_GT911,    /*!< GT911 触摸控制器, 保留工厂配置。 */
+    WT_BSP_TOUCH_MODEL_CHSC6540, /*!< CHSC6540 轮询触摸控制器。 */
 } wt_bsp_touch_model_t;
 
 /**
@@ -83,7 +84,7 @@ esp_err_t wt_bsp_touch_get_default_info(wt_bsp_touch_info_t *info);
  * @brief 探测当前显示适配配置对应的触摸设备。
  *
  * @param[in] bus 板级持有的共享 I2C 总线, 本函数不转移或释放所有权。
- * @param[in] legacy_address 原触摸设备地址; GT911 配置使用 0x5D 和 0x14。
+ * @param[in] legacy_address 原触摸设备地址; GT911 配置使用 0x5D 和 0x14, CHSC6540 使用 0x2E。
  * @return ESP_OK, ESP_ERR_NOT_FOUND, ESP_ERR_INVALID_ARG 或底层 I2C 错误。
  */
 esp_err_t wt_bsp_touch_probe(i2c_master_bus_handle_t bus, uint8_t legacy_address);

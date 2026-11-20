@@ -65,6 +65,14 @@ extern "C" {
 /* ==================== [Typedefs] ========================================== */
 
 /**
+ * @brief DSI 帧缓冲输入颜色格式。
+ */
+typedef enum {
+    WT_BSP_DSI_COLOR_FORMAT_RGB565 = 0,    /*!< RGB565，默认推荐格式，内存占用较低。 */
+    WT_BSP_DSI_COLOR_FORMAT_RGB888,        /*!< RGB888，色彩精度更高，frame buffer 占用更大。 */
+} wt_bsp_dsi_color_format_t;
+
+/**
  * @brief DSI 显示的 LVGL 配置。
  */
 typedef struct {
@@ -100,6 +108,14 @@ esp_err_t wt_bsp_dsi_set_brightness(wt_bsp_dsi_t dsi, uint8_t brightness);
  * @brief 获取显示分辨率。
  */
 esp_err_t wt_bsp_dsi_get_resolution(wt_bsp_dsi_t dsi, uint16_t *width, uint16_t *height);
+
+/**
+ * @brief 读取当前面板帧缓冲的输入颜色格式.
+ * @param[in] dsi 已初始化的板级显示句柄, 所有权由 BSP 保留.
+ * @param[out] format 接收 RGB565 或 RGB888.
+ * @return ESP_OK 成功, ESP_ERR_INVALID_ARG 参数为空, ESP_ERR_INVALID_STATE 显示未初始化.
+ */
+esp_err_t wt_bsp_dsi_get_color_format(wt_bsp_dsi_t dsi, wt_bsp_dsi_color_format_t *format);
 
 /**
  * @brief 启动 LVGL 并注册 DSI display。

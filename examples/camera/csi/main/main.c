@@ -22,6 +22,7 @@ static const char *TAG = "csi_example";
 
 static ppa_client_handle_t s_ppa_client = NULL;
 static uint8_t *s_display_frame_buffers[CSI_DISPLAY_FB_NUM] = {NULL};
+static ppa_srm_color_mode_t s_display_color_mode;
 static uint32_t s_disp_width = 0;
 static uint32_t s_disp_height = 0;
 static size_t s_display_frame_buffer_size = 0;
@@ -166,7 +167,7 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
             .out.pic_h = s_disp_height,
             .out.block_offset_x = 0,
             .out.block_offset_y = 0,
-            .out.srm_cm = PPA_SRM_COLOR_MODE_RGB888,
+            .out.srm_cm = s_display_color_mode,
             .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
             .scale_x = s_transform.scale_x,
             .scale_y = s_transform.scale_y,
@@ -220,7 +221,11 @@ void app_main(void)
     ESP_ERROR_CHECK(wt_bsp_dsi_get_resolution(dsi, &disp_width, &disp_height));
     s_disp_width = disp_width;
     s_disp_height = disp_height;
-    s_display_frame_buffer_size = s_disp_width * s_disp_height * 3;
+    wt_bsp_dsi_color_format_t format;
+    ESP_ERROR_CHECK(wt_bsp_dsi_get_color_format(dsi, &format));
+    bool rgb565 = format == WT_BSP_DSI_COLOR_FORMAT_RGB565;
+    s_display_color_mode = rgb565 ? PPA_SRM_COLOR_MODE_RGB565 : PPA_SRM_COLOR_MODE_RGB888;
+    s_display_frame_buffer_size = s_disp_width * s_disp_height * (rgb565 ? 2U : 3U);
 
     esp_lcd_panel_handle_t panel_handle = wt_bsp_dsi_get_panel_handle(dsi);
     if (panel_handle == NULL) {
