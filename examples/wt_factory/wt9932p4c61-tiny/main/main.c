@@ -35,12 +35,7 @@
 
 static const char *TAG = "factory_firmware";
 
-#define CAMERA_DISPLAY_WIDTH 480U
-#define CAMERA_NORMAL_HEIGHT 384U
-#define CAMERA_FULLSCREEN_HEIGHT 640U
 #define CAMERA_RGB888_BYTES_PER_PIXEL 3U
-#define CAMERA_UI_BUFFER_SIZE \
-    (CAMERA_DISPLAY_WIDTH * CAMERA_FULLSCREEN_HEIGHT * CAMERA_RGB888_BYTES_PER_PIXEL)
 
 #define WIFI_TASK_CONFIG_BIT     BIT0
 #define WIFI_TASK_CONNECTED_BIT  BIT1
@@ -57,6 +52,7 @@ extern void set_camera_error(const char *msg);
 extern void update_led_color(uint8_t r, uint8_t g, uint8_t b);
 extern void update_wifi_status(bool connected, const char *ap_name, const char *time_text);
 extern bool camera_is_fullscreen(void);
+extern void camera_preview_size(bool fullscreen, uint32_t *width, uint32_t *height);
 
 /* Camera streaming state */
 #if !WT_BSP_USB_DEVICE_UVC_ENABLED
@@ -139,31 +135,18 @@ static void camera_frame_cb(uint8_t *buf, uint32_t width, uint32_t height, size_
     uint32_t out_w, out_h;
     size_t out_size;
 
-    if (camera_is_fullscreen()) {
-        /* Fullscreen: 640x480 block from input -> Rotate 90 -> 480x640 output */
-        srm_config.in.block_w = 640;
-        srm_config.in.block_h = 480;
-        srm_config.in.block_offset_x = (width > 640) ? (width - 640) / 2 : 0;
-        srm_config.in.block_offset_y = (height > 480) ? (height - 480) / 2 : 0;
-
-        srm_config.out.pic_w = 480;
-        srm_config.out.pic_h = 640;
-        srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_90;
-        out_w = 480;
-        out_h = 640;
-    } else {
-        /* Normal: 480x384 crop, no rotation */
-        srm_config.in.block_w = 480;
-        srm_config.in.block_h = 384;
-        srm_config.in.block_offset_x = (width > 480) ? (width - 480) / 2 : 0;
-        srm_config.in.block_offset_y = (height > 384) ? (height - 384) / 2 : 0;
-
-        srm_config.out.pic_w = 480;
-        srm_config.out.pic_h = 384;
-        srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_0;
-        out_w = 480;
-        out_h = 384;
+    bool fullscreen = camera_is_fullscreen();
+    camera_preview_size(fullscreen, &out_w, &out_h);
+    srm_config.in.block_w = fullscreen ? out_h : out_w;
+    srm_config.in.block_h = fullscreen ? out_w : out_h;
+    if (width < srm_config.in.block_w || height < srm_config.in.block_h) {
+        return;
     }
+    srm_config.in.block_offset_x = (width - srm_config.in.block_w) / 2;
+    srm_config.in.block_offset_y = (height - srm_config.in.block_h) / 2;
+    srm_config.out.pic_w = out_w;
+    srm_config.out.pic_h = out_h;
+    srm_config.rotation_angle = fullscreen ? PPA_SRM_ROTATION_ANGLE_90 : PPA_SRM_ROTATION_ANGLE_0;
 
     out_size = out_w * out_h * CAMERA_RGB888_BYTES_PER_PIXEL;
     srm_config.out.buffer_size = out_size;
@@ -546,11 +529,12 @@ void app_main(void)
 
     /* 1. Start LVGL */
     ESP_LOGI(TAG, "Starting LVGL");
+    uint16_t width, height;
+    ESP_ERROR_CHECK(wt_bsp_dsi_get_resolution(dsi, &width, &height));
     wt_bsp_dsi_lvgl_config_t lvgl_cfg = {
         .lvgl_port_cfg = ESP_LVGL_PORT_INIT_CONFIG(),
         .double_buffer = true,
-        /* Allocate buffer for 1/10th of the screen */
-        .buffer_size = 480 * 640,
+        .buffer_size = (uint32_t)width * height,
         .flags = {
             .avoid_tearing = true,
         }
@@ -564,18 +548,17 @@ void app_main(void)
     }
     s_lvgl_disp = disp;
 
-    /* 2. Setup Touch */
-    if (touch) {
-        wt_bsp_touch_lvgl_start(touch, disp);
+    if (!wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
+        ESP_LOGE(TAG, "Failed to lock display for UI setup");
+        return;
     }
-
-    /* 3. Setup UI */
-    if (wt_bsp_dsi_lvgl_lock(portMAX_DELAY)) {
-        lvgl_ui(disp);
-        update_led_color(s_led_red, s_led_green, s_led_blue);
-        s_ui_ready = true;
-        wt_bsp_dsi_lvgl_unlock();
+    if (touch && wt_bsp_touch_lvgl_start(touch, disp) == NULL) {
+        ESP_LOGW(TAG, "Touch input unavailable");
     }
+    lvgl_ui(disp);
+    update_led_color(s_led_red, s_led_green, s_led_blue);
+    s_ui_ready = true;
+    wt_bsp_dsi_lvgl_unlock();
 
     /* 4. Power on display backlight */
     wt_bsp_dsi_display_on(dsi);

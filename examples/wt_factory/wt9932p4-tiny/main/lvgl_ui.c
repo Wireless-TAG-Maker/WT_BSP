@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: CC0-1.0
  */
 
+#include "factory_compact_controls.h"
+
 #include "lvgl.h"
 #include "src/misc/cache/lv_cache.h"
 #include <stdatomic.h>
@@ -18,6 +20,18 @@ static lv_obj_t *cam_display;
 static lv_obj_t *cam_msg;
 static lv_obj_t *bottom_row;
 static atomic_bool s_camera_fullscreen;
+static uint32_t s_preview_width;
+static uint32_t s_fullscreen_height;
+static uint32_t s_preview_height;
+
+#define CONTROLS_HEIGHT 254U
+#define SECTION_GAP 2U
+
+void camera_preview_size(bool fullscreen, uint32_t *width, uint32_t *height)
+{
+    *width = s_preview_width;
+    *height = fullscreen ? s_fullscreen_height : s_preview_height;
+}
 
 bool camera_is_fullscreen(void)
 {
@@ -27,15 +41,15 @@ bool camera_is_fullscreen(void)
 static void cam_click_event_cb(lv_event_t * e)
 {
     bool fullscreen = !camera_is_fullscreen();
+    uint32_t width, height;
+    camera_preview_size(fullscreen, &width, &height);
+    lv_obj_set_size(cam_display, width, height);
     atomic_store(&s_camera_fullscreen, fullscreen);
     if (fullscreen) {
         lv_obj_add_flag(bottom_row, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_size(cam_display, 480, 640);
     } else {
         lv_obj_remove_flag(bottom_row, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_size(cam_display, 480, 384);
     }
-    // Remove software rotation and scale, we will use PPA hardware in main.c
 }
 
 static lv_image_dsc_t cam_img_dsc = {
@@ -43,11 +57,7 @@ static lv_image_dsc_t cam_img_dsc = {
         .magic = LV_IMAGE_HEADER_MAGIC,
         .cf = LV_COLOR_FORMAT_RGB888,
         .flags = 0,
-        .w = 480,
-        .h = 384,
-        .stride = 480 * 3,
     },
-    .data_size = 480 * 384 * 3,
     .data = NULL
 };
  
@@ -136,17 +146,24 @@ static void sd_mount_event_cb(lv_event_t * e)
 
 void lvgl_ui(lv_display_t *disp)
 {
+    /* Keep the original preview bounds and reserve room for the controls. */
+    s_preview_width = LV_MIN(lv_display_get_horizontal_resolution(disp), 480);
+    s_fullscreen_height = LV_MIN(lv_display_get_vertical_resolution(disp), 640);
+    bool compact = s_preview_width == 320 && s_fullscreen_height == 480;
+    s_preview_height = compact ? 288U : s_fullscreen_height - CONTROLS_HEIGHT - SECTION_GAP;
+    uint32_t width, height;
+    camera_preview_size(false, &width, &height);
     lv_obj_t *scr = lv_display_get_screen_active(disp);
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
     lv_obj_set_flex_flow(scr, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(scr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_all(scr, 0, 0);
-    lv_obj_set_style_pad_row(scr, 2, 0);
+    lv_obj_set_style_pad_row(scr, SECTION_GAP, 0);
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* --- 1. Camera Section (Top 60%) --- */
+    /* Camera preview */
     cam_display = lv_image_create(scr);
-    lv_obj_set_size(cam_display, 480, 384);
+    lv_obj_set_size(cam_display, width, height);
     lv_obj_set_style_bg_color(cam_display, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(cam_display, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(cam_display, 0, 0);
@@ -161,9 +178,21 @@ void lvgl_ui(lv_display_t *disp)
     lv_obj_set_style_text_color(cam_msg, lv_color_hex(0xFFFFFF), 0);
     lv_obj_center(cam_msg);
 
-    /* --- Bottom Layout (Remaining 40%) --- */
+    if (compact) {
+        factory_compact_controls_t controls = factory_compact_controls_create(scr, false, slider_event_cb,
+                                                                              sd_mount_event_cb);
+        bottom_row = controls.panel;
+        slider_r = controls.red;
+        slider_g = controls.green;
+        slider_b = controls.blue;
+        led_color_rect = controls.swatch;
+        label_sd_info = controls.sd_status;
+        return;
+    }
+
+    /* Keep the controls visible below the preview. */
     bottom_row = lv_obj_create(scr);
-    lv_obj_set_size(bottom_row, 480, 254);
+    lv_obj_set_size(bottom_row, width, CONTROLS_HEIGHT);
     lv_obj_set_flex_flow(bottom_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bottom_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_all(bottom_row, 0, 0);

@@ -13,6 +13,8 @@ owns camera/JPEG-to-USB bridging; the factory application skips the competing
 CSI display-preview consumer in this mode. With UVC disabled, the original
 independent CSI preview remains available.
 
+For EQT350XJI718P on WT9932P4X-TINY, select the board, open `idf.py menuconfig`, and choose the module under `WT BSP -> DSI LCD adapter`. Set LVGL color depth to 16 bits. Tap the 320×288 camera preview to switch to 320×480 fullscreen. The preview sits above the RGB sliders and SD mount control. [Wiring](../../display/dsi/README.md)
+
 ## Getting Started
 
 1.  **Select the development board**: Run `idf.py set-board` in the example directory and select a supported development board. The command generates the board-level default configuration used by the next configure/build step:

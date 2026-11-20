@@ -111,7 +111,8 @@ class KconfigModularityTests(unittest.TestCase):
 
     def test_lcd_adapters_are_limited_to_p4x_and_p4c61(self):
         adapters = ("WT_BSP_DSI_LCD_ADAPTER_WLK7002_MIPI_15P",
-                    "WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER")
+                    "WT_BSP_DSI_LCD_ADAPTER_WTDKP4_LCD_ADAPTER",
+                    "WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P")
         cases = (("esp32p4", "WT9932P4-TINY", True, False),
                  ("esp32p4", "WT9932P4X-TINY", False, True),
                  ("esp32p4", "WT9932P4C61-TINY", False, True),

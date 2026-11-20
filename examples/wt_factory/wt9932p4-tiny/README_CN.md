@@ -13,6 +13,8 @@ WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设�
 到 USB 的桥接。此模式跳过竞争同一采集源的 CSI 屏幕预览，避免两个消费者同时占用摄像头。
 退出时先成功调用 `camera_uvc_stop()`，再反初始化 BSP；关闭 UVC 后保留原有 CSI 预览。
 
+在 WT9932P4X-TINY 上使用 EQT350XJI718P 时，选板后在 `idf.py menuconfig` 的 `WT BSP -> DSI LCD adapter` 中选择该模组。在 LVGL 颜色设置中选择 16 bit。320×480 屏幕的普通预览为 320×288，点击可切换至 320×480 全屏。预览下方依次排列 RGB 滑条和 SD 卡挂载操作。 [接线说明](../../display/dsi/README_CN.md)
+
 ## 🛠️ 快速上手
 
 1.  **选择开发板**：在示例目录中运行 `idf.py set-board` 并选择支持的开发板，命令会生成下一次配置/构建使用的板级默认配置：

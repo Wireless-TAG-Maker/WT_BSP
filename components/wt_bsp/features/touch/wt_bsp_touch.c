@@ -29,6 +29,10 @@
 #define WT_BSP_TOUCH_GT911_ENABLED 0
 #endif
 
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+#include "wt_bsp_touch_chsc6540.h"
+#endif
+
 /* ==================== [Defines] =========================================== */
 
 #define WT_BSP_TOUCH_PROBE_TIMEOUT_MS 200
@@ -52,6 +56,7 @@ typedef struct {
 
 /* ==================== [Static Prototypes] ================================= */
 
+static esp_err_t wt_bsp_touch_init_panel_io(wt_bsp_touch_t touch, esp_lcd_touch_config_t *config);
 static wt_bsp_touch_model_t wt_bsp_touch_resolve_model(wt_bsp_touch_model_t model);
 #if WT_BSP_TOUCH_GT911_ENABLED
 static esp_err_t wt_bsp_touch_probe_gt911(i2c_master_bus_handle_t bus, uint8_t *address);
@@ -90,6 +95,11 @@ esp_err_t wt_bsp_touch_get_default_info(wt_bsp_touch_info_t *info)
     info->mirror_x = true;
     info->mirror_y = true;
 #endif
+#elif CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    info->width = 320;
+    info->height = 480;
+    info->mirror_x = true;
+    info->mirror_y = true;
 #endif
     return ESP_OK;
 }
@@ -105,6 +115,9 @@ esp_err_t wt_bsp_touch_probe(i2c_master_bus_handle_t bus, uint8_t legacy_address
     uint8_t address = 0;
     (void)legacy_address;
     return wt_bsp_touch_probe_gt911(bus, &address);
+#elif CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    (void)legacy_address;
+    return wt_bsp_touch_chsc6540_probe(bus);
 #else
     if (legacy_address == 0 || legacy_address > 0x7f) {
         ESP_LOGE(TAG, "Invalid touch probe address: 0x%02x", legacy_address);
@@ -134,16 +147,11 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
 
     touch->info = *info;
     touch->info.model = wt_bsp_touch_resolve_model(info->model);
-    if (touch->info.model != WT_BSP_TOUCH_MODEL_ST7123 && touch->info.model != WT_BSP_TOUCH_MODEL_GT911) {
-        ESP_LOGE(TAG, "Unsupported touch model: %d", touch->info.model);
+    if (touch->info.model != WT_BSP_TOUCH_MODEL_ST7123 &&
+        touch->info.model != wt_bsp_touch_resolve_model(WT_BSP_TOUCH_MODEL_AUTO)) {
+        ESP_LOGE(TAG, "Touch model %d is unavailable for this adapter", touch->info.model);
         return ESP_ERR_NOT_SUPPORTED;
     }
-#if !WT_BSP_TOUCH_GT911_ENABLED
-    if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911) {
-        ESP_LOGE(TAG, "GT911 is not enabled for the selected display adapter");
-        return ESP_ERR_NOT_SUPPORTED;
-    }
-#endif
     if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911 && (info->width < 2 || info->height < 2)) {
         ESP_LOGE(TAG, "Invalid GT911 display dimensions");
         return ESP_ERR_INVALID_ARG;
@@ -166,26 +174,6 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
         touch->owns_i2c_bus = true;
     }
 
-    uint8_t address = 0;
-    esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_ST7123_CONFIG();
-#if WT_BSP_TOUCH_GT911_ENABLED
-    if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911) {
-        ret = wt_bsp_touch_probe_gt911(touch->i2c_bus, &address);
-        if (ret != ESP_OK) {
-            goto err;
-        }
-        io_config = (esp_lcd_panel_io_i2c_config_t)ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-        io_config.dev_addr = address;
-    }
-#else
-    (void)address;
-#endif
-    ret = esp_lcd_new_panel_io_i2c(touch->i2c_bus, &io_config, &touch->io);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Create touch panel IO failed: %s", esp_err_to_name(ret));
-        goto err;
-    }
-
     esp_lcd_touch_config_t config = {
         .x_max = info->width,
         .y_max = info->height,
@@ -201,13 +189,13 @@ esp_err_t wt_bsp_touch_init(wt_bsp_touch_t touch, const wt_bsp_touch_info_t *inf
             .mirror_y = info->mirror_y,
         },
     };
-#if WT_BSP_TOUCH_GT911_ENABLED
-    if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911) {
-        ret = wt_bsp_touch_init_gt911(touch, address, &config);
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    if (touch->info.model == WT_BSP_TOUCH_MODEL_CHSC6540) {
+        ret = wt_bsp_touch_chsc6540_new(touch->i2c_bus, &config, &touch->handle);
     } else
 #endif
     {
-        ret = esp_lcd_touch_new_i2c_st7123(touch->io, &config, &touch->handle);
+        ret = wt_bsp_touch_init_panel_io(touch, &config);
     }
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Create touch controller failed: %s", esp_err_to_name(ret));
@@ -285,6 +273,11 @@ esp_err_t wt_bsp_touch_read(wt_bsp_touch_t touch)
     if (!touch->is_initialized) {
         return ESP_ERR_INVALID_STATE;
     }
+#if CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    if (touch->info.model == WT_BSP_TOUCH_MODEL_CHSC6540) {
+        return wt_bsp_touch_chsc6540_read(touch->handle);
+    }
+#endif
     return esp_lcd_touch_read_data(touch->handle);
 }
 
@@ -328,6 +321,40 @@ lv_indev_t *wt_bsp_touch_lvgl_start(wt_bsp_touch_t touch, lv_display_t *disp)
 
 /* ==================== [Static Functions] ================================== */
 
+static esp_err_t wt_bsp_touch_init_panel_io(wt_bsp_touch_t touch, esp_lcd_touch_config_t *config)
+{
+    esp_err_t ret;
+    uint8_t address = 0;
+    esp_lcd_panel_io_i2c_config_t io_config = ESP_LCD_TOUCH_IO_I2C_ST7123_CONFIG();
+#if WT_BSP_TOUCH_GT911_ENABLED
+    if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911) {
+        ret = wt_bsp_touch_probe_gt911(touch->i2c_bus, &address);
+        if (ret != ESP_OK) {
+            return ret;
+        }
+        io_config = (esp_lcd_panel_io_i2c_config_t)ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
+        io_config.dev_addr = address;
+    }
+#else
+    (void)address;
+#endif
+    ret = esp_lcd_new_panel_io_i2c(touch->i2c_bus, &io_config, &touch->io);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Create touch panel IO failed: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+#if WT_BSP_TOUCH_GT911_ENABLED
+    if (touch->info.model == WT_BSP_TOUCH_MODEL_GT911) {
+        ret = wt_bsp_touch_init_gt911(touch, address, config);
+    } else
+#endif
+    {
+        ret = esp_lcd_touch_new_i2c_st7123(touch->io, config, &touch->handle);
+    }
+    return ret;
+}
+
 static wt_bsp_touch_model_t wt_bsp_touch_resolve_model(wt_bsp_touch_model_t model)
 {
     if (model != WT_BSP_TOUCH_MODEL_AUTO) {
@@ -335,6 +362,8 @@ static wt_bsp_touch_model_t wt_bsp_touch_resolve_model(wt_bsp_touch_model_t mode
     }
 #if WT_BSP_TOUCH_GT911_ENABLED
     return WT_BSP_TOUCH_MODEL_GT911;
+#elif CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+    return WT_BSP_TOUCH_MODEL_CHSC6540;
 #else
     return WT_BSP_TOUCH_MODEL_ST7123;
 #endif

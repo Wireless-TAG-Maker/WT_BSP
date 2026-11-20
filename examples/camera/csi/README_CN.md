@@ -7,6 +7,8 @@ WT9932P4-TINY 对应 ESP32-P4 v1.x，WT9932P4X-TINY 对应 v3.x；两者外设�
 
 本示例演示如何使用 Wireless-Tag BSP 提供的 MIPI CSI 接口采集摄像头画面，并通过 PPA 硬件加速实时显示到 MIPI DSI 液晶屏上。
 
+在 WT9932P4X-TINY 和 WT9932P4C61-TINY 上使用 EQT350XJI718P 时，选板后在 `idf.py menuconfig` 的 `WT BSP -> DSI LCD adapter` 中选择该模组。PPA 将摄像头画面直接转换并写入 320×480 RGB565 帧缓冲，示例在收到 DPI 刷新回调后轮换使用两页缓冲。[接线和帧缓冲配置](../../display/dsi/README_CN.md)
+
 ## 🛠️ 快速上手
 
 1.  **选择开发板**：在示例目录中运行 `idf.py set-board` 并选择支持的开发板，命令会生成下一次配置/构建使用的板级默认配置：

@@ -416,6 +416,12 @@ static esp_err_t board_init(void)
 
 #endif
 #if WT_BSP_TOUCH_ENABLED
+#if WT_BSP_DSI_ENABLED && CONFIG_WT_BSP_BOARD_HAS_DSI_LCD_ADAPTERS
+    /* External adapters may share LCD reset with touch. Retry after DSI initialization. */
+    if (!device_status.touch_detected && s_bsp_dsi.is_initialized) {
+        device_status.touch_detected = wt_bsp_touch_probe(s_shared_i2c_bus, BOARD_I2C_ADDR_TOUCH) == ESP_OK;
+    }
+#endif
     // Initialize touch only if touch device was detected
     if (device_status.touch_detected) {
         wt_bsp_touch_info_t touch_info;

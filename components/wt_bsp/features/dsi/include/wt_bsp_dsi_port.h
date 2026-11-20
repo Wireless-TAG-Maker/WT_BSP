@@ -34,20 +34,13 @@ extern "C" {
  * @brief 支持的 DSI 面板型号。
  */
 typedef enum {
-    WT_BSP_DSI_PANEL_AUTO = 0,             /*!< 根据分辨率自动选择面板。当前支持 1024x600 和 800x1280。 */
+    WT_BSP_DSI_PANEL_AUTO = 0,             /*!< 根据分辨率自动选择面板。320x480 需启用 EQT350XJI718P。 */
     WT_BSP_DSI_PANEL_EK79007_1024_600,     /*!< 1024x600 EK79007 MIPI DSI 面板。 */
     WT_BSP_DSI_PANEL_ILI9881C_800_1280,    /*!< 800x1280 ILI9881C MIPI DSI 面板。 */
     WT_BSP_DSI_PANEL_ST7102_480_640,       /*!< 480x640 ST7102 MIPI DSI 面板 (2.8寸)。 */
     WT_BSP_DSI_PANEL_JD9165BA_1024_600,    /*!< 1024x600 JD9165BA MIPI DSI 面板。 */
+    WT_BSP_DSI_PANEL_ILI9488_320_480,      /*!< EQT350XJI718P 单通道 RGB565 面板。 */
 } wt_bsp_dsi_panel_t;
-
-/**
- * @brief DSI 帧缓冲输入颜色格式。
- */
-typedef enum {
-    WT_BSP_DSI_COLOR_FORMAT_RGB565 = 0,    /*!< RGB565，默认推荐格式，内存占用较低。 */
-    WT_BSP_DSI_COLOR_FORMAT_RGB888,        /*!< RGB888，色彩精度更高，frame buffer 占用更大。 */
-} wt_bsp_dsi_color_format_t;
 
 /**
  * @brief DSI 硬件配置。
@@ -57,11 +50,11 @@ typedef struct {
     int reset_gpio_num;                     /*!< 连接显示复位的 GPIO，未使用时设为 -1。 */
     uint16_t width;                         /*!< 显示屏水平分辨率，设为 0 时使用面板默认值。 */
     uint16_t height;                        /*!< 显示屏垂直分辨率，设为 0 时使用面板默认值。 */
-    uint8_t dsi_lane_num;                   /*!< DSI 数据通道数量，设为 0 时默认使用 2 lane。 */
+    uint8_t dsi_lane_num;                   /*!< DSI 数据通道数量，设为 0 时 ILI9488 使用 1 lane, 其他面板使用 2 lane。 */
     wt_bsp_dsi_panel_t panel_type;          /*!< DSI 面板型号，设为 AUTO 时根据分辨率选择。 */
     wt_bsp_dsi_color_format_t color_format; /*!< 帧缓冲输入颜色格式。 */
     uint8_t dpi_frame_buffer_num;           /*!< DPI frame buffer 数量，设为 0 时默认使用 1 个。 */
-    uint16_t lane_bit_rate_mbps;            /*!< DSI lane 速率，单位 Mbps，设为 0 时默认 1000 Mbps。 */
+    uint16_t lane_bit_rate_mbps;            /*!< DSI lane 速率，单位 Mbps，设为 0 时 ILI9488 使用 500 Mbps, 其他面板使用 1000 Mbps。 */
     int phy_ldo_channel;                    /*!< DSI PHY 供电 LDO 通道，设为 0 时默认使用通道 3，设为 -1 时不配置。 */
     int phy_ldo_voltage_mv;                 /*!< DSI PHY 供电电压，单位 mV，设为 0 时默认 2500 mV。 */
     int ledc_channel;                       /*!< 背光 LEDC 通道，设为 -1 时默认使用通道 1。 */

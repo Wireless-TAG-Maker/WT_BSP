@@ -29,6 +29,12 @@ choice WT_BSP_DSI_LCD_ADAPTER
             Use the validated 1024x600 RGB565 EK79007 panel configuration,
             two 1000 Mbps lanes, a 52 MHz DPI request and 5 kHz backlight PWM.
             ESP-IDF may round the requested pixel clock to its integer divider.
+
+    config WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
+        bool "EQT350XJI718P / ILI9488 / CHSC6540"
+        help
+            Use the 320x480 RGB565 portrait panel with one 500 Mbps DSI lane
+            and the CHSC6540 polling touch controller on the shared I2C bus.
 endchoice
 
 # Keep a value in sdkconfig.json even when the capability hides the bool.

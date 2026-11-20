@@ -7,11 +7,13 @@ menu "DSI example"
 
         config EXAMPLE_DSI_DEMO_WIDGETS
             bool "Widgets"
+            select LV_FONT_MONTSERRAT_18 if WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
             select LV_BUILD_DEMOS
             select LV_USE_DEMO_WIDGETS
 
         config EXAMPLE_DSI_DEMO_BENCHMARK
             bool "Benchmark"
+            select LV_FONT_MONTSERRAT_18 if WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P
             select LV_BUILD_DEMOS
             select LV_USE_DEMO_BENCHMARK
             help

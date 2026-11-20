@@ -4,6 +4,11 @@ if("touch" IN_LIST WT_BSP_BOARD_FEATURES AND CONFIG_WT_BSP_ENABLE_TOUCH)
     list(APPEND WT_BSP_FEATURE_SRCS "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_touch.c")
     list(APPEND WT_BSP_FEATURE_REQUIRES esp_driver_i2c esp_lcd_touch esp_lvgl_port lvgl)
     list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_lcd_touch_st7123)
+    if(CONFIG_WT_BSP_DSI_LCD_ADAPTER_EQT350XJI718P)
+        list(APPEND WT_BSP_FEATURE_SRCS
+             "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_touch_chsc6540.c"
+             "${CMAKE_CURRENT_LIST_DIR}/wt_bsp_touch_chsc6540_report.c")
+    endif()
     if(CONFIG_WT_BSP_DEP_TOUCH_GT911 STREQUAL "y")
         list(APPEND WT_BSP_FEATURE_PRIV_REQUIRES esp_lcd_touch_gt911)
     endif()
